@@ -1,0 +1,28 @@
+# ===== İşletim sistemi =====
+.DS_Store
+Thumbs.db
+
+# ===== IDE ve editörler =====
+.idea/
+*.iml
+.vscode/
+
+# ===== Java / Maven =====
+target/
+*.class
+
+# ===== Node / Frontend =====
+node_modules/
+dist/
+coverage/
+
+# ===== Ortam değişkenleri ve gizli bilgiler =====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ===== Loglar =====
+*.log
+logs/
