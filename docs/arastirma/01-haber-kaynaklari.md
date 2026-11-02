@@ -101,3 +101,182 @@ Sonuç değerleri:
 - **Gelen alanlar:** Başlık, bağlantı, yazar (`dc:creator`), yayın tarihi, kategoriler, `guid`, özet (`description`) ve tam metin (`content:encoded`). Bu alanlar aynı altyapıyı kullanan Türkçe besleme örneğinde gözlendi; İngilizce beslemenin öğeleri toplayıcı geliştirilirken doğrulanacak.
 - **Medya:** Başka kişilere ait fotoğraf, video ve ses içeriği aynı lisansla sunulmuyor olabilir. Görsellerin lisansı ayrıca belirtiliyor (örneğin görsel altyazısında). Görsel gösterimi için ayrı bir kural gerekecek.
 - **Güncellik:** Araştırma tarihinde beslemenin son güncellemesi 30.10.2026.
+
+## 5. Teknik Bulgular
+
+Bu bölümdeki her bulgu, kaynakların gerçek beslemeleri ve yanıtları incelenerek elde edilmiştir. Her bulgunun altında, mimari ve veri modeli için doğurduğu sonuç belirtilmiştir.
+
+### 5.1 Besleme formatları farklı
+
+İncelenen beslemelerin bir kısmı RSS 2.0 (TRT Haber, CNN Türk, Anadolu Ajansı, Global Voices), bir kısmı Atom (NTV) formatındadır. İki format aynı bilgiyi farklı etiketlerle taşır:
+
+| Bilgi | RSS 2.0 | Atom |
+|---|---|---|
+| Haber öğesi | `<item>` | `<entry>` |
+| Özet | `<description>` | `<summary>` |
+| Tam metin | `<content:encoded>` (eklenti) | `<content>` |
+| Yayın tarihi | `<pubDate>` | `<published>` |
+| Benzersiz kimlik | `<guid>` | `<id>` |
+
+**Sonuç:** Toplayıcı her iki formatı da okuyabilmelidir.
+
+### 5.2 Görsel alanları standart dışı
+
+RSS 2.0'da bir habere görsel eklemenin standart yolu `<enclosure>` veya Media RSS (`media:content`) etiketidir. Gözlemlenen kaynaklar ise görseli farklı biçimlerde veriyor:
+
+| Kaynak | Görsel alanı |
+|---|---|
+| TRT Haber | `<imageUrl>` (standart dışı) |
+| CNN Türk | Öğe içinde `<image>` (standart dışı; RSS 2.0'da `<image>` yalnızca kanal düzeyinde tanımlıdır) |
+| Anadolu Ajansı | Öğe içinde `<image>` (standart dışı) |
+| NTV | `<enclosure>` (bir RSS etiketi; Atom'daki karşılığı `<link rel="enclosure">` olurdu) |
+| Global Voices | Tam metin içindeki HTML `<img>` etiketi |
+
+**Sonuç:** Genel bir besleme okuyucusu bu görsellerin çoğunu bulamaz. Kaynak tanımında, görselin hangi alandan okunacağını belirten bir alan eşleme ayarı bulunmalıdır.
+
+### 5.3 Benzersiz kimlikler tutarsız
+
+| Kaynak | Kimlik değeri | Not |
+|---|---|---|
+| TRT Haber | Haberin adresi | `isPermaLink` belirtilmemiş; varsayılan değer `true` |
+| CNN Türk | `6ae87cfe2a63731d28ea643e` biçiminde bir değer | `isPermaLink="true"` beyan edilmiş, ancak değer bir adres değil |
+| Anadolu Ajansı | `4108183` biçiminde bir sayı | `isPermaLink="false"` |
+| NTV | Haberin adresi | Atom `<id>` |
+| Global Voices | `https://tr.globalvoices.org/?p=3683` biçiminde bir değer | `isPermaLink="false"` |
+
+**Sonuç:** Kaynakların kimliklerle ilgili beyanlarına güvenilmemelidir. Tekrar tespitinde kimlik tek başına değil, "kaynak + kimlik" birlikteliği olarak kullanılmalıdır. Ek bir kontrol olarak haberin normalize edilmiş adresi kullanılabilir.
+
+### 5.4 Saat dilimleri farklı
+
+TRT Haber ve Anadolu Ajansı tarihleri `+0300`, CNN Türk `GMT`, Global Voices `+0000` ile veriyor. NTV ise ISO 8601 biçiminde (`2026-11-02T15:10:57+03:00`) veriyor.
+
+**Sonuç:** Bütün tarihler UTC'ye çevrilerek saklanmalı, kullanıcıya gösterilirken yerel saate çevrilmelidir. Aksi halde haberlerin tarih sıralaması yanlış olur.
+
+### 5.5 İçerik kapsamı kaynaktan kaynağa değişiyor
+
+TRT Haber, CNN Türk ve Anadolu Ajansı yalnızca özet veriyor. NTV ve Global Voices tam metni HTML olarak veriyor. Guardian API'si de tam metin veriyor.
+
+**Sonuç:** Veri modeli özeti ve tam metni ayrı alanlarda tutmalı, tam metnin bulunmadığı durumu desteklemelidir. Beslemelerden gelen HTML içerik, arayüzde gösterilmeden önce temizlenmelidir. Dış kaynaktan gelen HTML, zararlı betikler (XSS) içerebilir.
+
+### 5.6 Beslemelerde farklı içerik türleri var
+
+CNN Türk'ün haber beslemesinde video sayfalarına giden öğeler (`/video/...`) yer alıyor. Global Voices'ın beslemesi podcast etiketleri de içeriyor.
+
+**Sonuç:** Haberin türü (metin, video vb.) ayırt edilebilmeli, gerekirse filtrelenebilmelidir.
+
+### 5.7 Besleme adresleri değişebiliyor
+
+NTV'nin `https://www.ntv.com.tr/gundem.rss` adresine yapılan istek, yanıt gövdesinde `/turkiye.rss` adresini döndürdü. Yönlendirme takip edildiğinde (`curl -L`) besleme geldi. Aday listesinde bu adres doğrudan çalışır olarak yer alıyordu, yani adres zamanla taşınmış.
+
+**Sonuç:** Toplayıcı yönlendirmeleri sınırlı sayıda takip edebilmeli; kalıcı bir adres değişikliği yöneticiye bildirilmelidir. Bu, şartnamedeki "bir kaynağın bozulması" durumunun somut bir örneğidir.
+
+### 5.8 Bot korumaları
+
+NTV, Cloudflare koruması arkasında. Yalnızca başlık isteyen bir `HEAD` isteğine HTTP 403 döndü, normal `GET` isteğine besleme geldi. Teyit ise `GET` isteğine de HTTP 403 döndürdü.
+
+**Sonuç:** Toplayıcı bir korumayla karşılaştığında onu aşmaya çalışmaz (tarayıcı taklidi, kimlik gizleme vb. yapılmaz). İlgili kaynağı hatalı olarak işaretler ve yöneticiye bildirir. Toplayıcı, isteklerinde kendisini kendi adıyla (`User-Agent`) dürüstçe tanıtır.
+
+### 5.9 robots.txt kuralları
+
+- Global Voices `Crawl-delay: 10` kuralıyla iki istek arasında en az 10 saniye beklenmesini istiyor.
+- NTV ve CNN Türk, yapay zekâ şirketlerinin tarayıcılarını (GPTBot, ClaudeBot vb.) tamamen engelliyor.
+
+**Sonuç:** İstek aralığı kaynak bazında ayarlanabilir olmalıdır. Yayıncıların yapay zekâ kullanımına karşı tutumu, yapay zekâ ile ilgili özellikler değerlendirilirken dikkate alınmalıdır.
+
+### 5.10 Beyan edilen dil hatalı olabiliyor
+
+Global Voices Türkçe'nin beslemesi Türkçe içerik yayınladığı halde dil etiketi `en-US`.
+
+**Sonuç:** Kaynağın dili beslemedeki etiketten okunmamalı, kaynak tanımında yönetici tarafından belirlenmelidir.
+
+### 5.11 Lisans bilgisi beslemede yer alabiliyor
+
+Global Voices beslemesinin `<copyright>` alanı içeriğin Creative Commons Attribution lisanslı olduğunu belirtiyor. BBC beslemelerinin aynı alanı ise yeniden kullanım şartlarına yönlendiriyor.
+
+**Sonuç:** Kaynağın lisans ve atıf bilgisi saklanmalı ve haber gösterilirken kullanılmalıdır.
+
+### 5.12 Görsellerin lisansı haberin lisansından ayrı olabiliyor
+
+Global Voices'ta incelenen bir haberin görseli Flickr'dan alınmış ve görsel altyazısında ayrı bir lisansla (CC BY 2.0) belirtilmiş. Global Voices'ın atıf politikası da başka kişilere ait görsellerin aynı şartlarla sunulmayabileceğini belirtiyor. Eurasianet'in lisansı da fotoğraf ve multimedyayı kapsamıyor.
+
+**Sonuç:** Görsel gösterimi için ayrı bir kural gereklidir.
+
+## 6. Hukuki İlkeler
+
+> Bu bölüm bir hukuki görüş değildir. Araştırma sırasında karar verirken esas alınan ilkeleri özetler.
+
+1. **Varsayılan durum "tüm hakları saklıdır".** Telif hukukunda (Türkiye'de 5846 sayılı Fikir ve Sanat Eserleri Kanunu, uluslararası alanda Bern Sözleşmesi) bir eser, sahibi açıkça izin vermedikçe korunur. Bir sitede lisans bildiriminin bulunmaması, içeriğin serbestçe kullanılabileceği anlamına gelmez.
+2. **RSS yayınlamak bir kullanım izni değildir.** RSS beslemesi içeriğe teknik bir erişim yolu sağlar. İçeriğin nasıl kullanılabileceğini ise kullanım koşulları veya lisans belirler. İncelenen kaynakların hiçbiri, RSS beslemesinin kullanımına özel bir izin tanımlamıyor.
+3. **robots.txt ile kullanım koşulları ayrı şeylerdir.** robots.txt, otomatik erişime ilişkin teknik bir uzlaşımdır, içeriğin kullanım hakkını vermez. TRT Haber'de robots.txt beslemeye izin verirken kullanım koşulları içeriğin arşivlenmesini yasaklıyor. İki kontrol ayrı ayrı yapılmalıdır.
+4. **API'lerde bağlayıcı olan, API'nin kullanım şartlarıdır.** robots.txt web taramasına ilişkindir. API erişiminde geçerli kurallar API sağlayıcısının şartlarıdır.
+5. **Creative Commons lisanslarının unsurları ayrı ayrı okunmalıdır.**
+   - BY (atıf): kaynak ve yazar belirtilmeli.
+   - NC (gayriticari): ticari kullanım yasak.
+   - ND (türetilemez): içerik değiştirilemez; özetleme gibi işlemler bu kapsamda değerlendirilmelidir.
+   - SA (aynı lisansla paylaş): türetilen eser aynı lisansla paylaşılmalı.
+   - Lisans, içerikteki üçüncü kişilere ait görselleri kapsamayabilir.
+6. **Erişim engelleri ve bot korumaları aşılmaz.** Bu, şartnamenin açık kuralıdır. Erişim engeli bulunan (VOA Türkçe) veya otomatik isteği reddeden (Teyit) kaynaklar bu nedenle elenmiştir.
+7. **Bulgular tarihlidir.** Kullanım koşulları değişebilir. Kaynak eklenirken veya düzenli aralıklarla koşullar yeniden kontrol edilmelidir.
+
+## 7. Açık Konular
+
+1. **Türkçe canlı kaynak.** Açık lisanslı ve düzenli içerik yayınlayan bir Türkçe kaynak bulunamadı. Ana akım kaynakların kullanım koşulları ile RSS yayınlamaları arasındaki çelişkinin nasıl ele alınacağı ve kurum içinde bu konuda bir kural veya tercih olup olmadığı değerlendiricilere sorulacak.
+2. **Guardian'ın 24 saat kuralının uygulanması.** İçerik 24 saatte bir silinecek mi, yoksa yeniden istenerek yenilenecek mi? Yenileme seçeneği günlük istek limitiyle sınırlıdır.
+3. **Guardian'ın istek limitleri, gelen alanları ve atıf gereklilikleri.** Şu an üçüncü taraf kaynaklara dayanıyor. Deep Research raporu, sayfada "Powered by The Guardian" logosunun gösterilmesinin zorunlu olduğunu belirtiyor; doğrulanmadı. API anahtarı alınırken resmi dokümantasyondan doğrulanacak.
+4. **Görsel gösterim kuralı.** Lisansı haberin lisansından farklı olan veya lisansı belirtilmemiş görsellerin nasıl gösterileceği (örneğin yer tutucu kullanılması).
+
+## 8. Yöntem ve Kaynaklar
+
+### 8.1 Araştırma süreci
+
+1. **Aday listesi:** İki açık RSS listesi kullanıldı: bir GitHub deposunda bulunan eski tarihli bir liste ve güncel tutulan `github.com/bakinazik/rss` deposu. Bu listeler yalnızca adres sağlar; listedeki bir kaynağın kullanım hakkı ayrıca incelenmiştir.
+2. **Ön tarama:** Gemini Deep Research ile bir aday raporu hazırlatıldı.
+3. **Birinci el kontroller:** Kararlar, raporun iddialarına değil, aşağıdaki birinci el kontrollere dayanır:
+   - robots.txt dosyalarının okunması,
+   - beslemelerin ham içeriğinin incelenmesi,
+   - HTTP durum kodlarının kontrol edilmesi,
+   - kullanım koşulları ve lisans sayfalarının yayıncıların kendi sitelerinden okunması.
+
+### 8.2 Kullanılan komutlar
+
+Beslemenin HTTP başlıklarını görmek için:
+
+```bash
+curl -sI https://www.ntv.com.tr/gundem.rss
+```
+
+Beslemenin ham içeriğini, yönlendirmeleri takip ederek görmek için:
+
+```bash
+curl -sL https://www.ntv.com.tr/gundem.rss | head -40
+```
+
+Birden fazla sitede durum kodunu, sayfa boyutunu ve lisans/telif ifadelerini aramak için:
+
+```bash
+for site in teyit.org yesilgazete.org www.iklimhaber.org www.newslabturkey.org evrimagaci.org; do
+  echo "=== $site ==="
+  curl -sL -o /tmp/sayfa.html -w "HTTP %{http_code}, %{size_download} bayt\n" "https://$site"
+  grep -ioE "creativecommons[^\"' <]*|telif[^<]{0,60}|copyright[^<]{0,60}|©[^<]{0,60}" /tmp/sayfa.html | sort -u | head -5
+done
+```
+
+Bu tür aramaların sonuçları dikkatle yorumlanmalıdır. Örneğin İklim Haber'de çıkan "copyright" eşleşmeleri, sayfa düzeninde kullanılan HTML sınıf adları ve sitenin kullandığı bir ikon kütüphanesinin kendi lisans notuydu; haber içeriğinin lisansıyla ilgisi yoktu.
+
+### 8.3 Başvurulan sayfalar
+
+**Kullanım koşulları:**
+- TRT Haber: https://www.trthaber.com/kullanim-sartlari.html
+- NTV: https://www.ntv.com.tr/kullanim-kosullari
+- CNN Türk: https://www.cnnturk.com/yasal-uyari/ ve https://www.cnnturk.com/kullanim-ve-gizlilik-sartlari
+- Habertürk: https://www.haberturk.com/kullanimkosullari
+- BBC Türkçe: BBC Türkçe sitesindeki "Kullanım koşulları" sayfası
+
+**Lisans ve API şartları:**
+- The Guardian Open Platform kullanım şartları: https://www.theguardian.com/open-platform/terms-and-conditions
+- Global Voices atıf politikası: https://globalvoices.org/about/global-voices-attribution-policy/
+- Eurasianet yeniden yayın kuralları: https://www.eurasianet.org/about/reposting
+
+**Aday listeleri:**
+- https://github.com/bakinazik/rss
+- https://gist.github.com/e-budur/983d969c0f6cf756bbbb60a2892aa964
