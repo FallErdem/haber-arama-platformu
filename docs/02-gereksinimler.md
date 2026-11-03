@@ -117,3 +117,99 @@ Her gereksinimin benzersiz bir kimliği vardır. Testler bu kimliklere bağlanı
 | FG-AL-03 | Audit log kayıtları sonradan değiştirilememeli ve silinememelidir. | Must |
 | FG-AL-04 | Parola, token gibi hassas veriler audit log'a ve uygulama loglarına girmemelidir. | Must |
 | FG-AL-05 | Kullanıcıların arama sorguları kişiye bağlı olarak audit log'a kaydedilmemelidir. | Should |
+
+## 4. Fonksiyonel Olmayan Gereksinimler
+
+### 4.1 Varsayımlar
+
+- **Tasarım kapasitesi:** 500 kayıtlı kullanıcı, en fazla 50 eş zamanlı kullanıcı.
+- **Yanıt süresi:** Aksi belirtilmedikçe backend'in isteği alması ile yanıtı göndermesi arasındaki süredir; ağ gecikmesi dahil değildir.
+- **p95 / p99:** İsteklerin %95'inin / %99'unun bu süre içinde yanıtlanması.
+
+### 4.2 Performans
+
+| Kimlik | Gereksinim | Öncelik | Doğrulama |
+|---|---|---|---|
+| FOG-01 | Arama istekleri, 50 eş zamanlı kullanıcı altında p95 ≤ 500 ms ve p99 ≤ 1000 ms içinde yanıtlanmalıdır. | Must | Yük testi |
+| FOG-02 | Arama dışındaki okuma istekleri (haber detayı, kaydedilen haberler vb.), 50 eş zamanlı kullanıcı altında p95 ≤ 300 ms içinde yanıtlanmalıdır. | Must | Yük testi |
+| FOG-03 | Yük testi süresince başarısız istek oranı %1'in altında olmalıdır. | Must | Yük testi |
+| FOG-04 | Varsayılan toplama sıklığı 15 dakikadır ve kaynak bazında değiştirilebilir. Bir haber, kaynakta yayımlanmasından en geç 30 dakika sonra aranabilir olmalıdır. | Must | Entegrasyon testi |
+| FOG-05 | Guardian API için günlük istek limitinin en fazla %50'si zamanlanmış toplamaya ayrılmalıdır. Kalan pay elle başlatılan toplama ve yeniden denemeler içindir. | Must | Toplama işi kayıtları |
+| FOG-06 | Backend kopya sayısı 1'den 2'ye çıkarıldığında, FOG-01 hedefi korunarak karşılanabilen saniyedeki istek sayısı en az %70 artmalıdır. | Must | Ölçeklenebilirlik testi |
+| FOG-07 | FOG-01 ve FOG-02 hedefleri, en az 1 milyon haber ve 10 milyon audit log kaydı içeren deneme verisinde de sağlanmalıdır. Bu hacim, veri büyümesi hesabı yapıldıktan sonra gerekirse güncellenecektir. | Must | Hacim testi |
+
+### 4.3 Güvenilirlik
+
+| Kimlik | Gereksinim | Öncelik | Doğrulama |
+|---|---|---|---|
+| FOG-08 | Bir kaynağın toplanmasında oluşan hata, diğer kaynakların toplanmasını etkilememelidir. | Must | Dayanıklılık testi |
+| FOG-09 | Arama altyapısı erişilemez olduğunda, aramaya bağlı olmayan işlevler (kaydedilen haberler, yönetim paneli vb.) çalışmaya devam etmeli; arama istekleri anlaşılır bir hata ile yanıtlanmalıdır. | Must | Dayanıklılık testi |
+| FOG-10 | Veritabanları düzenli olarak yedeklenmelidir. Veri kaybı hedefi (RPO) en fazla 24 saat, yeniden çalışır hale gelme hedefi (RTO) en fazla 2 saattir. | Must | Kurtarma testi |
+| FOG-11 | Yedekten geri dönüş düzenli olarak denenmeli ve sonucu raporlanmalıdır. | Must | Kurtarma testi |
+| FOG-12 | Yeni sürüm dağıtımı sırasında hizmet kesintisi yaşanmamalıdır. | Must | Dağıtım sırasında yük testi |
+| FOG-13 | Her backend bileşeni Kubernetes için liveness, readiness ve startup uç noktaları sunmalıdır. | Must | Entegrasyon testi |
+
+### 4.4 Güvenlik
+
+| Kimlik | Gereksinim | Öncelik | Doğrulama |
+|---|---|---|---|
+| FOG-14 | Uygulama, OWASP Top 10'un güncel sürümündeki açık türlerine karşı korunmalıdır. | Must | Güvenlik testi |
+| FOG-15 | Kullanıcıdan ve kaynaklardan gelen tüm girdiler backend'de doğrulanmalıdır. | Must | Birim ve API testleri |
+| FOG-16 | Kaynaklardan gelen HTML içerik, gösterilmeden önce izin verilen etiketler listesine göre temizlenmelidir. | Must | Birim ve güvenlik testleri |
+| FOG-17 | Parola, token, API anahtarı gibi gizli bilgiler depoda bulunmamalıdır. CI'da gizli bilgi taraması yapılmalıdır. | Must | CI |
+| FOG-18 | Bağımlılıklar CI'da bilinen açıklara karşı taranmalıdır. Yüksek veya kritik seviyede açık bulunması değişikliğin birleştirilmesini engellemelidir. | Must | CI |
+| FOG-19 | Pasif hale getirilen kullanıcının erişimi, durum değişikliğinden sonraki en fazla 60 saniye içinde kesilmelidir. | Must | API testi |
+| FOG-20 | Küme dışına açılan tüm uç noktalar yalnızca HTTPS üzerinden erişilebilir olmalıdır. | Must | Güvenlik testi |
+| FOG-21 | API'ye kullanıcı başına istek hızı sınırı uygulanmalıdır (varsayılan: dakikada 120 istek). | Should | API testi |
+| FOG-22 | Yanıtlarda güvenlik başlıkları (Content-Security-Policy, Strict-Transport-Security vb.) bulunmalıdır. | Should | Güvenlik testi |
+
+### 4.5 Bakım Kolaylığı
+
+| Kimlik | Gereksinim | Öncelik | Doğrulama |
+|---|---|---|---|
+| FOG-23 | Backend'in iş mantığı katmanında birim test satır kapsamı en az %80 olmalıdır. | Must | CI kapsam raporu |
+| FOG-24 | Otomatikleştirilebilen testler her değişiklikte CI'da çalışmalı; başarısız test değişikliğin birleştirilmesini engellemelidir. | Must | CI |
+| FOG-25 | Veritabanı şema değişiklikleri sürümlenmiş geçiş betikleriyle yapılmalıdır. | Must | CI |
+| FOG-26 | API, OpenAPI biçiminde belgelenmeli; belge koddan üretilmeli ve her zaman güncel olmalıdır. | Must | CI |
+| FOG-27 | API hata yanıtları tutarlı bir biçimde olmalı ve makine tarafından okunabilir bir hata kodu içermelidir (aday biçim: RFC 9457 Problem Details). | Must | API testi |
+| FOG-28 | Kod biçimi ve stili otomatik araçlarla denetlenmelidir. | Should | CI |
+| FOG-29 | Commit mesajları ADR-0002'deki kurallara göre otomatik denetlenmelidir. | Should | CI |
+
+### 4.6 Kullanılabilirlik ve Erişilebilirlik
+
+| Kimlik | Gereksinim | Öncelik | Doğrulama |
+|---|---|---|---|
+| FOG-30 | Arayüz WCAG 2.2 AA düzeyinde erişilebilir olmalıdır. | Must | Erişilebilirlik testi |
+| FOG-31 | Arayüz Türkçe olmalıdır. Arayüz metinleri koda gömülmemeli, dil dosyalarından okunmalıdır; yeni bir dil eklemek bileşenlerde değişiklik gerektirmemelidir. | Must | Kod incelemesi |
+| FOG-32 | Tarih ve saatler kullanıcıya Türkiye saatiyle (Europe/Istanbul) ve arayüz dilinin biçim kurallarına göre gösterilmelidir. | Must | Birim testi |
+
+### 4.7 Uyumluluk
+
+| Kimlik | Gereksinim | Öncelik | Doğrulama |
+|---|---|---|---|
+| FOG-33 | Arayüz Chrome, Firefox, Edge ve Safari'nin son iki ana sürümünde çalışmalıdır. | Must | Uyumluluk testi |
+| FOG-34 | Arayüz 360 px ile 1920 px arasındaki ekran genişliklerinde düzgün görüntülenmeli ve kullanılabilmelidir. | Must | Uyumluluk testi |
+
+### 4.8 Taşınabilirlik ve Dağıtım
+
+| Kimlik | Gereksinim | Öncelik | Doğrulama |
+|---|---|---|---|
+| FOG-35 | Tüm bileşenler Kubernetes üzerinde konteyner olarak çalışmalıdır. | Must | Dağıtım |
+| FOG-36 | Her bileşen için CPU ve bellek istekleri (requests) ve sınırları (limits) tanımlanmalıdır. | Must | Kod incelemesi |
+| FOG-37 | Yapılandırma koddan ayrı tutulmalı ve ortam bazında (geliştirme, test, üretim benzeri) yönetilmelidir. | Must | Kod incelemesi |
+| FOG-38 | Depoyu ilk kez gören biri, README'deki adımları izleyerek ek bilgiye ihtiyaç duymadan uygulamayı yerel ortamda kurabilmelidir. | Must | Temiz ortamda kurulum denemesi |
+
+### 4.9 Gözlemlenebilirlik
+
+| Kimlik | Gereksinim | Öncelik | Doğrulama |
+|---|---|---|---|
+| FOG-39 | Uygulama logları yapılandırılmış biçimde (JSON) üretilmeli ve her istek için bir istek kimliği içermelidir. | Must | Entegrasyon testi |
+| FOG-40 | İstek süreleri, hata oranları, toplama işi sonuçları ve kaynak kullanımı metrik olarak toplanmalıdır. | Must | Entegrasyon testi |
+| FOG-41 | En az şu durumlarda uyarı üretilmelidir: disk doluluğunun %80'i aşması, bir kaynağın art arda başarısız olması, hata oranının belirlenen eşiği aşması. | Must | Uyarı senaryosu denemesi |
+
+### 4.10 Veri Yönetimi
+
+| Kimlik | Gereksinim | Öncelik | Doğrulama |
+|---|---|---|---|
+| FOG-42 | Saklama süreleri: Global Voices haberleri süresiz, Guardian içerikleri en fazla 24 saat saklanır. Audit log, uygulama logu ve medya dosyalarının saklama süreleri veri büyümesi analizinde belirlenecektir. | Must | Entegrasyon testi |
+| FOG-43 | Veri hacmi arttıkça FOG-01 ve FOG-02 hedefleri korunmalıdır. Bunu sağlayacak yöntemler (bölümleme, arşivleme, indeksleme vb.) veri büyümesi analizinde belirlenecektir. | Must | Hacim testi |
