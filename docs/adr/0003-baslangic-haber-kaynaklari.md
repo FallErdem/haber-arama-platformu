@@ -1,6 +1,6 @@
 # ADR-0003: Başlangıç Haber Kaynakları
 
-- **Durum:** Kabul edildi
+- **Durum:** Kabul edildi; ADR-0004 ile genişletildi
 - **Tarih:** 2026-11-02
 
 ## Bağlam
