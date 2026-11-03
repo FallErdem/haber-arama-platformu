@@ -2,7 +2,7 @@
 
 ## 1. Amaç
 
-Bu doküman, uygulamanın fonksiyonel ve fonksiyonel olmayan gereksinimlerini tanımlar. Kapsam, hedef kullanıcılar ve kapsam dışı konular `01-kapsam.md`, kaynak kararları `adr/0003-baslangic-haber-kaynaklari.md` ve `adr/0004-turk-haber-kaynaklari.md` dosyalarındadır.
+Bu doküman, uygulamanın fonksiyonel ve fonksiyonel olmayan gereksinimlerini tanımlar. Kapsam, hedef kullanıcılar ve kapsam dışı konular `01-kapsam.md`, kaynak kararları `adr/0003-baslangic-haber-kaynaklari.md`, `adr/0004-turk-haber-kaynaklari.md` ve `adr/0006-guardian-yerine-nyt.md` dosyalarındadır.
 
 ## 2. Tanımlar
 
@@ -65,8 +65,8 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | Kimlik | Gereksinim | Öncelik |
 |---|---|---|
 | FG-VT-01 | Sistem, tanımlı kaynaklardan belirlenen aralıklarla otomatik olarak haber toplamalıdır. | Must |
-| FG-VT-02 | RSS 2.0, Atom ve Guardian Open Platform API kaynak türleri desteklenmelidir. | Must |
-| FG-VT-03 | Her kaynak için dil, saklama süresi, istekler arası bekleme süresi ve alan eşlemesi (hangi bilginin hangi alandan okunacağı); kaynağın her beslemesi için adres, toplama sıklığı ve varsayılan kategori tanımlanabilmelidir. | Must |
+| FG-VT-02 | RSS 2.0, Atom ve New York Times API kaynak türleri desteklenmelidir. | Must |
+| FG-VT-03 | Her kaynak için dil, istekler arası bekleme süresi ve alan eşlemesi (hangi bilginin hangi alandan okunacağı); kaynağın her beslemesi için adres, toplama sıklığı ve varsayılan kategori tanımlanabilmelidir. | Must |
 | FG-VT-04 | Aynı haber tekrar toplandığında yeni kayıt oluşturulmamalıdır. Tekrar tespiti kaynak ile kaynağın verdiği kimliğin birlikteliğine, ek olarak haberin normalize edilmiş adresine dayanmalıdır. | Must |
 | FG-VT-05 | Toplayıcı, kaynakların robots.txt kurallarına ve tanımlı istek aralıklarına uymalı; isteklerinde kendini kendi adıyla (User-Agent) tanıtmalıdır. | Must |
 | FG-VT-06 | Toplayıcı bot koruması veya erişim engeliyle karşılaştığında bunu aşmaya çalışmamalı, hatayı kaydetmelidir. | Must |
@@ -101,7 +101,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 |---|---|---|
 | FG-KO-01 | Kullanıcı bir haberi kaydedebilmeli ve kaydettiği haberi listeden çıkarabilmelidir. | Must |
 | FG-KO-02 | Kullanıcı kaydettiği haberleri sayfalı olarak listeleyebilmelidir. | Must |
-| FG-KO-03 | Kaydedilmiş bir haberin içeriği saklama kuralı gereği silindiğinde kullanıcıya bu durum gösterilmelidir. Bu amaçla, kaynağın şartlarının izin vermediği hiçbir içerik saklanmamalıdır. | Must |
+| FG-KO-03 | Kaydedilmiş bir haber yönetici tarafından gizlendiğinde, kaydedilen haberler listesinde kullanıcıya bu durum gösterilmelidir. | Must |
 | FG-KO-04 | Kullanıcı bir aramayı filtreleriyle birlikte bir adla kaydedebilmeli ve daha sonra tek adımda yeniden çalıştırabilmelidir. | Could |
 
 ### 3.5 Yönetim Paneli
@@ -148,7 +148,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | FOG-02 | Arama dışındaki okuma istekleri (haber detayı, kaydedilen haberler vb.), 50 eş zamanlı kullanıcı altında p95 ≤ 300 ms içinde yanıtlanmalıdır. | Must | Yük testi |
 | FOG-03 | Yük testi süresince başarısız istek oranı %1'in altında olmalıdır. | Must | Yük testi |
 | FOG-04 | Varsayılan toplama sıklığı 15 dakikadır ve besleme bazında değiştirilebilir. Bir haber, kaynakta yayımlanmasından en geç 30 dakika sonra aranabilir olmalıdır. | Must | Entegrasyon testi |
-| FOG-05 | Guardian API için günlük istek limitinin en fazla %50'si zamanlanmış toplamaya ayrılmalıdır. Kalan pay elle başlatılan toplama ve yeniden denemeler içindir. | Must | Toplama işi kayıtları |
+| FOG-05 | API kaynakları için günlük istek limitinin en fazla %50'si zamanlanmış toplamaya ayrılmalıdır. Kalan pay elle başlatılan toplama ve yeniden denemeler içindir. | Must | Toplama işi kayıtları |
 | FOG-06 | Backend kopya sayısı 1'den 2'ye çıkarıldığında, FOG-01 hedefi korunarak karşılanabilen saniyedeki istek sayısı en az %70 artmalıdır. | Must | Ölçeklenebilirlik testi |
 | FOG-07 | FOG-01 ve FOG-02 hedefleri, en az 1 milyon haber ve 10 milyon audit log kaydı içeren deneme verisinde de sağlanmalıdır. Bu hacim, veri büyümesi hesabı yapıldıktan sonra gerekirse güncellenecektir. | Must | Hacim testi |
 
@@ -225,5 +225,5 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 
 | Kimlik | Gereksinim | Öncelik | Doğrulama |
 |---|---|---|---|
-| FOG-42 | Saklama süreleri: Guardian dışındaki kaynakların haberleri süresiz, Guardian içerikleri en fazla 24 saat saklanır. Audit log, uygulama logu ve medya dosyalarının saklama süreleri veri büyümesi analizinde belirlenecektir. | Must | Entegrasyon testi |
+| FOG-42 | Saklama süreleri: Bütün kaynakların haberleri süresiz saklanır. Audit log, uygulama logu ve medya dosyalarının saklama süreleri veri büyümesi analizinde belirlenecektir. | Must | Entegrasyon testi |
 | FOG-43 | Veri hacmi arttıkça FOG-01 ve FOG-02 hedefleri korunmalıdır. Bunu sağlayacak yöntemler (bölümleme, arşivleme, indeksleme vb.) veri büyümesi analizinde belirlenecektir. | Must | Hacim testi |

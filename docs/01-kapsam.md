@@ -52,5 +52,5 @@ Aşağıdakiler bu aşamada yapılmayacak, temel kapsam tamamlandıktan sonra de
 Kapsam aşamasında açık kalan sorular aşağıdaki dokümanlarda cevaplanmıştır:
 
 - **Hedef kullanıcı sayısı ve kullanım yoğunluğu:** Tasarım kapasitesi 500 kayıtlı ve en fazla 50 eş zamanlı kullanıcıdır (`02-gereksinimler.md`, 4.1).
-- **Kullanılacak kaynakların listesi ve türleri:** ADR-0003 ve ADR-0004.
-- **Haberin tam metninin mi yoksa yalnızca özetinin mi saklanacağı:** Kaynak tam metin veriyorsa tam metin, vermiyorsa özet saklanır; arama her ikisinde de yapılır (`02-gereksinimler.md`, FG-AR-01). Guardian içerikleri en fazla 24 saat saklanır (ADR-0003).
+- **Kullanılacak kaynakların listesi ve türleri:** ADR-0003, ADR-0004 ve ADR-0006.
+- **Haberin tam metninin mi yoksa yalnızca özetinin mi saklanacağı:** Kaynak tam metin veriyorsa tam metin, vermiyorsa özet saklanır; arama her ikisinde de yapılır (`02-gereksinimler.md`, FG-AR-01).

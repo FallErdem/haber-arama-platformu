@@ -1,7 +1,7 @@
 # Haber Kaynakları Araştırması
 
 - **Araştırma tarihi:** 2 Kasım 2026
-- **İlgili kararlar:** ADR-0003, ADR-0004
+- **İlgili kararlar:** ADR-0003, ADR-0004, ADR-0006
 
 > Kullanım şartları, lisanslar ve beslemeler zamanla değişebilir. Bu dokümandaki bulgular araştırma tarihindeki durumu yansıtır.
 
@@ -67,9 +67,9 @@ Sonuç değerleri:
 
 | Kaynak | Tür | Sonuç | Gerekçe |
 |---|---|---|---|
-| The Guardian Open Platform | API | Seçildi | Ücretsiz Developer anahtarı ticari olmayan kullanıma açık; tam metin veriyor. Kısıtları 4.1 bölümünde. |
+| The Guardian Open Platform | API | Seçildi, sonra çıkarıldı | Ücretsiz Developer anahtarı ticari olmayan kullanıma açık; tam metin veriyor. Kısıtları 4.1 bölümünde. 24 saat saklama kuralı nedeniyle ADR-0006 ile kaynak setinden çıkarıldı. |
 | Global Voices | RSS | Seçildi | İçerik CC BY lisanslı; besleme aktif; robots.txt beslemeye izin veriyor. Kısıtları 4.2 bölümünde. |
-| New York Times Developer API | API | İleride eklenebilir | Ücretsiz katmanı var, atıf zorunlu. Tam metin yerine özet ve giriş paragrafı veriyor. İstek limitleri için farklı kaynaklarda farklı değerler geçiyor; resmi sayfadan doğrulanmadı. Başlangıçta tek API kaynağı yeterli görüldü. |
+| New York Times Developer API | API | Seçildi | Ücretsiz katmanı var, atıf zorunlu. Tam metin yerine özet ve giriş paragrafı veriyor. Guardian'ın yerine ADR-0006 ile kaynak setine alındı. Kısıtları 4.6 bölümünde. |
 | Eurasianet | RSS | İleride eklenebilir | İçerik CC BY-ND 4.0 lisanslı (yayıncının kendi yeniden yayın sayfası). Fotoğraf ve multimedya içerik lisansa dahil değil. Beslemesi incelenmedi. |
 | ProPublica | RSS | İleride eklenebilir | İçerik Creative Commons lisanslı (yayıncının kendi sayfası). Kaynak gösterme, bağlantı verme ve içeriği düzenlememe şartı var. Lisansın tam türü ve beslemesi incelenmedi. |
 | BBC News | RSS | Elendi | Beslemenin telif alanı, yeniden kullanım için BBC kullanım koşullarının "Metadata and RSS feeds" bölümüne yönlendiriyor. Bu bölüme göre beslemeden meta veri (metin, görsel, bağlantı) ayıklanması lisansa, ticari kullanım izne tabi. Not: Bu bilgi resmi sayfanın bir kopyasından okundu. |
@@ -92,6 +92,7 @@ Sonuç değerleri:
 - **İstek limiti:** Üçüncü taraf kaynaklarda saniyede 1, günde 500 istek olarak belirtiliyor. Anahtar alınırken resmi erişim sayfasından doğrulanacak.
 - **Gelen alanlar:** Üçüncü taraf kaynaklara göre başlık, gövde (tam metin), yazar, bölüm, etiketler, yayın tarihi ve web adresi. API dokümantasyonundan doğrulanacak.
 - **Mimariye etkisi:** Guardian içerikleri kalıcı arşive giremez. Veri modelinde, kaynak bazında saklama süresi tanımlanabilmelidir.
+> **Not:** Guardian, ADR-0006 ile kaynak setinden çıkarılmıştır. Bu bölüm araştırma tarihindeki bulguları yansıtır.
 
 ### 4.2 Global Voices
 
@@ -128,6 +129,15 @@ Sonuç değerleri:
 - **Erişim kuralları:** robots.txt `/feed/` yolunu kısıtlamıyor (`Disallow: /news/` kuralı bu yolu kapsamaz); yapay zekâ şirketlerinin tarayıcıları tamamen engellenmiş.
 - **Gelen alanlar:** `guid` (`isPermaLink="true"` beyan edilmiş, ancak değer bir adres değil), bağlantı, başlık, özet (CDATA), yayın tarihi (GMT) ve öğe içinde `<image>` (standart dışı). Kategori alanı yok; kategori haber adresinde yer alıyor. Tam metin gelmiyor.
 - **Not:** 03.11.2026 tarihinde kategori beslemelerinin her biri 35 haber döndürüyordu; `bilim-teknoloji` beslemesi boştu. `news` beslemelerinde video sayfalarına giden haberler de bulunuyor.
+
+### 4.6 New York Times Developer API
+
+- **Erişim:** REST API, anahtar ile. Anahtar depoya girmez, gizli bilgi olarak yönetilir.
+- **Dil:** İngilizce.
+- **Kullanım hakkı:** Üçüncü taraf kaynaklara göre yalnızca ticari olmayan kullanıma açık ve atıf zorunlu. Resmi kullanım şartlarından doğrulanacak.
+- **Saklama:** NYT'nin kendi API tanımında, Archive API'nin yerel bir makale meta verisi veritabanı oluşturmak için kullanılabileceği belirtiliyor. Kullanım şartlarındaki saklama hükümleri doğrulanacak.
+- **Gelen alanlar:** Üçüncü taraf kaynaklara göre başlık, özet, giriş paragrafı, bölüm, yayın tarihi ve görsel bağlantıları. Tam metin gelmiyor.
+- **İstek limitleri:** Farklı kaynaklarda farklı değerler geçiyor; resmi dokümantasyondan doğrulanacak.
 
 ## 5. Teknik Bulgular
 
@@ -248,8 +258,8 @@ Global Voices'ta incelenen bir haberin görseli Flickr'dan alınmış ve görsel
 ## 7. Açık Konular
 
 1. **Türkçe canlı kaynak.** *Çözüldü:* TRT Haber, NTV ve CNN Türk, şirket kararıyla kaynak setine alındı (ADR-0004).
-2. **Guardian'ın 24 saat kuralının uygulanması.** İçerik 24 saatte bir silinecek mi, yoksa yeniden istenerek yenilenecek mi? Yenileme seçeneği günlük istek limitiyle sınırlıdır.
-3. **Guardian'ın istek limitleri, gelen alanları, bölüm listesi ve atıf gereklilikleri.** Şu an üçüncü taraf kaynaklara dayanıyor. Deep Research raporu, sayfada "Powered by The Guardian" logosunun gösterilmesinin zorunlu olduğunu belirtiyor; doğrulanmadı. Kategori eşlemesi için gereken bölüm listesi de dahil olmak üzere, API anahtarı alınırken resmi dokümantasyondan doğrulanacak.
+2. **Guardian'ın 24 saat kuralının uygulanması.** *Kapandı:* Guardian kaynak setinden çıkarıldı (ADR-0006).
+3. **NYT API'nin kullanım şartları, istek limitleri, gelen alanları, bölüm listesi ve atıf gereklilikleri.** Şu an üçüncü taraf kaynaklara dayanıyor. API anahtarı alınırken resmi dokümantasyondan doğrulanacak; kategori eşlemesi bölüm listesine göre hazırlanacak.
 4. **Görsel gösterim kuralı.** *Çözüldü:* Görseller tüm kaynaklarda kopyalanmaz, kaynağın kendi adresinden gösterilir (ADR-0004).
 
 ## 8. Yöntem ve Kaynaklar

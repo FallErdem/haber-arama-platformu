@@ -1,6 +1,6 @@
 # ADR-0003: Başlangıç Haber Kaynakları
 
-- **Durum:** Kabul edildi; ADR-0004 ile genişletildi
+- **Durum:** Kabul edildi; ADR-0004 ile genişletildi; Guardian kararı ADR-0006 ile geçersiz kılındı
 - **Tarih:** 2026-11-02
 
 ## Bağlam
