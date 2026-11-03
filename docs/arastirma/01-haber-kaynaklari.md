@@ -1,7 +1,7 @@
 # Haber Kaynakları Araştırması
 
 - **Araştırma tarihi:** 2 Kasım 2026
-- **İlgili karar:** ADR-0003
+- **İlgili kararlar:** ADR-0003, ADR-0004
 
 > Kullanım şartları, lisanslar ve beslemeler zamanla değişebilir. Bu dokümandaki bulgular araştırma tarihindeki durumu yansıtır.
 
@@ -21,7 +21,7 @@ Her aday kaynak aşağıdaki kriterlere göre değerlendirilmiştir:
 | Gelen alanlar | Başlık, özet, tam metin, görsel, tarih, yazar, kategori ve benzersiz kimlik geliyor mu? |
 | Dil | Türkçe mi, İngilizce mi? |
 
-Kullanım hakkı kriteri belirleyici kabul edilmiştir: Teknik olarak ne kadar uygun olursa olsun, kullanım hakkı açık olmayan bir kaynak seçilmemiştir.
+Kullanım hakkı kriteri belirleyici kabul edilmiştir: Teknik olarak ne kadar uygun olursa olsun, kullanım hakkı açık olmayan bir kaynak seçilmemiştir. Bu kuralın tek istisnası, şirket kararıyla ADR-0004 kapsamında kaynak setine alınan Türk haber kaynaklarıdır.
 
 ## 2. Kaynak Türleri
 
@@ -61,6 +61,7 @@ Sonuç değerleri:
 | İklim Haber, Yeşil Gazete, NewsLab Turkey | RSS | Elendi | Ana sayfalarda açık lisans bildirimi bulunamadı. Lisans bildirimi olmayan içerik, telif hukuku gereği korunmaya devam eder. |
 
 **Genel gözlem:** İncelenen ana akım Türk haber sitelerinin hepsi RSS beslemesi yayınlıyor, ancak kullanım koşulları içeriğin kopyalanmasını, saklanmasını veya başkalarına sunulmasını yazılı izne bağlıyor. Hiçbiri RSS beslemesinin kullanımına özel bir izin tanımlamıyor. Araştırma tarihinde, düzenli içerik yayınlayan ve açık lisans kullanan bir Türkçe haber kaynağı bulunamadı.
+> **Not:** TRT Haber, NTV ve CNN Türk, 03.11.2026 tarihli şirket kararıyla ADR-0004 kapsamında kaynak setine alınmıştır. Bu tablodaki sonuçlar araştırma tarihindeki değerlendirmeyi yansıtır.
 
 ### 3.2 İngilizce Kaynaklar
 
@@ -101,6 +102,32 @@ Sonuç değerleri:
 - **Gelen alanlar:** Başlık, bağlantı, yazar (`dc:creator`), yayın tarihi, kategoriler, `guid`, özet (`description`) ve tam metin (`content:encoded`). Bu alanlar aynı altyapıyı kullanan Türkçe besleme örneğinde gözlendi; İngilizce beslemenin öğeleri toplayıcı geliştirilirken doğrulanacak.
 - **Medya:** Başka kişilere ait fotoğraf, video ve ses içeriği aynı lisansla sunulmuyor olabilir. Görsellerin lisansı ayrıca belirtiliyor (örneğin görsel altyazısında). Görsel gösterimi için ayrı bir kural gerekecek.
 - **Güncellik:** Araştırma tarihinde beslemenin son güncellemesi 30.10.2026.
+
+### 4.3 TRT Haber
+
+- **Erişim:** RSS 2.0. Besleme listesi ve kategori eşlemeleri ADR-0004'tedir.
+- **Dil:** Türkçe.
+- **Kullanım hakkı:** Şirket kararı (ADR-0004).
+- **Erişim kuralları:** robots.txt besleme adreslerini kısıtlamıyor; yalnızca site içi arama ve hava durumu sayfaları kapalı. `Crawl-delay` kuralı yok.
+- **Gelen alanlar:** Başlık, bağlantı, görsel (`<imageUrl>`, standart dışı), özet (`<description>`, CDATA içinde; ayrıca bir HTML yorumu içinde görsel etiketi bulunuyor), kategori, `guid` (haberin adresi) ve yayın tarihi (`+0300`). Tam metin gelmiyor. Gözlem `sondakika.rss` beslemesi üzerinde yapıldı.
+
+### 4.4 NTV
+
+- **Erişim:** Atom. Besleme listesi ve kategori eşlemeleri ADR-0004'tedir.
+- **Dil:** Türkçe.
+- **Kullanım hakkı:** Şirket kararı (ADR-0004).
+- **Erişim kuralları:** robots.txt besleme adreslerini kısıtlamıyor; yapay zekâ şirketlerinin tarayıcıları tamamen engellenmiş. Site Cloudflare koruması arkasında: `HEAD` isteğine HTTP 403, normal `GET` isteğine besleme dönüyor.
+- **Gelen alanlar:** `<id>` (haberin adresi), başlık, özet (`<summary>`), tam metin (`<content>`, HTML), yayın ve güncellenme tarihi (`+03:00`), yazar, kategori (`<category term>`), bağlantı ve görsel (`<enclosure>`).
+- **Not:** Eski `gundem.rss` adresi resmi besleme listesinde yer almıyor ve başka bir adrese yönlendiriliyor. Gözlem bu yönlendirmenin sonucunda gelen besleme üzerinde yapıldı.
+
+### 4.5 CNN Türk
+
+- **Erişim:** RSS 2.0. Besleme listesi ve kategori eşlemeleri ADR-0004'tedir.
+- **Dil:** Türkçe.
+- **Kullanım hakkı:** Şirket kararı (ADR-0004).
+- **Erişim kuralları:** robots.txt `/feed/` yolunu kısıtlamıyor (`Disallow: /news/` kuralı bu yolu kapsamaz); yapay zekâ şirketlerinin tarayıcıları tamamen engellenmiş.
+- **Gelen alanlar:** `guid` (`isPermaLink="true"` beyan edilmiş, ancak değer bir adres değil), bağlantı, başlık, özet (CDATA), yayın tarihi (GMT) ve öğe içinde `<image>` (standart dışı). Kategori alanı yok; kategori haber adresinde yer alıyor. Tam metin gelmiyor.
+- **Not:** 03.11.2026 tarihinde kategori beslemelerinin her biri 35 haber döndürüyordu; `bilim-teknoloji` beslemesi boştu. `news` beslemelerinde video sayfalarına giden haberler de bulunuyor.
 
 ## 5. Teknik Bulgular
 
@@ -199,7 +226,7 @@ Global Voices beslemesinin `<copyright>` alanı içeriğin Creative Commons Attr
 
 Global Voices'ta incelenen bir haberin görseli Flickr'dan alınmış ve görsel altyazısında ayrı bir lisansla (CC BY 2.0) belirtilmiş. Global Voices'ın atıf politikası da başka kişilere ait görsellerin aynı şartlarla sunulmayabileceğini belirtiyor. Eurasianet'in lisansı da fotoğraf ve multimedyayı kapsamıyor.
 
-**Sonuç:** Görsel gösterimi için ayrı bir kural gereklidir.
+**Sonuç:** Görsel gösterimi için ayrı bir kural gereklidir. Karar: Görseller kopyalanmaz, kaynağın kendi adresinden gösterilir (ADR-0004).
 
 ## 6. Hukuki İlkeler
 
@@ -220,10 +247,10 @@ Global Voices'ta incelenen bir haberin görseli Flickr'dan alınmış ve görsel
 
 ## 7. Açık Konular
 
-1. **Türkçe canlı kaynak.** Açık lisanslı ve düzenli içerik yayınlayan bir Türkçe kaynak bulunamadı. Ana akım kaynakların kullanım koşulları ile RSS yayınlamaları arasındaki çelişkinin nasıl ele alınacağı ve kurum içinde bu konuda bir kural veya tercih olup olmadığı değerlendiricilere sorulacak.
+1. **Türkçe canlı kaynak.** *Çözüldü:* TRT Haber, NTV ve CNN Türk, şirket kararıyla kaynak setine alındı (ADR-0004).
 2. **Guardian'ın 24 saat kuralının uygulanması.** İçerik 24 saatte bir silinecek mi, yoksa yeniden istenerek yenilenecek mi? Yenileme seçeneği günlük istek limitiyle sınırlıdır.
-3. **Guardian'ın istek limitleri, gelen alanları ve atıf gereklilikleri.** Şu an üçüncü taraf kaynaklara dayanıyor. Deep Research raporu, sayfada "Powered by The Guardian" logosunun gösterilmesinin zorunlu olduğunu belirtiyor; doğrulanmadı. API anahtarı alınırken resmi dokümantasyondan doğrulanacak.
-4. **Görsel gösterim kuralı.** Lisansı haberin lisansından farklı olan veya lisansı belirtilmemiş görsellerin nasıl gösterileceği (örneğin yer tutucu kullanılması).
+3. **Guardian'ın istek limitleri, gelen alanları, bölüm listesi ve atıf gereklilikleri.** Şu an üçüncü taraf kaynaklara dayanıyor. Deep Research raporu, sayfada "Powered by The Guardian" logosunun gösterilmesinin zorunlu olduğunu belirtiyor; doğrulanmadı. Kategori eşlemesi için gereken bölüm listesi de dahil olmak üzere, API anahtarı alınırken resmi dokümantasyondan doğrulanacak.
+4. **Görsel gösterim kuralı.** *Çözüldü:* Görseller tüm kaynaklarda kopyalanmaz, kaynağın kendi adresinden gösterilir (ADR-0004).
 
 ## 8. Yöntem ve Kaynaklar
 

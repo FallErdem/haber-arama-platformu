@@ -2,7 +2,7 @@
 
 ## 1. Amaç
 
-Bu doküman, uygulamanın fonksiyonel ve fonksiyonel olmayan gereksinimlerini tanımlar. Kapsam, hedef kullanıcılar ve kapsam dışı konular `01-kapsam.md`, kaynak kararları `adr/0003-baslangic-haber-kaynaklari.md` dosyasındadır.
+Bu doküman, uygulamanın fonksiyonel ve fonksiyonel olmayan gereksinimlerini tanımlar. Kapsam, hedef kullanıcılar ve kapsam dışı konular `01-kapsam.md`, kaynak kararları `adr/0003-baslangic-haber-kaynaklari.md` ve `adr/0004-turk-haber-kaynaklari.md` dosyalarındadır.
 
 ## 2. Tanımlar
 
@@ -38,6 +38,14 @@ Her gereksinimin benzersiz bir kimliği vardır. Testler bu kimliklere bağlanı
 | FG-AL | Audit log |
 | FOG | Fonksiyonel olmayan gereksinimler |
 
+### 2.5 Kategoriler
+
+Kaynakların kategorileri aşağıdaki ortak listeye eşlenir (eşleme yöntemi ve kaynak bazında eşlemeler için bkz. ADR-0004):
+
+Gündem, Dünya, Ekonomi, Spor, Sağlık, Bilim ve Teknoloji, Kültür ve Sanat, Yaşam, Son Dakika, Diğer.
+
+Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). Diğer, ortak listeye eşlenemeyen kategorilerin atandığı kategoridir (FG-VT-13).
+
 ## 3. Fonksiyonel Gereksinimler
 
 ### 3.1 Kimlik Doğrulama ve Yetkilendirme
@@ -58,14 +66,17 @@ Her gereksinimin benzersiz bir kimliği vardır. Testler bu kimliklere bağlanı
 |---|---|---|
 | FG-VT-01 | Sistem, tanımlı kaynaklardan belirlenen aralıklarla otomatik olarak haber toplamalıdır. | Must |
 | FG-VT-02 | RSS 2.0, Atom ve Guardian Open Platform API kaynak türleri desteklenmelidir. | Must |
-| FG-VT-03 | Her kaynak için toplama sıklığı, istekler arası bekleme süresi, dil, saklama süresi ve alan eşlemesi (hangi bilginin hangi alandan okunacağı) tanımlanabilmelidir. | Must |
+| FG-VT-03 | Her kaynak için dil, saklama süresi, istekler arası bekleme süresi ve alan eşlemesi (hangi bilginin hangi alandan okunacağı); kaynağın her beslemesi için adres, toplama sıklığı ve varsayılan kategori tanımlanabilmelidir. | Must |
 | FG-VT-04 | Aynı haber tekrar toplandığında yeni kayıt oluşturulmamalıdır. Tekrar tespiti kaynak ile kaynağın verdiği kimliğin birlikteliğine, ek olarak haberin normalize edilmiş adresine dayanmalıdır. | Must |
 | FG-VT-05 | Toplayıcı, kaynakların robots.txt kurallarına ve tanımlı istek aralıklarına uymalı; isteklerinde kendini kendi adıyla (User-Agent) tanıtmalıdır. | Must |
 | FG-VT-06 | Toplayıcı bot koruması veya erişim engeliyle karşılaştığında bunu aşmaya çalışmamalı, hatayı kaydetmelidir. | Must |
 | FG-VT-07 | Saklama süresi dolan içerik, kaynağın kuralına göre otomatik olarak silinmeli veya yeniden istenerek yenilenmelidir. | Must |
 | FG-VT-08 | Yayın tarihleri UTC'ye çevrilerek saklanmalıdır. | Must |
-| FG-VT-09 | Her haberle birlikte kaynak adı, özgün habere bağlantı, varsa yazar ve kaynağın lisans/atıf bilgisi saklanmalıdır. | Must |
-| FG-VT-10 | Her toplama işinin sonucu kaydedilmelidir: başlangıç ve bitiş zamanı, yeni ve tekrar eden haber sayısı, varsa hata bilgisi. | Must |
+| FG-VT-09 | Her haberle birlikte kaynak adı, özgün habere bağlantı, varsa yazar ve varsa kaynağın lisans/atıf bilgisi saklanmalıdır. | Must |
+| FG-VT-10 | Her toplama işinin sonucu besleme bazında kaydedilmelidir: başlangıç ve bitiş zamanı, yeni ve tekrar eden haber sayısı, varsa hata bilgisi. | Must |
+| FG-VT-11 | Farklı kaynaklarda yayımlanan aynı haber tespit edilip gruplanmalıdır. Asıl haber kayıtları değiştirilmemeli; yanlış gruplamayı en aza indirmek için yalnızca çok benzer haberler gruplanmalıdır. | Should |
+| FG-VT-12 | Haberin kategorisi iki düzeyde belirlenmelidir: besleme düzeyinde beslemenin varsayılan kategorisiyle, haber düzeyinde haberin kaynakta belirtilen kendi kategori bilgisinin (kategori alanı veya haber adresi) ortak kategori listesine eşlenmesiyle. Bir haber birden fazla kategoriye sahip olabilir. | Must |
+| FG-VT-13 | Ortak kategori listesine eşlenemeyen kategoriler "Diğer" kategorisine atanmalıdır. | Must |
 
 ### 3.3 Arama ve Görüntüleme
 
@@ -78,8 +89,11 @@ Her gereksinimin benzersiz bir kimliği vardır. Testler bu kimliklere bağlanı
 | FG-AR-05 | Arama sonuçlarında, aranan ifadenin geçtiği bölüm vurgulanarak gösterilmelidir. | Should |
 | FG-AR-06 | Haber detayında başlık, varsa tam metin yoksa özet, yayın tarihi, kaynak, varsa yazar ve medya gösterilmelidir. | Must |
 | FG-AR-07 | Her haberde özgün kaynağın adı ve özgün habere bağlantı gösterilmeli; kaynağın lisansının gerektirdiği atıf yapılmalıdır. | Must |
-| FG-AR-08 | Lisansı gösterime izin vermeyen veya lisansı belirsiz görseller gösterilmemeli, yerine bir yer tutucu gösterilmelidir. | Must |
+| FG-AR-08 | Görseller kopyalanmamalı, kaynağın kendi adresinden gösterilmelidir. Görseli olmayan veya görseli yüklenemeyen haberlerde yer tutucu gösterilmelidir. | Must |
 | FG-AR-09 | Yönetici tarafından gizlenen haberler arama sonuçlarında ve haber detayında görünmemelidir. | Must |
+| FG-AR-10 | Gruplanmış haberler arama sonuçlarında tek sonuç olarak gösterilmelidir. Haberi yayımlayan diğer kaynaklar listelenmeli ve her birinin özgün haberine bağlantı verilmelidir. | Should |
+| FG-AR-11 | Arama, haberin diline uygun metin analizi yapmalıdır. Türkçe içerikte ek yapısı ve Türkçeye özgü büyük/küçük harf kuralları (I/ı, İ/i), İngilizce içerikte İngilizcenin kuralları dikkate alınmalıdır. | Must |
+| FG-AR-12 | Son Dakika kategorisi, son dakika beslemelerinden gelen ve yapılandırılabilir bir süre içinde (varsayılan 6 saat) yayımlanmış haberleri göstermelidir. Süresi dolan haberler konu kategorilerinde görünmeye devam eder. | Must |
 
 ### 3.4 Kullanıcıya Özel İşlevler
 
@@ -97,16 +111,16 @@ Her gereksinimin benzersiz bir kimliği vardır. Testler bu kimliklere bağlanı
 | FG-YP-01 | Yönetici kullanıcıları listeleyebilmeli ve arayabilmeli; onay bekleyen kullanıcıları onaylayabilmeli veya reddedebilmelidir. | Must |
 | FG-YP-02 | Yönetici bir kullanıcıyı pasif veya aktif hale getirebilmeli ve rolünü değiştirebilmelidir. | Must |
 | FG-YP-03 | Sistemdeki son aktif yönetici pasif hale getirilememeli ve rolü düşürülememelidir. | Should |
-| FG-YP-04 | Yönetici kaynak ekleyebilmeli, düzenleyebilmeli ve devre dışı bırakabilmelidir. | Must |
+| FG-YP-04 | Yönetici kaynak ve kaynağa ait besleme ekleyebilmeli, düzenleyebilmeli ve devre dışı bırakabilmelidir. | Must |
 | FG-YP-05 | Yönetici toplama işlerinin geçmişini ve sonuçlarını görüntüleyebilmelidir. | Must |
-| FG-YP-06 | Her kaynağın sağlık durumu (son başarılı toplama zamanı, art arda başarısız deneme sayısı) gösterilmelidir. | Must |
-| FG-YP-07 | Belirli sayıda art arda başarısız denemeden sonra kaynak otomatik olarak devre dışı kalmalı ve durum yönetim panelinde gösterilmelidir. | Should |
+| FG-YP-06 | Her kaynağın ve beslemenin sağlık durumu (son başarılı toplama zamanı, art arda başarısız deneme sayısı) gösterilmelidir. | Must |
+| FG-YP-07 | Belirli sayıda art arda başarısız denemeden sonra ilgili besleme otomatik olarak devre dışı kalmalı ve durum yönetim panelinde gösterilmelidir. Bir beslemenin devre dışı kalması, kaynağın diğer beslemelerini etkilememelidir. | Should |
 | FG-YP-08 | Yönetici, zamanlanmış toplamayı beklemeden bir kaynak için toplamayı elle başlatabilmelidir. | Should |
 | FG-YP-09 | Yönetici bir haberi gerekçe belirterek gizleyebilmeli ve gizlemeyi geri alabilmelidir. | Should |
 | FG-YP-10 | Yönetici audit log kayıtlarını görüntüleyebilmeli, arayabilmeli ve filtreleyebilmelidir. | Must |
 | FG-YP-11 | Yönetici filtrelenmiş audit log kayıtlarını CSV olarak dışa aktarabilmelidir. | Should |
 | FG-YP-12 | Yönetim panelinde sistem bileşenlerinin durumu ve temel istatistikler (toplam ve kaynak bazında haber sayısı, son 24 saatte toplanan haber sayısı, kullanıcı sayısı) gösterilmelidir. | Must |
-| FG-YP-13 | Kaynak eklenirken bağlantı test edilebilmeli ve alan eşlemesinin sonucu örnek bir haber üzerinde önizlenebilmelidir. | Could |
+| FG-YP-13 | Kaynak veya besleme eklenirken bağlantı test edilebilmeli ve alan eşlemesinin sonucu örnek bir haber üzerinde önizlenebilmelidir. | Could |
 
 ### 3.6 Audit Log
 
@@ -133,7 +147,7 @@ Her gereksinimin benzersiz bir kimliği vardır. Testler bu kimliklere bağlanı
 | FOG-01 | Arama istekleri, 50 eş zamanlı kullanıcı altında p95 ≤ 500 ms ve p99 ≤ 1000 ms içinde yanıtlanmalıdır. | Must | Yük testi |
 | FOG-02 | Arama dışındaki okuma istekleri (haber detayı, kaydedilen haberler vb.), 50 eş zamanlı kullanıcı altında p95 ≤ 300 ms içinde yanıtlanmalıdır. | Must | Yük testi |
 | FOG-03 | Yük testi süresince başarısız istek oranı %1'in altında olmalıdır. | Must | Yük testi |
-| FOG-04 | Varsayılan toplama sıklığı 15 dakikadır ve kaynak bazında değiştirilebilir. Bir haber, kaynakta yayımlanmasından en geç 30 dakika sonra aranabilir olmalıdır. | Must | Entegrasyon testi |
+| FOG-04 | Varsayılan toplama sıklığı 15 dakikadır ve besleme bazında değiştirilebilir. Bir haber, kaynakta yayımlanmasından en geç 30 dakika sonra aranabilir olmalıdır. | Must | Entegrasyon testi |
 | FOG-05 | Guardian API için günlük istek limitinin en fazla %50'si zamanlanmış toplamaya ayrılmalıdır. Kalan pay elle başlatılan toplama ve yeniden denemeler içindir. | Must | Toplama işi kayıtları |
 | FOG-06 | Backend kopya sayısı 1'den 2'ye çıkarıldığında, FOG-01 hedefi korunarak karşılanabilen saniyedeki istek sayısı en az %70 artmalıdır. | Must | Ölçeklenebilirlik testi |
 | FOG-07 | FOG-01 ve FOG-02 hedefleri, en az 1 milyon haber ve 10 milyon audit log kaydı içeren deneme verisinde de sağlanmalıdır. Bu hacim, veri büyümesi hesabı yapıldıktan sonra gerekirse güncellenecektir. | Must | Hacim testi |
@@ -161,7 +175,7 @@ Her gereksinimin benzersiz bir kimliği vardır. Testler bu kimliklere bağlanı
 | FOG-19 | Pasif hale getirilen kullanıcının erişimi, durum değişikliğinden sonraki en fazla 60 saniye içinde kesilmelidir. | Must | API testi |
 | FOG-20 | Küme dışına açılan tüm uç noktalar yalnızca HTTPS üzerinden erişilebilir olmalıdır. | Must | Güvenlik testi |
 | FOG-21 | API'ye kullanıcı başına istek hızı sınırı uygulanmalıdır (varsayılan: dakikada 120 istek). | Should | API testi |
-| FOG-22 | Yanıtlarda güvenlik başlıkları (Content-Security-Policy, Strict-Transport-Security vb.) bulunmalıdır. | Should | Güvenlik testi |
+| FOG-22 | Yanıtlarda güvenlik başlıkları (Content-Security-Policy, Strict-Transport-Security vb.) bulunmalıdır. Content-Security-Policy, görsellerin yalnızca tanımlı kaynakların alan adlarından yüklenmesine izin verecek şekilde yapılandırılmalıdır. | Should | Güvenlik testi |
 
 ### 4.5 Bakım Kolaylığı
 
@@ -211,5 +225,5 @@ Her gereksinimin benzersiz bir kimliği vardır. Testler bu kimliklere bağlanı
 
 | Kimlik | Gereksinim | Öncelik | Doğrulama |
 |---|---|---|---|
-| FOG-42 | Saklama süreleri: Global Voices haberleri süresiz, Guardian içerikleri en fazla 24 saat saklanır. Audit log, uygulama logu ve medya dosyalarının saklama süreleri veri büyümesi analizinde belirlenecektir. | Must | Entegrasyon testi |
+| FOG-42 | Saklama süreleri: Guardian dışındaki kaynakların haberleri süresiz, Guardian içerikleri en fazla 24 saat saklanır. Audit log, uygulama logu ve medya dosyalarının saklama süreleri veri büyümesi analizinde belirlenecektir. | Must | Entegrasyon testi |
 | FOG-43 | Veri hacmi arttıkça FOG-01 ve FOG-02 hedefleri korunmalıdır. Bunu sağlayacak yöntemler (bölümleme, arşivleme, indeksleme vb.) veri büyümesi analizinde belirlenecektir. | Must | Hacim testi |
