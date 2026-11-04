@@ -236,7 +236,7 @@ sequenceDiagram
     A-->>Y: Gizlendi
     T->>PG: İşlenmemiş outbox kayıtlarını oku
     T->>ES: Haberin arama belgesini güncelle
-    T->>ES: Haberin arama belgesini güncelle
+    T->>PG: Outbox kaydını işlenmiş olarak işaretle
 ```
 
 Gizleme, outbox kaydı işlenene kadar (birkaç saniye) aramaya yansımayabilir (ADR-0012).
