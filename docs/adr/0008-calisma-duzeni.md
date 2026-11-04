@@ -107,7 +107,7 @@ Bu kararı etkileyen koşullar:
 ### İş takibi
 
 - İşler **GitHub Issues** ile kaydedilir ve **GitHub Projects** panosunda izlenir.
-- Pano sütunları: **Yapılacak**, **Yapılıyor**, **Bitti**.
+- Pano sütunları: **Todo**, **In Progress**, **Done**
 - Etiketler üç gruptan oluşur:
   - **Tür:** `feat`, `fix`, `docs`, `test`, `chore`
   - **Alan:** `backend`, `frontend`, `altyapi`

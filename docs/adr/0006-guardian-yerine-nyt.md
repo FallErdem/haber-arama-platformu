@@ -1,6 +1,6 @@
 # ADR-0006: Guardian'ın Çıkarılması ve New York Times API'nin Eklenmesi
 
-- **Durum:** Kabul edildi
+- **Durum:** Kabul edildi; ayrıntıları ADR-0009 ile belirlendi
 - **Tarih:** 2026-11-03
 - **İlişki:** ADR-0003 ve ADR-0004'teki Guardian ile ilgili kararları geçersiz kılar.
 

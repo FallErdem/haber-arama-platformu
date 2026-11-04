@@ -2,7 +2,7 @@
 
 ## 1. Amaç
 
-Bu doküman, uygulamanın fonksiyonel ve fonksiyonel olmayan gereksinimlerini tanımlar. Kapsam, hedef kullanıcılar ve kapsam dışı konular `01-kapsam.md`, kaynak kararları `adr/0003-baslangic-haber-kaynaklari.md`, `adr/0004-turk-haber-kaynaklari.md` ve `adr/0006-guardian-yerine-nyt.md` dosyalarındadır.
+Bu doküman, uygulamanın fonksiyonel ve fonksiyonel olmayan gereksinimlerini tanımlar. Kapsam, hedef kullanıcılar ve kapsam dışı konular `01-kapsam.md`, kaynak kararları `adr/0003-baslangic-haber-kaynaklari.md`, `adr/0004-turk-haber-kaynaklari.md` , `adr/0006-guardian-yerine-nyt.md` ve `adr/0009-nyt-kullanim-yontemi.md` dosyalarındadır.
 
 ## 2. Tanımlar
 
@@ -67,7 +67,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | FG-VT-01 | Sistem, tanımlı kaynaklardan belirlenen aralıklarla otomatik olarak haber toplamalıdır. | Must |
 | FG-VT-02 | RSS 2.0, Atom ve New York Times API kaynak türleri desteklenmelidir. | Must |
 | FG-VT-03 | Her kaynak için dil, istekler arası bekleme süresi ve alan eşlemesi (hangi bilginin hangi alandan okunacağı); kaynağın her beslemesi için adres, toplama sıklığı ve varsayılan kategori tanımlanabilmelidir. | Must |
-| FG-VT-04 | Aynı haber tekrar toplandığında yeni kayıt oluşturulmamalıdır. Tekrar tespiti kaynak ile kaynağın verdiği kimliğin birlikteliğine, ek olarak haberin normalize edilmiş adresine dayanmalıdır. | Must |
+| FG-VT-04 | Aynı haber tekrar toplandığında yeni kayıt oluşturulmamalıdır. Tekrar tespiti kaynak ile kaynağın verdiği kimliğin birlikteliğine, ek olarak haberin normalize edilmiş adresine dayanmalıdır. Tekrar eden haber görmezden gelinir; ilk kaydedilen kayıt korunur. | Must |
 | FG-VT-05 | Toplayıcı, kaynakların robots.txt kurallarına ve tanımlı istek aralıklarına uymalı; isteklerinde kendini kendi adıyla (User-Agent) tanıtmalıdır. | Must |
 | FG-VT-06 | Toplayıcı bot koruması veya erişim engeliyle karşılaştığında bunu aşmaya çalışmamalı, hatayı kaydetmelidir. | Must |
 | FG-VT-07 | Saklama süresi dolan içerik, kaynağın kuralına göre otomatik olarak silinmeli veya yeniden istenerek yenilenmelidir. | Must |
@@ -77,6 +77,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | FG-VT-11 | Farklı kaynaklarda yayımlanan aynı haber tespit edilip gruplanmalıdır. Asıl haber kayıtları değiştirilmemeli; yanlış gruplamayı en aza indirmek için yalnızca çok benzer haberler gruplanmalıdır. | Should |
 | FG-VT-12 | Haberin kategorisi iki düzeyde belirlenmelidir: besleme düzeyinde beslemenin varsayılan kategorisiyle, haber düzeyinde haberin kaynakta belirtilen kendi kategori bilgisinin (kategori alanı veya haber adresi) ortak kategori listesine eşlenmesiyle. Bir haber birden fazla kategoriye sahip olabilir. | Must |
 | FG-VT-13 | Ortak kategori listesine eşlenemeyen kategoriler "Diğer" kategorisine atanmalıdır. | Must |
+| FG-VT-14 | Haberlerin görselleri toplama sırasında kaynaktan indirilip nesne depolamada saklanmalıdır. Her görsel için depolama anahtarı, kaynaktaki adresi ve varsa atıf bilgisi (örneğin fotoğrafçı) tutulmalıdır. Görsel indirmeleri kaynak düzeyindeki istek kurallarına uymalıdır. Veri modeli, ileride video gibi diğer medya türlerinin eklenmesine olanak vermelidir. | Must |
 
 ### 3.3 Arama ve Görüntüleme
 
@@ -89,7 +90,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | FG-AR-05 | Arama sonuçlarında, aranan ifadenin geçtiği bölüm vurgulanarak gösterilmelidir. | Should |
 | FG-AR-06 | Haber detayında başlık, varsa tam metin yoksa özet, yayın tarihi, kaynak, varsa yazar ve medya gösterilmelidir. | Must |
 | FG-AR-07 | Her haberde özgün kaynağın adı ve özgün habere bağlantı gösterilmeli; kaynağın lisansının gerektirdiği atıf yapılmalıdır. | Must |
-| FG-AR-08 | Görseller kopyalanmamalı, kaynağın kendi adresinden gösterilmelidir. Görseli olmayan veya görseli yüklenemeyen haberlerde yer tutucu gösterilmelidir. | Must |
+| FG-AR-08 | Görseller nesne depolamadan, uygulamanın kendi altyapısı üzerinden gösterilmelidir. Görseli olmayan veya görseli indirilemeyen haberlerde yer tutucu gösterilmelidir. | Must |
 | FG-AR-09 | Yönetici tarafından gizlenen haberler arama sonuçlarında ve haber detayında görünmemelidir. | Must |
 | FG-AR-10 | Gruplanmış haberler arama sonuçlarında tek sonuç olarak gösterilmelidir. Haberi yayımlayan diğer kaynaklar listelenmeli ve her birinin özgün haberine bağlantı verilmelidir. | Should |
 | FG-AR-11 | Arama, haberin diline uygun metin analizi yapmalıdır. Türkçe içerikte ek yapısı ve Türkçeye özgü büyük/küçük harf kuralları (I/ı, İ/i), İngilizce içerikte İngilizcenin kuralları dikkate alınmalıdır. | Must |
@@ -121,12 +122,13 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | FG-YP-11 | Yönetici filtrelenmiş audit log kayıtlarını CSV olarak dışa aktarabilmelidir. | Should |
 | FG-YP-12 | Yönetim panelinde sistem bileşenlerinin durumu ve temel istatistikler (toplam ve kaynak bazında haber sayısı, son 24 saatte toplanan haber sayısı, kullanıcı sayısı) gösterilmelidir. | Must |
 | FG-YP-13 | Kaynak veya besleme eklenirken bağlantı test edilebilmeli ve alan eşlemesinin sonucu örnek bir haber üzerinde önizlenebilmelidir. | Could |
+| FG-YP-14 | Yönetici bir kaynağın bütün içeriğini (haberler ve görseller dahil) silebilmelidir. | Must |
 
 ### 3.6 Audit Log
 
 | Kimlik | Gereksinim | Öncelik |
 |---|---|---|
-| FG-AL-01 | Şu işlemler kaydedilmelidir: oturum açma, yetkisiz erişim denemesi, kullanıcı onaylama/reddetme, durum ve rol değişiklikleri, kaynak ekleme/düzenleme/devre dışı bırakma, elle toplama başlatma, haber gizleme ve gizlemeyi geri alma, audit log dışa aktarma. | Must |
+| FG-AL-01 | Şu işlemler kaydedilmelidir: oturum açma, yetkisiz erişim denemesi, kullanıcı onaylama/reddetme, durum ve rol değişiklikleri, kaynak ekleme/düzenleme/devre dışı bırakma, elle toplama başlatma, haber gizleme ve gizlemeyi geri alma, kaynak içeriğinin silinmesi, audit log dışa aktarma. | Must |
 | FG-AL-02 | Her kayıtta işlemi yapan kullanıcı, zaman (UTC), işlem türü, işlemin yapıldığı nesne, sonuç (başarılı/başarısız) ve isteğin kimliği bulunmalıdır. | Must |
 | FG-AL-03 | Audit log kayıtları sonradan değiştirilememeli ve silinememelidir. | Must |
 | FG-AL-04 | Parola, token gibi hassas veriler audit log'a ve uygulama loglarına girmemelidir. | Must |
@@ -147,8 +149,8 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | FOG-01 | Arama istekleri, 50 eş zamanlı kullanıcı altında p95 ≤ 500 ms ve p99 ≤ 1000 ms içinde yanıtlanmalıdır. | Must | Yük testi |
 | FOG-02 | Arama dışındaki okuma istekleri (haber detayı, kaydedilen haberler vb.), 50 eş zamanlı kullanıcı altında p95 ≤ 300 ms içinde yanıtlanmalıdır. | Must | Yük testi |
 | FOG-03 | Yük testi süresince başarısız istek oranı %1'in altında olmalıdır. | Must | Yük testi |
-| FOG-04 | Varsayılan toplama sıklığı 15 dakikadır ve besleme bazında değiştirilebilir. Bir haber, kaynakta yayımlanmasından en geç 30 dakika sonra aranabilir olmalıdır. | Must | Entegrasyon testi |
-| FOG-05 | API kaynakları için günlük istek limitinin en fazla %50'si zamanlanmış toplamaya ayrılmalıdır. Kalan pay elle başlatılan toplama ve yeniden denemeler içindir. | Must | Toplama işi kayıtları |
+| FOG-04 | Varsayılan toplama sıklığı 15 dakikadır ve besleme bazında değiştirilebilir. Bir haber, kaynakta yayımlanmasından en geç 30 dakika sonra aranabilir olmalıdır. API kaynaklarında tazelik, kaynağın istek limitleriyle sınırlıdır. | Must | Entegrasyon testi |
+| FOG-05 | API kaynakları için günlük istek limitinin en fazla %80'i zamanlanmış toplamaya ayrılmalıdır. Kalan pay elle başlatılan toplama ve yeniden denemeler içindir. | Must | Toplama işi kayıtları |
 | FOG-06 | Backend kopya sayısı 1'den 2'ye çıkarıldığında, FOG-01 hedefi korunarak karşılanabilen saniyedeki istek sayısı en az %70 artmalıdır. | Must | Ölçeklenebilirlik testi |
 | FOG-07 | FOG-01 ve FOG-02 hedefleri, en az 1 milyon haber ve 10 milyon audit log kaydı içeren deneme verisinde de sağlanmalıdır. Bu hacim, veri büyümesi hesabı yapıldıktan sonra gerekirse güncellenecektir. | Must | Hacim testi |
 
@@ -175,7 +177,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | FOG-19 | Pasif hale getirilen kullanıcının erişimi, durum değişikliğinden sonraki en fazla 60 saniye içinde kesilmelidir. | Must | API testi |
 | FOG-20 | Küme dışına açılan tüm uç noktalar yalnızca HTTPS üzerinden erişilebilir olmalıdır. | Must | Güvenlik testi |
 | FOG-21 | API'ye kullanıcı başına istek hızı sınırı uygulanmalıdır (varsayılan: dakikada 120 istek). | Should | API testi |
-| FOG-22 | Yanıtlarda güvenlik başlıkları (Content-Security-Policy, Strict-Transport-Security vb.) bulunmalıdır. Content-Security-Policy, görsellerin yalnızca tanımlı kaynakların alan adlarından yüklenmesine izin verecek şekilde yapılandırılmalıdır. | Should | Güvenlik testi |
+| FOG-22 | Yanıtlarda güvenlik başlıkları (Content-Security-Policy, Strict-Transport-Security vb.) bulunmalıdır. Content-Security-Policy, görsellerin yalnızca uygulamanın kendi altyapısından yüklenmesine izin verecek şekilde yapılandırılmalıdır. | Should | Güvenlik testi |
 
 ### 4.5 Bakım Kolaylığı
 

@@ -1,7 +1,7 @@
 # Haber Kaynakları Araştırması
 
 - **Araştırma tarihi:** 2 Kasım 2026
-- **İlgili kararlar:** ADR-0003, ADR-0004, ADR-0006
+- **İlgili kararlar:** ADR-0003, ADR-0004, ADR-0006, ADR-0009, ADR-0010
 
 > Kullanım şartları, lisanslar ve beslemeler zamanla değişebilir. Bu dokümandaki bulgular araştırma tarihindeki durumu yansıtır.
 
@@ -132,12 +132,15 @@ Sonuç değerleri:
 
 ### 4.6 New York Times Developer API
 
-- **Erişim:** REST API, anahtar ile. Anahtar depoya girmez, gizli bilgi olarak yönetilir.
+- **Erişim:** REST API; yalnızca anahtar (`api-key` parametresi) ile. Anahtar depoya girmez.
 - **Dil:** İngilizce.
-- **Kullanım hakkı:** Üçüncü taraf kaynaklara göre yalnızca ticari olmayan kullanıma açık ve atıf zorunlu. Resmi kullanım şartlarından doğrulanacak.
-- **Saklama:** NYT'nin kendi API tanımında, Archive API'nin yerel bir makale meta verisi veritabanı oluşturmak için kullanılabileceği belirtiliyor. Kullanım şartlarındaki saklama hükümleri doğrulanacak.
-- **Gelen alanlar:** Üçüncü taraf kaynaklara göre başlık, özet, giriş paragrafı, bölüm, yayın tarihi ve görsel bağlantıları. Tam metin gelmiyor.
-- **İstek limitleri:** Farklı kaynaklarda farklı değerler geçiyor; resmi dokümantasyondan doğrulanacak.
+- **Kullanılan API:** Top Stories (`/svc/topstories/v2/{bolum}.json`). Bölümler: arts, automobiles, books/review, business, fashion, food, health, home, insider, magazine, movies, nyregion, obituaries, opinion, politics, realestate, science, sports, sundayreview, technology, theater, t-magazine, travel, upshot, us, world. Archive API (`/svc/archive/v1/{yil}/{ay}.json`) düzenli toplamada kullanılmıyor (ADR-0009).
+- **İstek limitleri:** API başına günde 500, dakikada 5 istek; istekler arasında 12 saniye önerilmektedir (FAQ). Yanıt başlıklarında limit bilgisi yok.
+- **Önbellek:** Top Stories yanıtları 10 dakika önbellekte tutuluyor (`cache-control: max-age=600`).
+- **Gelen alanlar (Top Stories):** `title`, `abstract`, `url`, `uri` (değişmeyen kimlik, `nyt://article/...`), `section`, `subsection`, `byline`, `published_date` ve `updated_date` (New York saatiyle), `multimedia` (farklı boyutlarda görseller, altyazı ve fotoğrafçı bilgisi), konu, yer, kurum ve kişi etiketleri. Tam metin ve giriş paragrafı gelmiyor.
+- **Archive gözlemi (04.11.2026):** Kasım 2026 arşivi 1.315 haber ve 3 MB'tı; en yeni haber yaklaşık 12 saat öncesine aitti (tek ölçüm). Alan yapısı Top Stories'ten farklı; `uri` değerleri aynı (Top Stories'ten alınan 5 haberin 4'ü arşivde aynı kimlikle bulundu, biri henüz arşive girmemişti).
+- **Kullanım hakkı:** Ticari olmayan kullanım. Branding Guide'a göre atıf zorunlu; içerik değiştirilemez; NYT sayfaları çerçeve içinde gösterilemez. Saklama hükmünün yorumu ADR-0009'dadır.
+- **Not:** Geliştirici portalı 10.12.2025'te güncellenmiştir. Portalda Times Newswire API bulunmamaktadır.
 
 ## 5. Teknik Bulgular
 
@@ -259,8 +262,8 @@ Global Voices'ta incelenen bir haberin görseli Flickr'dan alınmış ve görsel
 
 1. **Türkçe canlı kaynak.** *Çözüldü:* TRT Haber, NTV ve CNN Türk, şirket kararıyla kaynak setine alındı (ADR-0004).
 2. **Guardian'ın 24 saat kuralının uygulanması.** *Kapandı:* Guardian kaynak setinden çıkarıldı (ADR-0006).
-3. **NYT API'nin kullanım şartları, istek limitleri, gelen alanları, bölüm listesi ve atıf gereklilikleri.** Şu an üçüncü taraf kaynaklara dayanıyor. API anahtarı alınırken resmi dokümantasyondan doğrulanacak; kategori eşlemesi bölüm listesine göre hazırlanacak.
-4. **Görsel gösterim kuralı.** *Çözüldü:* Görseller tüm kaynaklarda kopyalanmaz, kaynağın kendi adresinden gösterilir (ADR-0004).
+3. **NYT API'nin kullanım şartları, istek limitleri, gelen alanları, bölüm listesi ve atıf gereklilikleri.** *Çözüldü:* Doğrulama sonuçları 4.6 bölümünde ve ADR-0009'dadır.
+4. **Görsel gösterim kuralı.** *Çözüldü:* Görseller kaynaktan indirilip nesne depolamada saklanır (ADR-0010).
 
 ## 8. Yöntem ve Kaynaklar
 

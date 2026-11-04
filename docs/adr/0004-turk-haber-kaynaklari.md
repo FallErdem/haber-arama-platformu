@@ -1,6 +1,6 @@
 # ADR-0004: Türk Haber Kaynaklarının Eklenmesi
 
-- **Durum:** Kabul edildi; Guardian ile ilgili kısımları ADR-0006 ile geçersiz kılındı
+- **Durum:** Kabul edildi; Guardian ile ilgili kısımları ADR-0006 ile geçersiz kılındı; görsel kuralı ADR-0010 ile değiştirildi
 - **Tarih:** 2026-11-03
 - **İlişki:** ADR-0003'ü genişletir. ADR-0003'teki Guardian ve Global Voices kararları geçerliliğini korur.
 
