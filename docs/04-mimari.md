@@ -68,7 +68,7 @@ flowchart LR
     api -->|/certs anahtarları| keycloak
     api -->|Okuma / yazma| pg
     api -->|Arama sorguları| es
-    api -->|Görseller| minio
+    api -->|Görseller, sunma yöntemi belirlenecek| minio
     toplayici -->|Okuma / yazma| pg
     toplayici -->|Outbox aktarımı| es
     toplayici -->|Görsel yükleme| minio
@@ -183,14 +183,23 @@ sequenceDiagram
     KC-->>B: Erişim token'ı (JWT)
     B->>A: İstek + JWT
     A->>A: JWT'yi doğrula (imza, süre, iss, aud)
-    A->>PG: Kullanıcıyı sub ile ara
-    alt Kullanıcı kaydı yok
-        A->>PG: "Onay bekliyor" durumunda kayıt oluştur
-        A-->>B: 403
-    else Kullanıcı onay bekliyor veya pasif
-        A-->>B: 403
-    else Kullanıcı aktif ve rolü yeterli
-        A-->>B: Yanıt
+    alt JWT geçersiz
+        A-->>B: 401
+    else JWT geçerli
+        A->>PG: Kullanıcıyı sub ile ara
+        alt Kayıt yok, ilk yönetici e-postası ve e-posta doğrulanmış
+            A->>PG: Aktif yönetici olarak kayıt oluştur
+            A-->>B: Yanıt
+        else Kayıt yok
+            A->>PG: "Onay bekliyor" durumunda kayıt oluştur
+            A-->>B: 403
+        else Kullanıcı onay bekliyor veya pasif
+            A-->>B: 403
+        else Kullanıcı aktif, rolü yetersiz
+            A-->>B: 403
+        else Kullanıcı aktif, rolü yeterli
+            A-->>B: Yanıt
+        end
     end
 ```
 
@@ -226,6 +235,7 @@ sequenceDiagram
     A->>PG: Audit kaydı
     A-->>Y: Gizlendi
     T->>PG: İşlenmemiş outbox kayıtlarını oku
+    T->>ES: Haberin arama belgesini güncelle
     T->>ES: Haberin arama belgesini güncelle
 ```
 
