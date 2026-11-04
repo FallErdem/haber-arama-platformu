@@ -1,0 +1,80 @@
+# ADR-0014: Kimlik ve Yetki Akışı
+
+- **Durum:** Kabul edildi
+- **Tarih:** 2026-11-04
+
+## Bağlam
+
+Şartnameye göre kullanıcının kim olduğu Keycloak'tan JWT ile alınır; gelen JWT'ler Keycloak'ın `/certs` uç noktasından alınan anahtarlarla doğrulanır; kullanıcının ne yapabileceğine uygulamanın veritabanındaki kullanıcı tablosu karar verir ve Keycloak'ta uygulama rolü tutulmaz. Yetkisiz bir isteğin backend'de reddedildiği gösterilebilmeli, pasif hale getirilen kullanıcının erişimi kesilmelidir.
+
+İlgili gereksinimler: FG-KY-01–07, FOG-19. İlgili riskler: R-13, R-14, R-15.
+
+## Değerlendirilen Seçenekler
+
+### Frontend'in giriş yöntemi
+
+**Authorization Code + PKCE:** Tarayıcıda çalışan uygulamalar için standart OAuth 2.0 akışıdır. Erişim token'ı frontend'de tutulur ve her istekte backend'e gönderilir.
+
+- Artı: Yaygın ve standarttır; şartnamenin tarif ettiği JWT doğrulama akışıyla birebir örtüşür.
+- Eksi: Token tarayıcıda bulunduğundan, sayfaya sızan zararlı bir betik (XSS) token'a erişebilir.
+
+**Backend-for-Frontend (BFF):** Token'ları backend tutar; tarayıcıya yalnızca bir oturum çerezi verilir.
+
+- Artı: Token tarayıcıya hiç ulaşmadığından daha güvenlidir.
+- Eksi: Backend'de oturum yönetimi gerektirir; daha karmaşıktır ve şartnamenin tarif ettiği akıştan uzaklaşır.
+
+### Token'ın tarayıcıda saklanması
+
+- **Bellekte:** Sayfaya sızan bir betiğin token'ı okuması zorlaşır; sayfa yenilendiğinde token Keycloak oturumu kullanılarak yeniden alınır.
+- **`localStorage`'da:** Sayfa yenilendiğinde korunur, ancak sayfadaki herhangi bir betik tarafından kolayca okunabilir.
+
+### Kullanıcı durumunun kontrolü
+
+- **Her istekte veritabanından:** Pasif hale getirilen kullanıcının erişimi bir sonraki istekte kesilir; her istekte bir veritabanı sorgusu yapılır.
+- **Kısa süreli önbellekle:** Veritabanı yükü azalır; durum değişikliği önbellek süresi kadar gecikir.
+
+### E-posta doğrulaması için e-posta gönderimi
+
+- **Mailpit:** Geliştirme için sahte bir SMTP sunucusudur; e-postaları gerçek adreslere göndermeden yakalar ve bir web arayüzünde gösterir.
+- **SMTP (Gmail):** E-postalar gerçekten gönderilir; bir uygulama şifresinin gizli bilgi olarak yönetilmesini gerektirir.
+- **E-posta doğrulamasının kapatılması:** Ek bileşen gerektirmez, ancak kullanıcıların e-posta adresleri doğrulanmaz.
+
+## Karar
+
+### Keycloak
+
+- Uygulama için ayrı bir realm kullanılır.
+- Kullanıcıların kendi kendine kaydolması açıktır; e-posta doğrulaması zorunludur.
+- Keycloak'ta uygulama rolü tanımlanmaz.
+
+### Frontend
+
+- Giriş, **Authorization Code + PKCE** akışıyla yapılır; frontend, Keycloak'ta istemci sırrı (client secret) olmayan bir istemci olarak tanımlanır.
+- Erişim token'ı **bellekte** tutulur; `localStorage` veya `sessionStorage` kullanılmaz.
+- Çıkış yapıldığında Keycloak oturumu da sonlandırılır.
+
+### Backend
+
+- Backend, gelen her istekteki JWT'yi Keycloak'ın `/certs` uç noktasından alınan açık anahtarlarla doğrular. İmzanın yanı sıra token'ın süresi, yayıncısı (`iss`) ve hedef kitlesi (`aud`) de kontrol edilir.
+- Açık anahtarlar önbelleğe alınır; token'da tanınmayan bir anahtar kimliği (`kid`) görüldüğünde anahtarlar yeniden alınır. Böylece Keycloak'ın anahtar değişiklikleri desteklenir.
+- Kullanıcı, token'daki değişmeyen kimlik (`sub`) ile kullanıcı tablosundaki kaydıyla eşleştirilir; e-posta eşleştirmede kullanılmaz.
+- Kullanıcı kaydı yoksa ilk istekte "onay bekliyor" durumunda oluşturulur.
+- Kullanıcının rolü ve durumu her istekte veritabanından okunur; başlangıçta önbellek kullanılmaz. Yük testinde darboğaz görülürse, süresi 60 saniyeyi aşmayan bir önbellek eklenebilir (FOG-19).
+- Token'ı geçersiz olan istekler `401`, rolü yetmeyen veya durumu aktif olmayan kullanıcıların istekleri `403` ile reddedilir. Arayüzde işlevlerin gizlenmesi yalnızca kullanım kolaylığı içindir, yetki kontrolü backend'de yapılır.
+
+### İlk yönetici
+
+Yapılandırmada belirtilen e-posta adresine sahip ve e-postası doğrulanmış (`email_verified`) kullanıcı, ilk girişinde aktif yönetici olarak tanımlanır.
+
+### E-posta gönderimi
+
+- Başlangıçta bütün ortamlarda **Mailpit** kullanılır.
+- Üretim benzeri ortam kurulurken **Gmail SMTP** eklenecektir.
+- SMTP sunucusu ortam bazında yapılandırılır; bir ortamdan diğerine geçmek yalnızca yapılandırma değişikliği gerektirir.
+
+## Sonuçlar
+
+- Token tarayıcıda bulunduğundan XSS'e karşı önlemler (HTML temizleme ve Content-Security-Policy; FOG-16, FOG-22) bu kararın güvenliği için de önemlidir.
+- Her istekte bir veritabanı sorgusu yapılır; etkisi yük testinde ölçülecektir.
+- Geliştirme ortamına Mailpit bileşeni eklenir.
+- Gmail SMTP eklendiğinde uygulama şifresi bir gizli bilgi olarak yönetilecektir (R-16).
