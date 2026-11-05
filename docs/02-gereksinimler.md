@@ -164,7 +164,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | FOG-10 | Veritabanları düzenli olarak yedeklenmelidir. Veri kaybı hedefi (RPO) en fazla 24 saat, yeniden çalışır hale gelme hedefi (RTO) en fazla 2 saattir. | Must | Kurtarma testi |
 | FOG-11 | Yedekten geri dönüş düzenli olarak denenmeli ve sonucu raporlanmalıdır. | Must | Kurtarma testi |
 | FOG-12 | Yeni sürüm dağıtımı sırasında hizmet kesintisi yaşanmamalıdır. | Must | Dağıtım sırasında yük testi |
-| FOG-13 | Her backend bileşeni Kubernetes için liveness, readiness ve startup uç noktaları sunmalıdır. | Must | Entegrasyon testi |
+| FOG-13 | Spring Boot API ve Python işçisi, Kubernetes için liveness, readiness ve startup uç noktaları sunmalıdır. | Must | Entegrasyon testi |
 
 ### 4.4 Güvenlik
 
@@ -184,7 +184,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 
 | Kimlik | Gereksinim | Öncelik | Doğrulama |
 |---|---|---|---|
-| FOG-23 | Backend'in iş mantığı katmanında birim test satır kapsamı en az %80 olmalıdır. | Must | CI kapsam raporu |
+| FOG-23 | Spring Boot API'nin ve Python işçisinin iş mantığı katmanlarında birim test satır kapsamı en az %80 olmalıdır. | Must | CI kapsam raporu |
 | FOG-24 | Otomatikleştirilebilen testler her değişiklikte CI'da çalışmalı; başarısız test değişikliğin birleştirilmesini engellemelidir. | Must | CI |
 | FOG-25 | Veritabanı şema değişiklikleri sürümlenmiş geçiş betikleriyle yapılmalıdır. | Must | CI |
 | FOG-26 | API, OpenAPI biçiminde belgelenmeli; belge koddan üretilmeli ve her zaman güncel olmalıdır. | Must | CI |

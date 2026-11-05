@@ -1,6 +1,6 @@
 # ADR-0013: Veri Toplama Mimarisi
 
-- **Durum:** Kabul edildi
+- **Durum:** Kabul edildi; toplama ADR-0017 ile Python işçisine taşındı
 - **Tarih:** 2026-11-04
 
 ## Bağlam

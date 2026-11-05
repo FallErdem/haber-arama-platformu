@@ -1,6 +1,6 @@
 # ADR-0016: Audit Log Tasarımı
 
-- **Durum:** Kabul edildi
+- **Durum:** Kabul edildi; sistem kayıtları ADR-0017 ile Python işçisi tarafından yazılır
 - **Tarih:** 2026-11-04
 
 ## Bağlam

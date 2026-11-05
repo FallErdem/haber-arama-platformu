@@ -1,6 +1,6 @@
 # ADR-0005: Mimari Stil — Modüler Monolit ve İki Çalışma Rolü
 
-- **Durum:** Kabul edildi; roller arası iletişim yöntemi ADR-0013 ile belirlendi; modül adları ADR-0015 ile değiştirildi
+- **Durum:** Kabul edildi; roller arası iletişim yöntemi ADR-0013 ile belirlendi; modül adları ADR-0015 ile değiştirildi; toplayıcı rolü ADR-0017 ile Python işçisine taşındı
 - **Tarih:** 2026-11-03
 
 ## Bağlam

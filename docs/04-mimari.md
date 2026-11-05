@@ -19,6 +19,7 @@ Kararların gerekçeleri ilgili ADR'lerdedir:
 | Kimlik ve yetki | ADR-0014 |
 | Kod ve veri modeli kuralları | ADR-0015 |
 | Audit log | ADR-0016 |
+| Python işçisi ve araçları | ADR-0017 |
 
 ## 2. Sistem Bağlamı
 
@@ -56,8 +57,8 @@ flowchart LR
 ```mermaid
 flowchart LR
     tarayici["Tarayıcı<br/>React uygulaması"]
-    api["Backend: API rolü<br/>birden fazla kopya"]
-    toplayici["Backend: Toplayıcı rolü<br/>tek kopya"]
+    api["Spring Boot API<br/>birden fazla kopya"]
+    worker["Python işçisi<br/>tek kopya"]
     pg[("PostgreSQL 18")]
     es[("Elasticsearch 9")]
     minio[("MinIO")]
@@ -69,12 +70,12 @@ flowchart LR
     tarayici -->|REST istekleri + JWT| api
     api -->|/certs anahtarları| keycloak
     api -->|Okuma / yazma| pg
-    api -->|Arama sorguları| es
-    api -->|Görseller, sunma yöntemi belirlenecek| minio
-    toplayici -->|Okuma / yazma| pg
-    toplayici -->|Outbox aktarımı| es
-    toplayici -->|Görsel yükleme| minio
-    toplayici -->|RSS, Atom, API| kaynaklar
+    api -->|Arama sorguları, yalnızca okuma| es
+    api -->|Görseller, yalnızca okuma| minio
+    worker -->|Okuma / yazma| pg
+    worker -->|Outbox aktarımı| es
+    worker -->|Görsel yükleme ve silme| minio
+    worker -->|RSS, Atom, API| kaynaklar
     keycloak -->|SMTP| mailpit
     keycloak -->|Kendi veritabanı| pg
 ```
@@ -82,28 +83,30 @@ flowchart LR
 | Bileşen | Görevi | Kopya sayısı | ADR |
 |---|---|---|---|
 | React uygulaması | Kullanıcı arayüzü ve yönetim paneli | — | — |
-| API rolü | Kullanıcı ve yönetici isteklerini karşılar | Birden fazla | ADR-0005 |
-| Toplayıcı rolü | Zamanlanmış işleri yürütür: haber toplama, outbox aktarımı, görsel indirme, yaşam döngüsü güncellemesi | Tek | ADR-0005, ADR-0013 |
+| Spring Boot API | Kullanıcı ve yönetici isteklerini karşılar; zamanlanmış işi yoktur | Birden fazla | ADR-0005, ADR-0017 |
+| Python işçisi | Bütün arka plan işlerini yürütür: haber toplama, görsel indirme, outbox aktarımı, yaşam döngüsü güncellemesi, kaynak içeriğinin silinmesi, temizlik işleri | Tek | ADR-0013, ADR-0017 |
 | PostgreSQL 18 | Asıl kayıt | — | ADR-0011 |
 | Elasticsearch 9 | Türetilmiş arama indeksi | — | ADR-0011, ADR-0012 |
 | MinIO | Görsel dosyaları | — | ADR-0010 |
 | Keycloak | Kimlik doğrulama; verilerini PostgreSQL'de ayrı bir veritabanında tutar | — | ADR-0014 |
 | Mailpit | Geliştirme ortamında e-posta yakalama | — | ADR-0014 |
 
-API rolü ve toplayıcı rolü aynı kod tabanından, aynı derleme çıktısından çalışır; hangi rolde başlatılacakları yapılandırmayla belirlenir (ADR-0005). Görsellerin tarayıcıya hangi yolla sunulacağı henüz belirlenmemiştir (bkz. 7. bölüm).
+API ile işçi yalnızca veri depoları üzerinden iletişim kurar (ADR-0017). Görsellerin tarayıcıya hangi yolla sunulacağı henüz belirlenmemiştir (bkz. 7. bölüm).
 
 ## 4. Modüller
 
 Backend, iş alanlarına göre altı modülden oluşur (ADR-0005; modül adları ADR-0015). Bir modül başka bir modülün iç sınıflarına doğrudan erişmez; yalnızca o modülün dışa açtığı arayüzleri kullanır.
 
-| Modül | Sorumluluk | Çalıştığı rol |
+| Modül | Sorumluluk | Çalıştığı uygulama |
 |---|---|---|
 | `identity` | Kullanıcı tablosu, kullanıcı durumları, token'daki kimliğin kullanıcıyla eşleştirilmesi, yetki kontrolü | API |
-| `ingestion` | Kaynaklar, beslemeler, zamanlama, RSS/Atom/API okuyucuları, normalleştirme, kategori eşlemesi, tekrar kontrolü, görsel indirme, kaynak içeriğinin silinmesi | Toplayıcı; kaynak yönetimi uç noktaları API'de |
-| `search` | Elasticsearch indeks yapısı, arama sorguları, outbox aktarımı, tam yeniden indeksleme, kaynaklar arası gruplama | Aramalar API'de; outbox aktarımı ve gruplama toplayıcıda |
+| `ingestion` | API'de: kaynak ve besleme yönetimi, elle toplama ve içerik silme taleplerinin oluşturulması. İşçide: zamanlama, RSS/Atom/API okuyucuları, normalleştirme, kategori eşlemesi, tekrar kontrolü, görsel indirme, kaynak içeriğinin silinmesi | API ve işçi |
+| `search` | API'de: arama sorguları. İşçide: outbox aktarımı, tam yeniden indeksleme, kaynaklar arası gruplama | API ve işçi |
 | `library` | Kaydedilen haberler ve kaydedilmiş aramalar | API |
 | `admin` | Yönetim paneli işlevleri ve istatistikler | API |
-| `audit` | Denetim kayıtlarının yazılması, aranması ve dışa aktarılması | API |
+| `audit` | Denetim kayıtlarının yazılması, aranması ve dışa aktarılması. İşçi, sistem kayıtlarını doğrudan yazar. | API ve işçi |
+
+İşçi Python ile yazıldığından, modüllerin işçideki karşılıkları işçinin kendi paketleridir; modül sınırları iki uygulamada da aynı sorumluluk ayrımını izler.
 
 ```mermaid
 flowchart TD
@@ -135,7 +138,7 @@ Modüller arası arayüzlerin ayrıntıları kod yazılırken netleşecektir.
 
 ```mermaid
 sequenceDiagram
-    participant T as Toplayıcı
+    participant T as Python işçisi
     participant PG as PostgreSQL
     participant K as Haber kaynağı
     participant ES as Elasticsearch
@@ -161,7 +164,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant B as Tarayıcı
-    participant A as API rolü
+    participant A as Spring Boot API
     participant PG as PostgreSQL
     participant ES as Elasticsearch
 
@@ -179,7 +182,7 @@ sequenceDiagram
 sequenceDiagram
     participant B as Tarayıcı
     participant KC as Keycloak
-    participant A as API rolü
+    participant A as Spring Boot API
     participant PG as PostgreSQL
 
     B->>KC: Giriş (Authorization Code + PKCE)
@@ -211,9 +214,9 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Y as Yönetici (tarayıcı)
-    participant A as API rolü
+    participant A as Spring Boot API
     participant PG as PostgreSQL
-    participant T as Toplayıcı
+    participant T as Python işçisi
 
     Y->>A: Toplamayı başlat
     A->>PG: Beslemelerin bir sonraki okuma zamanını "şimdi" yap
@@ -228,9 +231,9 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Y as Yönetici (tarayıcı)
-    participant A as API rolü
+    participant A as Spring Boot API
     participant PG as PostgreSQL
-    participant T as Toplayıcı
+    participant T as Python işçisi
     participant ES as Elasticsearch
 
     Y->>A: Haberi gizle (gerekçeyle)

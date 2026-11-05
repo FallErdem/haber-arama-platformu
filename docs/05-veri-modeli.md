@@ -67,6 +67,7 @@ erDiagram
 | `field_mapping` | `jsonb` | | Alanların nereden okunacağı |
 | `license` | `text` | | Kullanım hakkının dayanağı |
 | `attribution_text` | `text` | | Arayüzde gösterilecek atıf metni |
+| `purge_requested_at` | `timestamptz` | | Kaynak içeriğinin silinmesi istendiğinde dolar; işçi silmeyi tamamladığında boşaltır (FG-YP-14) |
 | `enabled` | `boolean` | Zorunlu, varsayılan `true` | |
 | `version` | `integer` | Zorunlu | |
 | `created_at`, `updated_at` | `timestamptz` | Zorunlu | |
@@ -97,8 +98,8 @@ erDiagram
 - Benzersiz: `(source_id, name)`.
 - Kısıt: `enabled` `false` ise `disabled_reason` dolu, `true` ise boş olmalıdır.
 - İndeks: `(enabled, next_fetch_at)`.
-- Zamanlama ve sağlık alanları toplayıcı tarafından, sürüm kontrolü yapılmadan güncellenir (ADR-0015).
-- Toplayıcı, kaynağı devre dışı olan beslemeleri okumaz.
+- Zamanlama ve sağlık alanları işçi tarafından, sürüm kontrolü yapılmadan güncellenir (ADR-0015).
+- İşçi, kaynağı devre dışı olan beslemeleri okumaz.
 
 ### 3.4 `categories` (modül: ingestion)
 
@@ -173,7 +174,7 @@ Başlangıç verisi:
 - Kısıt: `hidden` `true` ise `hidden_at` ve `hidden_by` dolu olmalıdır.
 - İndeksler: `(lifecycle_state, published_at)`, `(source_id, published_at)`, `fetched_at`.
 - Tablo bölümlenmez (ADR-0015).
-- Yaşam döngüsü durumu, toplayıcıdaki günlük işle `published_at` değerine göre güncellenir: 30 günden yeni `HOT`, 30 gün ile 1 yıl arası `WARM`, 1 yıldan eski `COLD`.
+- Yaşam döngüsü durumu, işçideki günlük işle `published_at` değerine göre güncellenir: 30 günden yeni `HOT`, 30 gün ile 1 yıl arası `WARM`, 1 yıldan eski `COLD`.
 
 ### 3.7 `article_categories` (modül: ingestion)
 
@@ -358,16 +359,30 @@ Tam yeniden indeksleme (ADR-0012), yeni bir nesil numarasıyla (`g2`) yeni indek
 - Anahtar biçimi: `articles/{article_id}/{media_id}`. Bir haberin bütün dosyaları tek bir ön ek altında bulunduğundan, satırlara bakmadan silinebilir.
 - Görsellerin arayüze nasıl sunulacağı henüz belirlenmemiştir (`04-mimari.md`, 7. bölüm).
 
-## 7. Veritabanı Kullanıcıları
+## 7. Kullanıcılar ve Yetkiler
+
+### 7.1 PostgreSQL
 
 | Kullanıcı | Veritabanı | Yetkiler |
 |---|---|---|
-| `news_owner` | Uygulama veritabanı | Tabloların sahibi. Yalnızca geçiş betikleri bu kullanıcıyla çalışır; uygulama bu kullanıcıyla bağlanmaz. |
-| `news_app` | Uygulama veritabanı | Tablolarda okuma, ekleme, güncelleme ve silme. `audit_events` tablosunda yalnızca okuma ve ekleme. |
+| `news_owner` | Uygulama veritabanı | Tabloların sahibi. Yalnızca geçiş betikleri bu kullanıcıyla çalışır; uygulamalar bu kullanıcıyla bağlanmaz. |
+| `news_app` | Uygulama veritabanı | Spring Boot API. Tablolarda okuma, ekleme, güncelleme ve silme; `audit_events` tablosunda yalnızca okuma ve ekleme. |
+| `news_worker` | Uygulama veritabanı | Python işçisi. Yalnızca ihtiyaç duyduğu tablolarda ve işlemlerde yetki; `audit_events` tablosunda yalnızca ekleme. Kullanıcı tablolarına (`users`, `saved_articles`, `saved_searches`) erişimi yoktur. |
 | `keycloak` | Ayrı `keycloak` veritabanı | Yalnızca kendi veritabanına erişir. |
 
-- Uygulama ve Keycloak aynı PostgreSQL sunucusunu kullanır, ancak birbirlerinin verilerine erişemez.
-- Yedekleme kapsamı: PostgreSQL (uygulama ve Keycloak veritabanları) ve MinIO. Elasticsearch, PostgreSQL'den her zaman yeniden oluşturulabildiğinden yedeklenmez. Yedekleme yöntemi ayrıca belirlenecektir.
+- Veritabanı şemasının sahibi tektir; geçiş betikleri tek bir yerde tutulur ve Python işçisi şemayı değiştirmez (ADR-0017).
+- Uygulamalar ve Keycloak aynı PostgreSQL sunucusunu kullanır, ancak birbirlerinin yetki alanlarının dışındaki verilere erişemez.
+
+### 7.2 Elasticsearch ve MinIO
+
+| Depo | Spring Boot API | Python işçisi |
+|---|---|---|
+| Elasticsearch | Yalnızca okuma | Okuma ve yazma; indeks şablonlarının ve yaşam döngüsü politikasının oluşturulması |
+| MinIO | Yalnızca okuma | Okuma, yazma ve silme |
+
+### 7.3 Yedekleme kapsamı
+
+PostgreSQL (uygulama ve Keycloak veritabanları) ve MinIO yedeklenir. Elasticsearch, PostgreSQL'den her zaman yeniden oluşturulabildiğinden yedeklenmez. Yedekleme yöntemi ayrıca belirlenecektir.
 
 ## 8. Bilinen Sınırlamalar ve Açık Konular
 
