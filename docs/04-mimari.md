@@ -17,6 +17,8 @@ Kararların gerekçeleri ilgili ADR'lerdedir:
 | PostgreSQL ile Elasticsearch'ün eşitlenmesi | ADR-0012 |
 | Veri toplama | ADR-0013 |
 | Kimlik ve yetki | ADR-0014 |
+| Kod ve veri modeli kuralları | ADR-0015 |
+| Audit log | ADR-0016 |
 
 ## 2. Sistem Bağlamı
 
@@ -74,6 +76,7 @@ flowchart LR
     toplayici -->|Görsel yükleme| minio
     toplayici -->|RSS, Atom, API| kaynaklar
     keycloak -->|SMTP| mailpit
+    keycloak -->|Kendi veritabanı| pg
 ```
 
 | Bileşen | Görevi | Kopya sayısı | ADR |
@@ -84,44 +87,44 @@ flowchart LR
 | PostgreSQL 18 | Asıl kayıt | — | ADR-0011 |
 | Elasticsearch 9 | Türetilmiş arama indeksi | — | ADR-0011, ADR-0012 |
 | MinIO | Görsel dosyaları | — | ADR-0010 |
-| Keycloak | Kimlik doğrulama | — | ADR-0014 |
+| Keycloak | Kimlik doğrulama; verilerini PostgreSQL'de ayrı bir veritabanında tutar | — | ADR-0014 |
 | Mailpit | Geliştirme ortamında e-posta yakalama | — | ADR-0014 |
 
 API rolü ve toplayıcı rolü aynı kod tabanından, aynı derleme çıktısından çalışır; hangi rolde başlatılacakları yapılandırmayla belirlenir (ADR-0005). Görsellerin tarayıcıya hangi yolla sunulacağı henüz belirlenmemiştir (bkz. 7. bölüm).
 
 ## 4. Modüller
 
-Backend, iş alanlarına göre altı modülden oluşur (ADR-0005). Bir modül başka bir modülün iç sınıflarına doğrudan erişmez; yalnızca o modülün dışa açtığı arayüzleri kullanır.
+Backend, iş alanlarına göre altı modülden oluşur (ADR-0005; modül adları ADR-0015). Bir modül başka bir modülün iç sınıflarına doğrudan erişmez; yalnızca o modülün dışa açtığı arayüzleri kullanır.
 
 | Modül | Sorumluluk | Çalıştığı rol |
 |---|---|---|
-| kimlik | Kullanıcı tablosu, kullanıcı durumları, token'daki kimliğin kullanıcıyla eşleştirilmesi, yetki kontrolü | API |
-| toplama | Kaynaklar, beslemeler, zamanlama, RSS/Atom/API okuyucuları, normalleştirme, kategori eşlemesi, tekrar kontrolü, görsel kuyruğu | Toplayıcı; kaynak yönetimi uç noktaları API'de |
-| arama | Elasticsearch indeks yapısı, arama sorguları, outbox aktarımı, tam yeniden indeksleme, kaynaklar arası gruplama | Aramalar API'de; outbox aktarımı ve gruplama toplayıcıda |
-| kullanici | Kaydedilen haberler ve kaydedilmiş aramalar | API |
-| yonetim | Yönetim paneli işlevleri ve istatistikler | API |
-| audit | Denetim kayıtlarının yazılması, aranması ve dışa aktarılması | API |
+| `identity` | Kullanıcı tablosu, kullanıcı durumları, token'daki kimliğin kullanıcıyla eşleştirilmesi, yetki kontrolü | API |
+| `ingestion` | Kaynaklar, beslemeler, zamanlama, RSS/Atom/API okuyucuları, normalleştirme, kategori eşlemesi, tekrar kontrolü, görsel indirme, kaynak içeriğinin silinmesi | Toplayıcı; kaynak yönetimi uç noktaları API'de |
+| `search` | Elasticsearch indeks yapısı, arama sorguları, outbox aktarımı, tam yeniden indeksleme, kaynaklar arası gruplama | Aramalar API'de; outbox aktarımı ve gruplama toplayıcıda |
+| `library` | Kaydedilen haberler ve kaydedilmiş aramalar | API |
+| `admin` | Yönetim paneli işlevleri ve istatistikler | API |
+| `audit` | Denetim kayıtlarının yazılması, aranması ve dışa aktarılması | API |
 
 ```mermaid
 flowchart TD
-    yonetim["yonetim"]
-    kullanici["kullanici"]
-    arama["arama"]
-    toplama["toplama"]
-    kimlik["kimlik"]
+    admin["admin"]
+    library["library"]
+    search["search"]
+    ingestion["ingestion"]
+    identity["identity"]
     audit["audit"]
 
-    yonetim --> kimlik
-    yonetim --> toplama
-    yonetim --> arama
-    yonetim --> audit
-    kullanici --> arama
-    arama --> toplama
+    admin --> identity
+    admin --> ingestion
+    admin --> search
+    admin --> audit
+    library --> search
+    search --> ingestion
 ```
 
 Diyagram yalnızca başlıca bağımlılıkları gösterir. Bunlara ek olarak:
 
-- Bütün modüller, isteği yapan kullanıcının kimliğine ve rolüne erişmek için **kimlik** modülünü kullanır.
+- Bütün modüller, isteği yapan kullanıcının kimliğine ve rolüne erişmek için **identity** modülünü kullanır.
 - Denetlenen işlemleri yapan modüller, kayıt için **audit** modülünü kullanır (FG-AL-01).
 
 Modüller arası arayüzlerin ayrıntıları kod yazılırken netleşecektir.
@@ -241,6 +244,15 @@ sequenceDiagram
 
 Gizleme, outbox kaydı işlenene kadar (birkaç saniye) aramaya yansımayabilir (ADR-0012).
 
+### 5.6 Toplama sırasında uygulanan kurallar
+
+- **Ortak istek sınırlayıcısı:** Besleme okuma ve görsel indirme işleri, aynı kaynağın bekleme süresine birlikte uyar. Toplayıcı tek kopya çalıştığından bu sınırlayıcı bellekte tutulur.
+- **NYT istek bütçesi:** Günlük istek bütçesi takvim günü yerine son 24 saat üzerinden sayılır.
+- **Tam metindeki görseller:** HTML içerik temizlenirken içerikteki `<img>` etiketleri çıkarılır. Haberin görseli, `media` kaydından gösterilir.
+- **NYT görselleri:** NYT aynı görseli farklı boyutlarda verdiğinden, her görselin yalnızca bir boyutu indirilir.
+- **Görsel güvenliği:** Görsellerin boyutu en fazla 20 MB olabilir. Dosyanın gerçekten bir görsel olduğu, uzantısından değil içeriğinin ilk baytlarından doğrulanır. Görseller doğru `Content-Type` ve `X-Content-Type-Options: nosniff` başlıklarıyla sunulur.
+- **Kaynak içeriğinin silinmesi (FG-YP-14):** Önce MinIO'daki dosyalar, ardından veritabanı kayıtları silinir; Elasticsearch için outbox kayıtları aynı işlemde yazılır.
+
 ## 6. Veri Yerleşimi
 
 | Depo | Tuttuğu veri |
@@ -248,6 +260,7 @@ Gizleme, outbox kaydı işlenene kadar (birkaç saniye) aramaya yansımayabilir 
 | PostgreSQL | Kullanıcılar, kaynaklar ve beslemeler, haberlerin bütün bilgileri ve yaşam döngüsü durumu, görsel kayıtları, kaydedilen haberler ve aramalar, toplama işi kayıtları, outbox ve görsel kuyruğu, audit log |
 | Elasticsearch | Haberlerin arama için gereken alanları; aylık indeksler |
 | MinIO | Görsel dosyaları |
+| PostgreSQL (ayrı veritabanı) | Keycloak'ın kullanıcıları, oturumları ve olay kayıtları |
 
 Yaşam döngüsü kuralları (sıcak, ılık, soğuk) ADR-0011'dedir. Ayrıntılı veri modeli `05-veri-modeli.md` dokümanında ele alınacaktır.
 
@@ -255,7 +268,6 @@ Yaşam döngüsü kuralları (sıcak, ılık, soğuk) ADR-0011'dedir. Ayrıntıl
 
 | Konu | Açıklama |
 |---|---|
-| Audit log tasarımı | Kayıtların değiştirilemezliğinin nasıl sağlanacağı ve hassas verilerin kayıtlara girmemesi |
 | Görsellerin sunulması | Görsellerin MinIO'dan tarayıcıya hangi yolla ulaştırılacağı |
 | Frontend mimarisi | Derleme aracı, durum yönetimi, yönlendirme ve çeviri altyapısı |
 | Gözlemlenebilirlik | Loglama, metrik toplama ve uyarı araçları |

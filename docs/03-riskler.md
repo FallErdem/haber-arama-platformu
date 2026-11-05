@@ -73,7 +73,7 @@ Risk kaydı her hafta ilerleme notu yazılırken gözden geçirilir. Yeni riskle
 | R-16 | Parola, token veya API anahtarı depoya girer. | 3 | 5 | 15 (Kritik) | Azaltma | `.gitignore` ile gizli bilgi dosyaları dışarıda tutulur; CI'da gizli bilgi taraması yapılır (FOG-17). Sızıntı olursa ilgili anahtar derhal iptal edilip yenilenir; yalnızca Git geçmişinden silmek yeterli sayılmaz. İleride kullanılacak Gmail uygulama şifresi de bu kapsamdadır (ADR-0014). |
 | R-17 | Kullanılan bağımlılıklarda güvenlik açığı bulunur. | 4 | 4 | 16 (Kritik) | Azaltma | Bağımlılıklar CI'da taranır; yüksek ve kritik açıklar birleştirmeyi engeller (FOG-18). |
 | R-18 | Token, parola gibi hassas veriler uygulama loglarına girer (örneğin bir hata mesajının içinde). | 3 | 4 | 12 (Yüksek) | Azaltma | Hassas alanlar log yazılmadan önce maskelenir (FG-AL-04); örnek hata senaryolarında logların hassas veri içermediği testle doğrulanır. |
-| R-19 | Audit log kayıtları, veritabanına doğrudan erişen biri tarafından değiştirilir veya silinir. | 2 | 4 | 8 (Orta) | Azaltma | Uygulamanın kullandığı veritabanı kullanıcısına audit kayıtlarında güncelleme ve silme yetkisi verilmez (FG-AL-03). Ek önlemler mimaride belirlenecek. |
+| R-19 | Audit log kayıtları, veritabanına doğrudan erişen biri tarafından değiştirilir veya silinir. | 2 | 4 | 8 (Orta) | Azaltma | Uygulamanın veritabanı kullanıcısına audit kayıtlarında yalnızca ekleme ve okuma yetkisi verilir; tablodaki güncelleme ve silmeler bir tetikleyiciyle reddedilir (FG-AL-03, ADR-0016). Veritabanının tam yetkili kullanıcısının yapacağı değişiklikler engellenemez bu sınırlama kabul edilmiştir. |
 
 ### 2.4 Veri ve Altyapı
 

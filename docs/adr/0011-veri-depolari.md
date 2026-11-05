@@ -1,6 +1,6 @@
 # ADR-0011: Veri Depoları, Veri Yerleşimi ve Yaşam Döngüsü
 
-- **Durum:** Kabul edildi
+- **Durum:** Kabul edildi; haber tablosunun bölümlenmesi ve ılık indekslerin salt okunur olması ADR-0015 ile değiştirildi
 - **Tarih:** 2026-11-04
 
 ## Bağlam

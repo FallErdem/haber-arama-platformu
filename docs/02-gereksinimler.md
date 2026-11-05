@@ -16,6 +16,7 @@ Bu doküman, uygulamanın fonksiyonel ve fonksiyonel olmayan gereksinimlerini ta
 - **Onay bekliyor:** Kaydolmuş ancak yönetici tarafından onaylanmamış. Hiçbir işleve erişemez.
 - **Aktif:** Rolünün izin verdiği işlevlere erişebilir.
 - **Pasif:** Yönetici tarafından erişimi kapatılmış. Hiçbir işleve erişemez.
+- **Reddedildi:** Kayıt talebi yönetici tarafından reddedilmiş. Hiçbir işleve erişemez.
 
 ### 2.3 Öncelik (MoSCoW)
 
@@ -76,7 +77,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | FG-VT-10 | Her toplama işinin sonucu besleme bazında kaydedilmelidir: başlangıç ve bitiş zamanı, yeni ve tekrar eden haber sayısı, varsa hata bilgisi. | Must |
 | FG-VT-11 | Farklı kaynaklarda yayımlanan aynı haber tespit edilip gruplanmalıdır. Asıl haber kayıtları değiştirilmemeli; yanlış gruplamayı en aza indirmek için yalnızca çok benzer haberler gruplanmalıdır. | Should |
 | FG-VT-12 | Haberin kategorisi iki düzeyde belirlenmelidir: besleme düzeyinde beslemenin varsayılan kategorisiyle, haber düzeyinde haberin kaynakta belirtilen kendi kategori bilgisinin (kategori alanı veya haber adresi) ortak kategori listesine eşlenmesiyle. Bir haber birden fazla kategoriye sahip olabilir. | Must |
-| FG-VT-13 | Ortak kategori listesine eşlenemeyen kategoriler "Diğer" kategorisine atanmalıdır. | Must |
+| FG-VT-13 | Hiçbir konu kategorisi atanamayan haber "Diğer" kategorisine atanmalıdır. Zaman etiketi olan Son Dakika, konu kategorisi sayılmaz. | Must |
 | FG-VT-14 | Haberlerin görselleri toplama sırasında kaynaktan indirilip nesne depolamada saklanmalıdır. Her görsel için depolama anahtarı, kaynaktaki adresi ve varsa atıf bilgisi (örneğin fotoğrafçı) tutulmalıdır. Görsel indirmeleri kaynak düzeyindeki istek kurallarına uymalıdır. Veri modeli, ileride video gibi diğer medya türlerinin eklenmesine olanak vermelidir. | Must |
 
 ### 3.3 Arama ve Görüntüleme
@@ -128,7 +129,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 
 | Kimlik | Gereksinim | Öncelik |
 |---|---|---|
-| FG-AL-01 | Şu işlemler kaydedilmelidir: oturum açma, yetkisiz erişim denemesi, kullanıcı onaylama/reddetme, durum ve rol değişiklikleri, kaynak ekleme/düzenleme/devre dışı bırakma, elle toplama başlatma, haber gizleme ve gizlemeyi geri alma, kaynak içeriğinin silinmesi, audit log dışa aktarma. | Must |
+| FG-AL-01 | Şu işlemler kaydedilmelidir: yeni oturum, kullanıcı kaydının oluşturulması, kimliği doğrulanmış kullanıcıların reddedilen istekleri, kullanıcı onaylama/reddetme, durum ve rol değişiklikleri, kaynak ekleme/düzenleme/devre dışı bırakma, beslemenin otomatik olarak devre dışı kalması, elle toplama başlatma, haber gizleme ve gizlemeyi geri alma, kaynak içeriğinin silinmesi, audit log dışa aktarma. | Must |
 | FG-AL-02 | Her kayıtta işlemi yapan kullanıcı, zaman (UTC), işlem türü, işlemin yapıldığı nesne, sonuç (başarılı/başarısız) ve isteğin kimliği bulunmalıdır. | Must |
 | FG-AL-03 | Audit log kayıtları sonradan değiştirilememeli ve silinememelidir. | Must |
 | FG-AL-04 | Parola, token gibi hassas veriler audit log'a ve uygulama loglarına girmemelidir. | Must |

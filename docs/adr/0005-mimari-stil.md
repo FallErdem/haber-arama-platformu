@@ -1,6 +1,6 @@
 # ADR-0005: Mimari Stil — Modüler Monolit ve İki Çalışma Rolü
 
-- **Durum:** Kabul edildi; roller arası iletişim yöntemi ADR-0013 ile belirlendi
+- **Durum:** Kabul edildi; roller arası iletişim yöntemi ADR-0013 ile belirlendi; modül adları ADR-0015 ile değiştirildi
 - **Tarih:** 2026-11-03
 
 ## Bağlam
