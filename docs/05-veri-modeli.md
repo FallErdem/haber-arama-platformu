@@ -23,6 +23,7 @@ erDiagram
     sources ||--o{ category_mappings : "tanimlar"
     sources ||--o{ articles : "yayimlar"
     feeds ||--o{ ingestion_runs : "okunur"
+    sources ||--o{ feed_tests : "test edilir"
     feeds ||--o{ articles : "getirir"
     categories ||--o{ category_mappings : "hedefidir"
     categories ||--o{ article_categories : "atanir"
@@ -303,6 +304,23 @@ Başlangıç verisi:
 - Kayıtlar başka tablolara yabancı anahtarla bağlanmaz: Bölümlenmiş tabloda yabancı anahtarlar yazma maliyetini artırır ve audit kaydı, bağlı olduğu nesne değişse de olduğu gibi kalmalıdır.
 - Tabloda `updated_at` bulunmaz; kayıtlar hiç güncellenmez.
 
+### 3.14 `feed_tests` (modül: ingestion)
+
+| Sütun | Tür | Kural | Açıklama |
+|---|---|---|---|
+| `id` | `uuid` | Birincil anahtar | |
+| `source_id` | `uuid` | Zorunlu, `sources` | Ayarları kullanılacak kaynak |
+| `url` | `text` | Zorunlu | Test edilecek adres |
+| `requested_by` | `uuid` | Zorunlu, `users` | Testi isteyen yönetici |
+| `status` | `text` | Zorunlu; `PENDING`, `SUCCEEDED`, `FAILED` | |
+| `result` | `jsonb` | | HTTP durum kodu, bulunan haber sayısı ve örnek haber |
+| `error` | `text` | | |
+| `completed_at` | `timestamptz` | | |
+| `created_at`, `updated_at` | `timestamptz` | Zorunlu | |
+
+- İndeks: `status = 'PENDING'` olan satırları kapsayan, `created_at` üzerinde kısmi indeks.
+- Test sonuçları kalıcı bir değer taşımadığından kısa süre sonra (öneri: 1 gün) silinir.
+
 ## 4. Silme Davranışları
 
 | Silinen | Etki |
@@ -357,7 +375,7 @@ Tam yeniden indeksleme (ADR-0012), yeni bir nesil numarasıyla (`g2`) yeni indek
 
 - Görseller özel (herkese açık olmayan) bir kovada (bucket) tutulur.
 - Anahtar biçimi: `articles/{article_id}/{media_id}`. Bir haberin bütün dosyaları tek bir ön ek altında bulunduğundan, satırlara bakmadan silinebilir.
-- Görsellerin arayüze nasıl sunulacağı henüz belirlenmemiştir (`04-mimari.md`, 7. bölüm).
+- Görseller tarayıcıya MinIO'dan doğrudan değil, Spring Boot API üzerinden ve imzalı adreslerle sunulur (`06-api-sozlesmesi.md`, 4.4).
 
 ## 7. Kullanıcılar ve Yetkiler
 

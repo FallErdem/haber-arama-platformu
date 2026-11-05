@@ -91,7 +91,7 @@ flowchart LR
 | Keycloak | Kimlik doğrulama; verilerini PostgreSQL'de ayrı bir veritabanında tutar | — | ADR-0014 |
 | Mailpit | Geliştirme ortamında e-posta yakalama | — | ADR-0014 |
 
-API ile işçi yalnızca veri depoları üzerinden iletişim kurar (ADR-0017). Görsellerin tarayıcıya hangi yolla sunulacağı henüz belirlenmemiştir (bkz. 7. bölüm).
+API ile işçi yalnızca veri depoları üzerinden iletişim kurar (ADR-0017). Görseller tarayıcıya API üzerinden, imzalı adreslerle sunulur (`06-api-sozlesmesi.md`, 4.4).
 
 ## 4. Modüller
 
@@ -271,7 +271,6 @@ Yaşam döngüsü kuralları (sıcak, ılık, soğuk) ADR-0011'dedir. Ayrıntıl
 
 | Konu | Açıklama |
 |---|---|
-| Görsellerin sunulması | Görsellerin MinIO'dan tarayıcıya hangi yolla ulaştırılacağı |
 | Frontend mimarisi | Derleme aracı, durum yönetimi, yönlendirme ve çeviri altyapısı |
 | Gözlemlenebilirlik | Loglama, metrik toplama ve uyarı araçları |
 | Dağıtım | Yerel Kubernetes ortamı, konteyner imajları ve MinIO'nun kurulum yöntemi |
