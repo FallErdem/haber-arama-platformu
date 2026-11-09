@@ -1,0 +1,42 @@
+# PostgreSQL kümesi; CloudNativePG operatörü tarafından yönetilir (ADR-0018).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres
+spec:
+  instances: 1
+  # "standard" imaj: yedekleme, kullanımdan kalkmakta olan imaj içi araçla değil, ayrıca seçilecek yöntemle yapılacak.
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie
+  storage:
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  bootstrap:
+    # Uygulama veritabanı ve sahibi; tabloları geçiş betikleri bu kullanıcıyla oluşturur.
+    initdb:
+      database: news
+      owner: news_owner
+      secret:
+        name: postgres-news-owner
+  managed:
+    # Diğer veritabanı kullanıcıları (05-veri-modeli.md, 7.1).
+    roles:
+      - name: news_app
+        ensure: present
+        login: true
+        passwordSecret:
+          name: postgres-news-app
+      - name: news_worker
+        ensure: present
+        login: true
+        passwordSecret:
+          name: postgres-news-worker
+      - name: keycloak
+        ensure: present
+        login: true
+        passwordSecret:
+          name: postgres-keycloak

@@ -1,0 +1,10 @@
+# Keycloak'ın kendi veritabanı; uygulama veritabanından ayrıdır (ADR-0014).
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: keycloak
+spec:
+  name: keycloak
+  owner: keycloak
+  cluster:
+    name: postgres

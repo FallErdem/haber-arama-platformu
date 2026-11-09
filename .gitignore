@@ -26,3 +26,5 @@ coverage/
 # ===== Loglar =====
 *.log
 logs/
+
+deploy/k8s/overlays/dev/secrets/
