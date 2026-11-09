@@ -23,3 +23,12 @@ secretGenerator:
     type: kubernetes.io/basic-auth
     envs:
       - secrets/postgres-keycloak.env
+  - name: elasticsearch-elastic
+    envs:
+      - secrets/elasticsearch-elastic.env
+  - name: elasticsearch-news-worker
+    envs:
+      - secrets/elasticsearch-news-worker.env
+  - name: elasticsearch-news-api
+    envs:
+      - secrets/elasticsearch-news-api.env

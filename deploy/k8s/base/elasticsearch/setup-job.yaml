@@ -1,0 +1,65 @@
+# Elasticsearch açıldıktan sonra uygulamaların rollerini ve kullanıcılarını oluşturur.
+# İşçi yazabilir, API yalnızca okuyabilir (ADR-0017). İş tekrar çalıştırılabilir:
+# aynı istekler aynı rolleri ve kullanıcıları yeniden yazar.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: elasticsearch-setup
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: setup
+          image: curlimages/curl:8.17.0
+          env:
+            - name: ELASTIC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-elastic
+                  key: password
+            - name: WORKER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-news-worker
+                  key: password
+            - name: API_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-news-api
+                  key: password
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              ES="http://elasticsearch:9200"
+              AUTH="elastic:${ELASTIC_PASSWORD}"
+              echo "Elasticsearch bekleniyor..."
+              until curl -fsS -u "$AUTH" "$ES/_cluster/health?wait_for_status=yellow&timeout=5s" > /dev/null; do
+                sleep 5
+              done
+
+              curl -fsS -u "$AUTH" -X PUT "$ES/_security/role/news_worker" -H 'Content-Type: application/json' -d '{
+                "cluster": ["monitor", "manage_ilm", "manage_index_templates"],
+                "indices": [{
+                  "names": ["articles-*", "articles"],
+                  "privileges": ["create_index", "write", "read", "manage", "view_index_metadata"]
+                }]
+              }'
+
+              curl -fsS -u "$AUTH" -X PUT "$ES/_security/role/news_api" -H 'Content-Type: application/json' -d '{
+                "cluster": ["monitor"],
+                "indices": [{
+                  "names": ["articles-*", "articles"],
+                  "privileges": ["read", "view_index_metadata"]
+                }]
+              }'
+
+              curl -fsS -u "$AUTH" -X PUT "$ES/_security/user/news_worker" -H 'Content-Type: application/json' \
+                -d "{\"password\": \"${WORKER_PASSWORD}\", \"roles\": [\"news_worker\"]}"
+
+              curl -fsS -u "$AUTH" -X PUT "$ES/_security/user/news_api" -H 'Content-Type: application/json' \
+                -d "{\"password\": \"${API_PASSWORD}\", \"roles\": [\"news_api\"]}"
+
+              echo "Roller ve kullanıcılar oluşturuldu."

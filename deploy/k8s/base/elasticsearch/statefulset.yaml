@@ -1,0 +1,66 @@
+# Elasticsearch, tek düğüm (ADR-0011). Verisini kalıcı diskte tutar; StatefulSet
+# podun yeniden başlatılsa da aynı diske bağlanmasını sağlar.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  serviceName: elasticsearch
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+        - name: elasticsearch
+          image: docker.elastic.co/elasticsearch/elasticsearch:9.4.9
+          ports:
+            - name: http
+              containerPort: 9200
+          env:
+            - name: cluster.name
+              value: haber
+            - name: discovery.type
+              value: single-node
+            # Kullanıcı adı ve şifreyle giriş ve kullanıcı bazında yetki açık (ADR-0017).
+            - name: xpack.security.enabled
+              value: "true"
+            # Küme içi trafik şifrelenmez; tek düğümlü geliştirme ortamı için kabul edilmiştir.
+            - name: xpack.security.http.ssl.enabled
+              value: "false"
+            - name: xpack.security.transport.ssl.enabled
+              value: "false"
+            # JVM belleği, konteynerin bellek sınırının yarısı; kalan yarısı işletim sisteminin dosya önbelleği için.
+            - name: ES_JAVA_OPTS
+              value: "-Xms1g -Xmx1g"
+            - name: ELASTIC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-elastic
+                  key: password
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              memory: 2Gi
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /usr/share/elasticsearch/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
