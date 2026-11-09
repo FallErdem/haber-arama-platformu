@@ -1,0 +1,31 @@
+# Yerel geliştirme kümesi (ADR-0018).
+# Oluşturma: k3d cluster create --config deploy/k3d/haber-cluster.yaml
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: haber
+servers: 1
+agents: 0
+# k3s sürümü kubectl ile aynı seride sabitlenmiştir.
+image: rancher/k3s:v1.36.6-k3s1
+ports:
+  # Kümenin önündeki yük dengeleyici, bilgisayarın 80 ve 443 portlarını kümeye yönlendirir.
+  - port: 80:80
+    nodeFilters:
+      - loadbalancer
+  - port: 443:443
+    nodeFilters:
+      - loadbalancer
+registries:
+  # Kendi uygulamalarımızın imajlarının konacağı yerel imaj deposu.
+  create:
+    name: haber-registry.localhost
+    host: "127.0.0.1"
+    hostPort: "5000"
+options:
+  k3s:
+    extraArgs:
+      # Hazır gelen Traefik kapatılır; Gateway API ve Traefik Helm ile ayrıca kurulur (ADR-0018).
+      - arg: --disable=traefik
+        nodeFilters:
+          - server:*
