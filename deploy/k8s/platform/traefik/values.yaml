@@ -1,0 +1,23 @@
+# Traefik Helm chart ayarları (ADR-0018).
+# Kurulum: helm upgrade --install traefik traefik/traefik --version 42.3.1 \
+#   --namespace traefik --create-namespace -f deploy/k8s/platform/traefik/values.yaml --wait
+providers:
+  # Trafik yalnızca Gateway API ile yönlendirilir; Traefik'in kendi kaynak türleri ve Ingress kapatılır.
+  kubernetesCRD:
+    enabled: false
+  kubernetesIngress:
+    enabled: false
+  kubernetesGateway:
+    enabled: true
+
+gateway:
+  listeners:
+    web:
+      # Uygulamaların HTTPRoute'ları kendi namespace'lerinde duracağı için başka namespace'lerden bağlanmaya izin verilir.
+      namespacePolicy:
+        from: All
+
+ingressRoute:
+  # Traefik'in yönetim paneli dışarıya açılmaz.
+  dashboard:
+    enabled: false
