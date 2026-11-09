@@ -383,7 +383,7 @@ Tam yeniden indeksleme (ADR-0012), yeni bir nesil numarasıyla (`g2`) yeni indek
 
 | Kullanıcı | Veritabanı | Yetkiler |
 |---|---|---|
-| `news_owner` | Uygulama veritabanı | Tabloların sahibi. Yalnızca geçiş betikleri bu kullanıcıyla çalışır; uygulamalar bu kullanıcıyla bağlanmaz. |
+| `news_owner` | Uygulama veritabanı | Tabloların sahibi. Geçiş betikleri bu kullanıcıyla çalışır; betikleri Spring Boot API açılırken çalıştırır (ADR-0018). Uygulamaların normal işlemleri bu kullanıcıyla yapılmaz. |
 | `news_app` | Uygulama veritabanı | Spring Boot API. Tablolarda okuma, ekleme, güncelleme ve silme; `audit_events` tablosunda yalnızca okuma ve ekleme. |
 | `news_worker` | Uygulama veritabanı | Python işçisi. Yalnızca ihtiyaç duyduğu tablolarda ve işlemlerde yetki; `audit_events` tablosunda yalnızca ekleme. Kullanıcı tablolarına (`users`, `saved_articles`, `saved_searches`) erişimi yoktur. |
 | `keycloak` | Ayrı `keycloak` veritabanı | Yalnızca kendi veritabanına erişir. |

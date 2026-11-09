@@ -20,6 +20,7 @@ Kararların gerekçeleri ilgili ADR'lerdedir:
 | Kod ve veri modeli kuralları | ADR-0015 |
 | Audit log | ADR-0016 |
 | Python işçisi ve araçları | ADR-0017 |
+| Geliştirme, test ve dağıtım araçları | ADR-0018 |
 
 ## 2. Sistem Bağlamı
 
@@ -271,8 +272,7 @@ Yaşam döngüsü kuralları (sıcak, ılık, soğuk) ADR-0011'dedir. Ayrıntıl
 
 | Konu | Açıklama |
 |---|---|
-| Frontend mimarisi | Derleme aracı, durum yönetimi, yönlendirme ve çeviri altyapısı |
 | Gözlemlenebilirlik | Loglama, metrik toplama ve uyarı araçları |
-| Dağıtım | Yerel Kubernetes ortamı, konteyner imajları ve MinIO'nun kurulum yöntemi |
-| Kütüphane seçimleri | RSS/Atom ayrıştırıcı, HTML temizleyici, modül sınırı denetimi, veritabanı geçiş aracı ve CI araçları |
+| Dağıtım | Gateway API'yi uygulayacak bileşen ve konteyner imajları |
+| Kütüphane seçimleri | Spring Boot tarafında veri erişim yöntemi (Spring Data JPA veya JDBC) |
 | Kategori eşlemesi | Kaynak kategorilerinin ortak listeye eşleme tablosu ve NYT bölümlerinin seçimi |

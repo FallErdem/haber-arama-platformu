@@ -45,7 +45,7 @@ Performans testlerinde yük üreten araç ve test edilen sistem aynı bilgisayar
 **Neden bu araçlar:**
 - **JUnit 5, Mockito, AssertJ:** Spring Boot'un test altyapısı bunlar üzerine kurulu. Alternatif TestNG, Spring ile daha az kullanılıyor ve ek bir fayda sağlamıyor.
 - **respx:** httpx isteklerini taklit eder; okuyucular internete çıkmadan, kaydedilmiş besleme örnekleriyle test edilir. Alternatifi gerçek kaynaklara istek atmak: Testler kaynakların o anki durumuna bağlı olur ve kaynaklara gereksiz yük bindirir.
-- **Vitest:** Frontend'in derleme aracı Vite olursa aynı yapılandırmayı kullanır. Alternatif Jest, Vite ile ayrıca yapılandırma gerektirir. Frontend araçları kesinleştiğinde bu seçim gözden geçirilecektir.
+- **Vitest:** Frontend'in derleme aracı Vite'tır (ADR-0018); Vitest aynı yapılandırmayı kullanır. Alternatif Jest, Vite ile ayrıca yapılandırma gerektirir.
 - **React Testing Library:** Bileşenleri kullanıcının gördüğü gibi (metin, düğme, etiket) test eder; bileşenin iç yapısına bağlı testler yazılmasını engeller.
 
 ### 5.2 Entegrasyon testleri
@@ -160,7 +160,7 @@ Her performans testi için `docs/test-raporlari/` altında bir rapor yazılır:
 | Yetki atlama | API testlerindeki yetki matrisi (5.3) | Her PR |
 | Zararlı HTML (XSS) | Zararlı içerikli örnek beslemelerle entegrasyon ve uçtan uca testleri | Her PR |
 | Yaygın web açıkları ve eksik güvenlik başlıkları | OWASP ZAP, çalışan uygulamaya karşı | Her kilometre taşında |
-| Gizli bilgi ve bağımlılık açıkları | CI'daki taramalar (FOG-17, FOG-18); araçlar CI kurulurken seçilecek | Her PR |
+| Gizli bilgi ve bağımlılık açıkları | CI'daki taramalar: gitleaks ve Trivy (FOG-17, FOG-18, ADR-0018) | Her PR |
 
 - **Neden OWASP ZAP:** Açık kaynaklı, OWASP'ın kendi projesi; çalışan uygulamaya gerçek saldırı istekleri göndererek kodu incelemeden açık arar. Alternatif Burp Suite'in otomatik tarama özelliği ücretli sürümde.
 

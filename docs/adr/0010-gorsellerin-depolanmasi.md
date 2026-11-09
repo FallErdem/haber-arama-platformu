@@ -1,6 +1,6 @@
 # ADR-0010: Görsellerin Nesne Depolamada Saklanması
 
-- **Durum:** Kabul edildi
+- **Durum:** Kabul edildi; kurulum yöntemi ADR-0018 ile belirlendi
 - **Tarih:** 2026-11-04
 - **İlişki:** ADR-0004'teki görsel kuralını değiştirir.
 

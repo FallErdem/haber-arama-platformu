@@ -1,6 +1,6 @@
 # ADR-0017: Arka Plan İşlerinin Python İşçisine Taşınması
 
-- **Durum:** Kabul edildi
+- **Durum:** Kabul edildi; bağımlılık taraması aracı ADR-0018 ile Trivy olarak değiştirildi
 - **Tarih:** 2026-11-05
 - **İlişki:** ADR-0005'teki toplayıcı rolünü değiştirir. ADR-0012, ADR-0013 ve ADR-0016'da toplayıcı rolüne verilen işler Python işçisine geçer.
 
