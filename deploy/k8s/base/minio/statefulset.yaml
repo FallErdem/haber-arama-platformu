@@ -1,0 +1,63 @@
+# Görsel deposu (ADR-0010). MinIO uyumlu topluluk çatalı Silo kullanılır (ADR-0018).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+spec:
+  serviceName: minio
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      # Kök (root) olmayan bir kullanıcıyla çalışır; fsGroup diskin bu kullanıcı tarafından yazılabilmesini sağlar.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+      containers:
+        - name: minio
+          # Yalnızca sunucu programını içeren imaj: kabuk ve ek araç yok.
+          image: docker.io/pgsty/silo:RELEASE.2026-10-26T00-00-00Z-distroless
+          args: ["server", "/data", "--console-address", ":9001"]
+          ports:
+            - name: s3
+              containerPort: 9000
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-root
+                  key: username
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-root
+                  key: password
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: s3
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi

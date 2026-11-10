@@ -32,3 +32,12 @@ secretGenerator:
   - name: elasticsearch-news-api
     envs:
       - secrets/elasticsearch-news-api.env
+  - name: minio-root
+    envs:
+      - secrets/minio-root.env
+  - name: minio-news-worker
+    envs:
+      - secrets/minio-news-worker.env
+  - name: minio-news-api
+    envs:
+      - secrets/minio-news-api.env

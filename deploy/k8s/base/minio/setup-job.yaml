@@ -1,0 +1,83 @@
+# Kovayı, erişim politikalarını ve uygulama kullanıcılarını oluşturur.
+# İşçi görsel yazabilir, okuyabilir ve silebilir; API yalnızca okuyabilir (ADR-0017).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-setup
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+      containers:
+        - name: setup
+          # Standart imaj: içinde mc istemcisi ve kabuk bulunur.
+          image: docker.io/pgsty/silo:RELEASE.2026-10-26T00-00-00Z
+          env:
+            - name: MC_CONFIG_DIR
+              value: /tmp/.mc
+            - name: ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-root
+                  key: username
+            - name: ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-root
+                  key: password
+            - name: WORKER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-news-worker
+                  key: password
+            - name: API_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-news-api
+                  key: password
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              echo "MinIO bekleniyor..."
+              until mc alias set haber http://minio:9000 "$ROOT_USER" "$ROOT_PASSWORD" > /dev/null 2>&1; do
+                sleep 5
+              done
+
+              mc mb --ignore-existing haber/media
+
+              cat > /tmp/news-worker.json <<'EOF'
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"], "Resource": ["arn:aws:s3:::media/*"]},
+                  {"Effect": "Allow", "Action": ["s3:ListBucket"], "Resource": ["arn:aws:s3:::media"]}
+                ]
+              }
+              EOF
+
+              cat > /tmp/news-api.json <<'EOF'
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {"Effect": "Allow", "Action": ["s3:GetObject"], "Resource": ["arn:aws:s3:::media/*"]}
+                ]
+              }
+              EOF
+
+              mc admin policy create haber news-worker /tmp/news-worker.json
+              mc admin policy create haber news-api /tmp/news-api.json
+
+              mc admin user add haber news-worker "$WORKER_PASSWORD"
+              mc admin user add haber news-api "$API_PASSWORD"
+
+              # Politika zaten bağlıysa mc hata verir; iş tekrar çalıştırıldığında bu durum beklenen bir durumdur.
+              mc admin policy attach haber news-worker --user news-worker || true
+              mc admin policy attach haber news-api --user news-api || true
+
+              echo "Kova, politikalar ve kullanıcılar oluşturuldu."

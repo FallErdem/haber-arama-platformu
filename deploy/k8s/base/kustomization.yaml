@@ -8,3 +8,6 @@ resources:
   - elasticsearch/statefulset.yaml
   - elasticsearch/service.yaml
   - elasticsearch/setup-job.yaml
+  - minio/statefulset.yaml
+  - minio/service.yaml
+  - minio/setup-job.yaml
