@@ -13,7 +13,7 @@
 ### 1. Yerel Kubernetes ortamı
 
 - Yerel Kubernetes ortamı olarak **k3d** kullanılır. k3d, uyumluluk testlerinden geçmiş hafif bir Kubernetes dağıtımı olan k3s'i Docker konteynerlerinde çalıştırır.
-- k3s ile hazır gelen Traefik devre dışı bırakılır. Dışarıdan gelen trafik **Gateway API** ile yönlendirilir. Hangi bileşenin kurulacağı kurulum sırasında belirlenecektir.
+- k3s ile hazır gelen Traefik devre dışı bırakılır. Dışarıdan gelen trafik **Gateway API** ile yönlendirilir. Gateway API'yi Traefik uygular; Traefik'in kendi kaynak türleri ve Ingress desteği kapatılır.
 - Frontend, API ve Keycloak aynı site altında sunulur (örnek: `/`, `/api/`, `/auth/`).
 
 Gerekçeler:
@@ -30,11 +30,20 @@ Alternatifler:
 
 ### 2. MinIO'nun kurulum yöntemi
 
-Resmi MinIO'nun son yayımlanmış sürümü kurulur; kesin sürüm etiketi kurulum sırasında resmi imaj deposundan belirlenecektir.
+- MinIO uyumlu topluluk çatalı **Silo** (`docker.io/pgsty/silo`) kullanılır; sürüm etiketi sabitlenir.
+- Sunucu, yalnızca sunucu programını içeren (distroless) imajla ve root olmayan bir kullanıcıyla çalışır. Kovayı ve kullanıcıları oluşturan iş, `mc` istemcisini içeren standart imajı kullanır.
 
-- Resmi depo arşivlendiğinden bu sürüm güvenlik güncellemesi almaz (R-35). MinIO'ya yalnızca API ve işçi erişir; küme dışına açılmaz ve MinIO'nun kendi OIDC (OpenID Connect - kimlik doğrulama protokolu) girişi kullanılmaz.
-- Konteyner imajı taramasının MinIO için bulduğu açıklar, gerekçesiyle birlikte kabul edilen risk olarak işaretlenir.
-- İşçi MinIO'ya S3 standardı üzerinden (boto3) eriştiğinden, gerekirse başka bir S3 uyumlu depolamaya kod değişmeden geçilebilir (ADR-0017).
+Gerekçeler:
+
+- Resmi MinIO deposu arşivlenmiştir. Resmi imajlar Docker Hub'dan kaldırılmış, quay.io'da hesapsız erişime kapatılmıştır; son resmi sürüm yalnızca kaynak kod olarak yayımlanmıştır.
+- Silo; MinIO'nun S3 ve yönetim API'leri, `MINIO_*` ortam değişkenleri ve disk biçimiyle uyumludur. Güvenlik düzeltmeleri yayımlanmaya devam etmektedir; sürümler değiştirilemez etiketlerle yayımlanır.
+- İşçi ve API, MinIO'ya S3 standardı üzerinden eriştiğinden, çatalın bakımı durursa başka bir S3 uyumlu depolamaya kod değişmeden geçilebilir (R-35).
+
+Alternatifler:
+
+- **Resmi MinIO'nun son yayımlanmış imajı:** Hesap gerektirir, güvenlik güncellemesi almaz.
+- **Son resmi sürümün kaynak koddan derlenmesi:** Derleme sürecinin bakımı projeye kalır; sonraki güvenlik açıkları için güncelleme gelmez.
+- **Diğer üçüncü taraf imajlar** (Chainguard, Bitnami ve benzerleri): Ücretsiz katmanda sürüm sabitlenemez veya imajın kaynağı doğrulanamaz.
 
 ### 3. Veritabanı geçiş aracı
 
@@ -90,3 +99,13 @@ Alternatifler:
 | Konu | Seçim | Gerekçe | Alternatifler |
 |---|---|---|---|
 | Derleme aracı | Vite | Uygulama giriş gerektiren tek sayfalık bir uygulamadır, API ayrıdır | Next.js: sunucu tarafında sayfa üretme bu uygulamanın ihtiyacı değildir. |
+
+Not: nginx burada yalnızca statik dosya sunucusu olarak kullanılır; emekliye ayrılan Ingress NGINX bileşeniyle ilgisi yoktur.
+
+
+## Sonuçlar
+
+- Kurulumda doğrulanacaklar: Flyway'in ücretsiz sürümünün lisans durumu, Spring Modulith'in Spring Boot 4.1 ile uyumlu sürümü, frontend kütüphanelerinin birbiriyle uyumlu sürümleri ve oidc-client-ts'in token'ı bellekte tutma ayarı.
+- API, `news_owner` kullanıcısının bilgilerine sahiptir.
+- Python işçisinin araçlarından pip-audit çıkarılır; Python bağımlılıkları Trivy ile taranır.
+- Geliştiricinin bilgisayarında gitleaks'in commit öncesi kontrolü kurulur; README'de belirtilecektir.
