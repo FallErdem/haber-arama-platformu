@@ -102,6 +102,28 @@ Alternatifler:
 
 Not: nginx burada yalnızca statik dosya sunucusu olarak kullanılır; emekliye ayrılan Ingress NGINX bileşeniyle ilgisi yoktur.
 
+### 7. Yerel ortamdaki altyapı bileşenlerinin kurulumu
+
+| Bileşen | Kurulum | Gerekçe |
+|---|---|---|
+| Traefik | Helm chart, sürümü sabit | Yalnızca Gateway API desteği açıktır; Traefik'in kendi kaynak türleri, Ingress desteği ve yönetim paneli kapatılmıştır. Yönlendirmeler yalnızca Gateway API ile tanımlandığından Traefik'in yerine başka bir Gateway API uygulaması geçirilebilir |
+| PostgreSQL | CloudNativePG operatörü | Asıl kayıt PostgreSQL'dedir; operatör yedekleme ve geri dönüşü hazır sunar. Veritabanı kullanıcıları ve Keycloak veritabanı operatörün kaynaklarıyla tanımlanır. Yedekleme aracını kendi içinde taşıyan "system" imajları kullanımdan kalkmakta olduğundan "standard" imaj kullanılır |
+| Elasticsearch, MinIO, Keycloak, Mailpit | Kendi yazılan Kubernetes tanımları, resmi veya bakımı süren imajlarla | Her satır projede yazıldığından anlatılabilir; operatörlerin getirdiği ek kaynak türleri ve pod'lar bu bileşenler için sağladıkları faydadan büyüktür |
+
+- **Bitnami kullanılmaz:** Yaygın kurulum örnekleri Bitnami'nin Helm chart'larını kullanır; ancak Bitnami Ağustos 2025'ten itibaren ücretsiz katmanda sürüm numaralı imajları genel katalogdan kaldırmıştır, bu yüzden sürüm sabitlenemez.
+- **Kustomize:** Ortak tanımlar `deploy/k8s/base/`, geliştirme ortamına özgü ayarlar `deploy/k8s/overlays/dev/` altındadır. Kubernetes Secret'ları, depoya girmeyen `secrets/` klasöründeki dosyalardan üretilir; hangi dosyaların gerektiği `secrets.example/` klasöründe gösterilir. CloudNativePG Secret'lara adlarıyla başvurduğundan Kustomize'ın adlara eklediği özet soneki kapatılmıştır.
+- **Tek namespace:** Uygulamanın bütün bileşenleri `haber` namespace'indedir; Traefik ve CloudNativePG operatörü gibi küme genelindeki bileşenler kendi namespace'lerindedir.
+- **En az yetki:** Elasticsearch'te güvenlik açıktır. Elasticsearch ve MinIO'da işçi ve API için ayrı kullanıcılar bulunur; işçi yazabilir, API yalnızca okuyabilir (ADR-0017). Kullanıcılar, tekrar çalıştırılabilen kurulum işleriyle (Job) oluşturulur.
+- **Root olmayan kullanıcı:** MinIO ve Mailpit root olmayan bir kullanıcıyla çalışır; MinIO sunucusu kabuk ve ek araç içermeyen imajla çalışır.
+- **Keycloak üretim modunda çalışır:** Geliştirme modunda çalışan bir yapılandırmanın üretim modunda da çalışacağının garantisi yoktur. Küme içinde HTTP kullanılır; HTTPS, trafiğin kümeye girdiği Gateway'de açılacaktır (İ-32).
+- **Mailpit dışarıya açılmaz:** Yalnızca geliştirme ortamında, e-postaların gerçek adreslere gitmemesi için kullanılır; arayüzüne `port-forward` ile erişilir.
+- **Sürümler sabittir:** k3s v1.36.6+k3s1 (kubectl ile aynı seri), Gateway API v1.6.3, Traefik chart 42.3.1, CloudNativePG chart 0.29.1, PostgreSQL 18.4, Elasticsearch 9.4.9, Silo RELEASE.2026-10-26T00-00-00Z, Keycloak 26.8.2, Mailpit v1.33.1.
+
+Alternatifler:
+
+- **Bütün bileşenler için operatör** (Elasticsearch için ECK, Keycloak Operator): Her operatör kendi kaynak türlerini ve pod'unu getirir; bu ölçekte öğrenilmesi ve işletilmesi gereken bileşen sayısını artırır.
+- **Bütün bileşenler için kendi tanımlarımız:** PostgreSQL'in yedekleme ve geri dönüşünün elle kurulması gerekirdi.
+- **Kendi uygulamalarımız için Helm chart:** Şablon dili okumayı zorlaştırır; tek bir uygulama için gereğinden fazla esneklik sağlar.
 
 ## Sonuçlar
 
