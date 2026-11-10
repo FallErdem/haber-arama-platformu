@@ -16,3 +16,7 @@ resources:
   - keycloak/deployment.yaml
   - keycloak/service.yaml
   - keycloak/httproute.yaml
+configMapGenerator:
+  - name: keycloak-realm
+    files:
+      - keycloak/realm-haber.json

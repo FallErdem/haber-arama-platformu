@@ -125,6 +125,18 @@ Alternatifler:
 - **Bütün bileşenler için kendi tanımlarımız:** PostgreSQL'in yedekleme ve geri dönüşünün elle kurulması gerekirdi.
 - **Kendi uygulamalarımız için Helm chart:** Şablon dili okumayı zorlaştırır; tek bir uygulama için gereğinden fazla esneklik sağlar.
 
+### 8. Keycloak realm'i
+
+- Uygulamanın kullanıcıları Keycloak'ın kendi yönetimi için kullanılan `master` realm'inde değil, ayrı bir `haber` realm'indedir.
+- Realm, `deploy/k8s/base/keycloak/realm-haber.json` dosyasında tanımlıdır ve Keycloak açılırken içe aktarılır. Dosya yalnızca projede seçilen ayarları içerir. İçe aktarma yalnızca realm yoksa yapılır; dosya değiştiğinde geliştirme ortamında realm silinip Keycloak yeniden başlatılır.
+- **Kayıt ve giriş:** Kullanıcılar kendileri kaydolur, kayıtta bir kullanıcı adı seçer ve kullanıcı adı veya e-postayla giriş yapar. Aynı e-posta iki hesapta kullanılamaz; kullanıcı adı sonradan değiştirilemez. E-posta doğrulanmadan giriş tamamlanamaz. "Beni hatırla" seçeneği yoktur.
+- **Şifre:** En az 12 karakter; kullanıcı adıyla ve e-postayla aynı olamaz. Karmaşıklık kuralı yoktur.
+- **Kaba kuvvet koruması:** Art arda 5 yanlış denemeden sonra hesap geçici olarak kilitlenir; süre 1 dakikadan 15 dakikaya kadar artar. Kalıcı kilit yoktur.
+- **Frontend client'ı (`haber-frontend`):** Şifre saklayamayan, tarayıcıda çalışan bir uygulama olduğundan public client'tır. Yalnızca Authorization Code akışına, PKCE (S256) zorunlu olarak izin verilir. Girişten sonra yalnızca tek ve tam bir adrese geri dönülür; joker karakter kullanılmaz.
+- **Hedef kitle:** Access token'ların `aud` alanına `haber-api` eklenir; API bu değeri içermeyen token'ları reddeder.
+- **Olaylar:** Kullanıcı ve yönetici olayları kaydedilir; yönetici olaylarının içeriği, gizli bilgi barındırabileceğinden kaydedilmez.
+- Giriş ve kayıt sayfaları varsayılan olarak Türkçedir. Geliştirme ortamında e-postalar Mailpit'e gider.
+
 ## Sonuçlar
 
 - Kurulumda doğrulanacaklar: Flyway'in ücretsiz sürümünün lisans durumu, Spring Modulith'in Spring Boot 4.1 ile uyumlu sürümü, frontend kütüphanelerinin birbiriyle uyumlu sürümleri ve oidc-client-ts'in token'ı bellekte tutma ayarı.

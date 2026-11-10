@@ -17,7 +17,8 @@ spec:
         - name: keycloak
           image: quay.io/keycloak/keycloak:26.8.2
           # Üretim modu; HTTPS, trafiğin kümeye girdiği Gateway'de açılacaktır (İ-32).
-          args: ["start"]
+          # --import-realm: realm yoksa /opt/keycloak/data/import klasöründeki dosyalardan oluşturulur.
+          args: ["start", "--import-realm"]
           ports:
             - name: http
               containerPort: 8080
@@ -80,3 +81,11 @@ spec:
               path: /auth/health/ready
               port: management
             periodSeconds: 10
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+      volumes:
+        - name: realm
+          configMap:
+            name: keycloak-realm
