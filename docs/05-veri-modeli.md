@@ -11,6 +11,7 @@ Genel kurallar (ADR-0015):
 - Her tabloda `created_at` ve `updated_at` bulunur; ilişki tablolarında yalnızca `created_at` bulunur.
 - Sabit değer kümeleri `text` türünde ve `CHECK` kısıtıyla tutulur.
 - Yöneticilerin düzenlediği tablolarda iyimser kilitleme için `version` sütunu bulunur.
+- `updated_at` alanı, satır güncellendiğinde bir tetikleyiciyle veritabanında güncellenir; değişikliği kimin yaptığı `audit_events` tablosunda tutulur.
 
 ## 2. Tablolar Arası İlişkiler
 
@@ -210,6 +211,7 @@ Başlangıç verisi:
 | `created_at`, `updated_at` | `timestamptz` | Zorunlu | |
 
 - Benzersiz: `(article_id, source_url)`.
+- Kısıt: `status` `DOWNLOADED` ise `storage_key` dolu olmalıdır.
 - İndeks: `(status, next_attempt_at)`.
 - Tablo aynı zamanda görsel indirme kuyruğudur (ADR-0013): `PENDING` durumundaki ve deneme zamanı gelmiş kayıtlar indirilir; belirli sayıda başarısız denemeden sonra `FAILED` olur.
 
@@ -232,7 +234,7 @@ Başlangıç verisi:
 | `error_message` | `text` | | |
 | `created_at`, `updated_at` | `timestamptz` | Zorunlu | |
 
-- İndeks: `(feed_id, started_at)`.
+- İndeksler: `(feed_id, started_at)` ve saklama süresi dolan kayıtların silinmesi için `started_at`.
 - Kaynakların günlük istek sınırı, bu tablodaki son 24 saatlik kayıtlardan hesaplanır.
 - Saklama süresi önerisi 180 gündür; kesin süre veri büyümesi analizinde belirlenecektir.
 
@@ -265,7 +267,7 @@ Başlangıç verisi:
 | `created_at` | `timestamptz` | Zorunlu | |
 
 - Birincil anahtar: `(user_id, article_id)`.
-- İndeks: `(user_id, created_at)`.
+- İndeksler: `(user_id, created_at)` ve bir haber silindiğinde kayıtlarının bulunması için `article_id`.
 
 ### 3.12 `saved_searches` (modül: library)
 
@@ -300,7 +302,8 @@ Başlangıç verisi:
 - Birincil anahtar: `(id, occurred_at)`.
 - Tablo `occurred_at` alanına göre aylara bölümlenir; bölümler geçiş betikleriyle 2028 sonuna kadar oluşturulur ve bir varsayılan bölüm bulunur.
 - İndeksler: `occurred_at`, `(actor_user_id, occurred_at)`, `(action, occurred_at)`, `(target_type, target_id)`.
-- Tablodaki güncelleme ve silmeler bir tetikleyiciyle reddedilir.
+- Tablodaki güncelleme, silme ve `TRUNCATE` işlemleri tetikleyicilerle reddedilir.
+- Kısıt: `actor_type` `USER` ise `actor_user_id` dolu, `SYSTEM` ise boş olmalıdır.
 - Kayıtlar başka tablolara yabancı anahtarla bağlanmaz: Bölümlenmiş tabloda yabancı anahtarlar yazma maliyetini artırır ve audit kaydı, bağlı olduğu nesne değişse de olduğu gibi kalmalıdır.
 - Tabloda `updated_at` bulunmaz; kayıtlar hiç güncellenmez.
 
@@ -388,6 +391,19 @@ Tam yeniden indeksleme (ADR-0012), yeni bir nesil numarasıyla (`g2`) yeni indek
 | `news_worker` | Uygulama veritabanı | Python işçisi. Yalnızca ihtiyaç duyduğu tablolarda ve işlemlerde yetki; `audit_events` tablosunda yalnızca ekleme. Kullanıcı tablolarına (`users`, `saved_articles`, `saved_searches`) erişimi yoktur. |
 | `keycloak` | Ayrı `keycloak` veritabanı | Yalnızca kendi veritabanına erişir. |
 
+İşçinin tablo bazındaki yetkileri:
+
+| Tablo | Yetki |
+|---|---|
+| `sources`, `feeds` | Okuma, güncelleme |
+| `categories`, `category_mappings` | Okuma |
+| `articles`, `media`, `ingestion_runs`, `outbox_events` | Okuma, ekleme, güncelleme, silme |
+| `article_categories` | Okuma, ekleme, silme |
+| `feed_tests` | Okuma, güncelleme, silme |
+| `audit_events` | Ekleme |
+
+- Uygulama veritabanına yalnızca `news_owner`, `news_app` ve `news_worker` bağlanabilir.
+- Yeni bir tablo ekleyen her geçiş betiği, o tablonun yetkilerini de verir.
 - Veritabanı şemasının sahibi tektir; geçiş betikleri tek bir yerde tutulur ve Python işçisi şemayı değiştirmez (ADR-0017).
 - Uygulamalar ve Keycloak aynı PostgreSQL sunucusunu kullanır, ancak birbirlerinin yetki alanlarının dışındaki verilere erişemez.
 
