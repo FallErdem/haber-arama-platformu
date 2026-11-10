@@ -1,0 +1,82 @@
+# Kimlik sağlayıcı (ADR-0014). Verisini PostgreSQL'deki keycloak veritabanında tutar.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.8.2
+          # Üretim modu; HTTPS, trafiğin kümeye girdiği Gateway'de açılacaktır (İ-32).
+          args: ["start"]
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          env:
+            # Veritabanı: CloudNativePG'nin oluşturduğu yazma servisi (postgres-rw).
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: jdbc:postgresql://postgres-rw:5432/keycloak
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-keycloak
+                  key: username
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-keycloak
+                  key: password
+            # Keycloak'a dışarıdan hangi adresle erişildiği; token'lardaki "iss" alanı da buradan gelir.
+            - name: KC_HOSTNAME
+              value: http://haber.local/auth
+            - name: KC_HTTP_RELATIVE_PATH
+              value: /auth
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            # Gateway'in eklediği X-Forwarded başlıklarına güvenilir.
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            # İlk açılışta oluşturulan yönetici kullanıcısı.
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin
+                  key: username
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin
+                  key: password
+          resources:
+            requests:
+              cpu: 250m
+              memory: 768Mi
+            limits:
+              memory: 1Gi
+          # Keycloak'ın ilk açılışı uzun sürer; açılış bitene kadar diğer kontroller beklenir.
+          startupProbe:
+            httpGet:
+              path: /auth/health/started
+              port: management
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /auth/health/ready
+              port: management
+            periodSeconds: 10

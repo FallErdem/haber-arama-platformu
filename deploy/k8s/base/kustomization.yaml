@@ -11,3 +11,8 @@ resources:
   - minio/statefulset.yaml
   - minio/service.yaml
   - minio/setup-job.yaml
+  - mailpit/deployment.yaml
+  - mailpit/service.yaml
+  - keycloak/deployment.yaml
+  - keycloak/service.yaml
+  - keycloak/httproute.yaml

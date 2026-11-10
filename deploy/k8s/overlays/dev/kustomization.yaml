@@ -41,3 +41,6 @@ secretGenerator:
   - name: minio-news-api
     envs:
       - secrets/minio-news-api.env
+  - name: keycloak-admin
+    envs:
+      - secrets/keycloak-admin.env
