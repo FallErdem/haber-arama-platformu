@@ -22,6 +22,12 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URL:http://haber.local/auth/realms/haber}
           audiences: haber-api
 
+# Loglar her ortamda JSON olarak yazılır (FOG-39); istek kimliği her satırda bulunur.
+logging:
+  structured:
+    format:
+      console: ecs
+
 newssearch:
   identity:
     # Bu e-postayla gelen ve e-postası doğrulanmış kullanıcı ilk girişinde aktif

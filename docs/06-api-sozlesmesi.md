@@ -68,6 +68,7 @@ Hatalar RFC 9457 Problem Details biçiminde (`application/problem+json`) döner.
 }
 ```
 
+- `type` alanı, değeri `about:blank` olduğunda yanıtta gönderilmez; RFC 9457'ye göre alanın bulunmaması aynı anlama gelir.
 - `errors` alanı yalnızca girdi doğrulama hatalarında bulunur.
 - Yanıtlar iç ayrıntı içermez: Yığın izi (stack trace), SQL hataları veya iç sınıf adları istemciye gönderilmez.
 

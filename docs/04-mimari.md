@@ -107,6 +107,8 @@ Backend, iş alanlarına göre altı modülden oluşur (ADR-0005; modül adları
 | `admin` | Yönetim paneli işlevleri ve istatistikler | API |
 | `audit` | Denetim kayıtlarının yazılması, aranması ve dışa aktarılması. İşçi, sistem kayıtlarını doğrudan yazar. | API ve işçi |
 
+Spring Boot API'de bu altı iş modülüne ek olarak `web` adında ortak bir teknik paket bulunur: hata yanıtlarının biçimi (RFC 9457), hata kodları ve istek kimliği buradadır. Bir iş modülü değildir; iş modülleri `web` paketini kullanır, `web` paketi hiçbir iş modülünü kullanmaz. Güvenliğe özgü 401 ve 403 yanıtları `identity` modülünde üretilir.
+
 İşçi Python ile yazıldığından, modüllerin işçideki karşılıkları işçinin kendi paketleridir; modül sınırları iki uygulamada da aynı sorumluluk ayrımını izler.
 
 ```mermaid

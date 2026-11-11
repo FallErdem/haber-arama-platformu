@@ -14,11 +14,23 @@ class SecurityConfiguration {
 
 	@Bean
 	SecurityFilterChain apiSecurityFilterChain(HttpSecurity http,
-			CurrentUserAuthenticationConverter currentUserAuthenticationConverter) throws Exception {
+			CurrentUserAuthenticationConverter currentUserAuthenticationConverter,
+			SecurityExceptionDelegator securityExceptionDelegator) throws Exception {
 		return http
-				.authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
+				// Rol yetkisi yalnızca aktif kullanıcıda bulunur (CurrentUserAuthentication);
+				// bu yüzden rol isteyen her kural aynı zamanda "aktif olmalı" demektir.
+				.authorizeHttpRequests(requests -> requests
+						// Onay bekleyen, pasif veya reddedilmiş kullanıcı da kendi durumunu görebilmeli.
+						.requestMatchers("/api/v1/me").authenticated()
+						.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+						.anyRequest().hasAnyRole("USER", "ADMIN"))
 				.oauth2ResourceServer(resourceServer -> resourceServer
-						.jwt(jwt -> jwt.jwtAuthenticationConverter(currentUserAuthenticationConverter)))
+						.jwt(jwt -> jwt.jwtAuthenticationConverter(currentUserAuthenticationConverter))
+						.authenticationEntryPoint(securityExceptionDelegator)
+						.accessDeniedHandler(securityExceptionDelegator))
+				.exceptionHandling(exceptions -> exceptions
+						.authenticationEntryPoint(securityExceptionDelegator)
+						.accessDeniedHandler(securityExceptionDelegator))
 				// Her istek kendi token'ını taşır; sunucuda oturum tutulmaz.
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				// CSRF, tarayıcının kendiliğinden gönderdiği çerezlere karşı bir korumadır;

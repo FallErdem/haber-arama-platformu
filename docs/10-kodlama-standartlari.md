@@ -59,7 +59,7 @@ Kubernetes yapılandırma dosyalarının klasörü, yerel Kubernetes ortamı kur
 - **Zaman:** Zaman değerleri UTC'dir (`Instant`). Şimdiki zaman bir `Clock` nesnesinden alınır; testlerde sabit bir saat verilebilir.
 - **Harf dönüşümleri:** Dile bağlı olmaması gereken dönüşümlerde `Locale.ROOT` kullanılır.
 - **Hatalar:** İş kuralı hataları kendi istisna sınıflarıyla fırlatılır ve tek bir genel hata işleyicide RFC 9457 yanıtına ve hata koduna çevrilir. İstisnalar yutulmaz.
-- **Loglama:** SLF4J ile, parametreli mesajlarla (`log.info("Haber gizlendi: {}", id)`). Token, parola, API anahtarı ve istek gövdeleri loglanmaz.
+- **Loglama:** SLF4J ile, parametreli mesajlarla (`log.info("Haber gizlendi: {}", id)`). Token, parola, API anahtarı ve istek gövdeleri loglanmaz. Loglar her ortamda Spring Boot'un yapılandırılmış log desteğiyle JSON olarak (`ecs` biçimi) yazılır; her satırda isteğin kimliği (`requestId`) bulunur ve aynı değer yanıtın `X-Request-Id` başlığındadır (FOG-39).
 
 ## 7. Python İşçisi
 

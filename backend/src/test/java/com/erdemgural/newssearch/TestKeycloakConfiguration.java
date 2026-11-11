@@ -2,6 +2,7 @@ package com.erdemgural.newssearch;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 
 /**
@@ -15,6 +16,11 @@ public class TestKeycloakConfiguration {
 	@Bean(destroyMethod = "stop")
 	TestTokenIssuer testTokenIssuer() {
 		return new TestTokenIssuer();
+	}
+
+	@Bean
+	TestUsers testUsers(TestTokenIssuer testTokenIssuer, JdbcClient jdbcClient) {
+		return new TestUsers(testTokenIssuer, jdbcClient);
 	}
 
 	@Bean
