@@ -51,6 +51,9 @@ Alternatifler:
 - Betikleri Spring Boot API açılırken çalıştırır. Flyway bunun için `news_owner` kullanıcısını kullanır; API'nin normal işlemleri `news_app` kullanıcısıyla yapılır.
 - Birden fazla API kopyası aynı anda açılırsa Flyway veritabanında kilit alır; betikleri yalnızca bir kopya çalıştırır.
 - Python işçisi, tablolar hazır olana kadar bekleyecek şekilde yazılır.
+- Betikler derleme sırasında jar'ın içine `db/migration` klasörüne kopyalanır: `backend/pom.xml`'de `../db/migrations` ek kaynak dizini olarak tanımlıdır. Betiklerin asıl yeri `db/migrations/` olarak kalır; geliştirmede ve imajda aynı yol kullanılır.
+- Flyway'in bağlantısı `spring.flyway.url`, `user` ve `password` ayarlarıyla, uygulamanın bağlantısı `spring.datasource` ayarlarıyla ayrı ayrı tanımlanır. Şifreler `DB_OWNER_PASSWORD` ve `DB_APP_PASSWORD` ortam değişkenlerinden okunur; adres `DB_URL` ile değiştirilebilir.
+- Testlerde Testcontainers ile `postgres:18.4-trixie` imajı kullanılır (kümedeki PostgreSQL ile aynı sürüm ve aynı Debian tabanı). Kümede CloudNativePG'nin oluşturduğu roller, testte `backend/src/test/resources/db/create-roles.sql` ile oluşturulur.
 
 Gerekçeler:
 
@@ -137,6 +140,25 @@ Alternatifler:
 - **Hedef kitle:** Access token'ların `aud` alanına `haber-api` eklenir; API bu değeri içermeyen token'ları reddeder.
 - **Olaylar:** Kullanıcı ve yönetici olayları kaydedilir; yönetici olaylarının içeriği, gizli bilgi barındırabileceğinden kaydedilmez.
 - Giriş ve kayıt sayfaları varsayılan olarak Türkçedir. Geliştirme ortamında e-postalar Mailpit'e gider.
+
+### 9. Spring Boot'ta veri erişim yöntemi
+
+- Spring Boot API, veritabanına Spring'in **`JdbcClient`** sınıfıyla erişir. Sorgular düz ve parametreli SQL olarak yazılır; her tablonun sorguları bir repository sınıfında toplanır. ORM kullanılmaz.
+- Eş zamanlı güncellemeler `version` sütunuyla elle denetlenir: güncelleme `WHERE version = ?` koşuluyla yapılır; hiçbir satır etkilenmezse kayıt bu arada başkası tarafından değiştirilmiştir ve istek 409 ile reddedilir.
+
+Gerekçeler:
+
+- Şemanın sahibi Flyway betikleridir (3. bölüm); ORM'in tablo üretme özelliğine ihtiyaç yoktur.
+- Sorguların önemli bir kısmı PostgreSQL'e özgüdür (`ON CONFLICT DO NOTHING`, bölümlenmiş ve yalnızca ekleme yapılan audit tablosu); bunlar ORM ile de elle yazılmış SQL gerektirirdi.
+- Çalışan SQL kodda açıkça görünür; önbellek, değişiklik takibi ve tembel yükleme gibi görünmeyen davranışlar yoktur.
+- Python işçisi de aynı yaklaşımı kullanır (ADR-0017); iki uygulamanın veri erişimi aynı şekilde okunur.
+
+Bedeli, satırların nesnelere çevrilmesinin ve `INSERT`/`UPDATE` cümlelerinin elle yazılmasıdır.
+
+Alternatifler:
+
+- **Spring Data JPA (Hibernate):** Temel kayıt işlemlerini kendisi üretir ve geliştiricinin tanıdığı araçtır; ancak yukarıdaki sorgular için yine SQL yazılması gerekir ve hangi SQL'in ne zaman çalıştığı koddan doğrudan okunamaz.
+- **Spring Data JDBC:** ORM'den basittir ve temel kayıt işlemlerini üretir; ancak kayıtları bütün olarak yeniden yazma gibi kendi kuralları vardır ve bu projedeki tablo sayısı için kazancı sınırlıdır.
 
 ## Sonuçlar
 

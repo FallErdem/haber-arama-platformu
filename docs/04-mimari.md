@@ -274,5 +274,4 @@ Yaşam döngüsü kuralları (sıcak, ılık, soğuk) ADR-0011'dedir. Ayrıntıl
 |---|---|
 | Gözlemlenebilirlik | Loglama, metrik toplama ve uyarı araçları |
 | Dağıtım | Gateway API'yi uygulayacak bileşen ve konteyner imajları |
-| Kütüphane seçimleri | Spring Boot tarafında veri erişim yöntemi (Spring Data JPA veya JDBC) |
 | Kategori eşlemesi | Kaynak kategorilerinin ortak listeye eşleme tablosu ve NYT bölümlerinin seçimi |

@@ -1,3 +1,14 @@
 spring:
   application:
     name: newssearch
+  # Uygulamanın normal bağlantısı: yalnızca okuma/yazma yetkisi olan news_app.
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/news}
+    username: news_app
+    password: ${DB_APP_PASSWORD}
+  # Geçiş betikleri açılışta tabloların sahibi news_owner ile çalışır (ADR-0018).
+  flyway:
+    url: ${spring.datasource.url}
+    user: news_owner
+    password: ${DB_OWNER_PASSWORD}
+    locations: classpath:db/migration
