@@ -15,8 +15,12 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @Import(TestDatabaseConfiguration.class)
 class DatabaseMigrationTests {
 
+	private final JdbcClient jdbcClient;
+
 	@Autowired
-	private JdbcClient jdbcClient;
+	DatabaseMigrationTests(JdbcClient jdbcClient) {
+		this.jdbcClient = jdbcClient;
+	}
 
 	@Test
 	@DisplayName("uygulama veritabanına news_app kullanıcısıyla bağlanır")
