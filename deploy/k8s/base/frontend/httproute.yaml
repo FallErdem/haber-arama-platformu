@@ -1,0 +1,21 @@
+# haber.local altındaki diğer bütün istekleri frontend'e yönlendirir. Gateway API'de
+# en uzun eşleşen yol kazanır; bu yüzden /api ve /auth istekleri buraya gelmez,
+# kendi kurallarıyla API'ye ve Keycloak'a gider.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: frontend
+spec:
+  parentRefs:
+    - name: traefik-gateway
+      namespace: traefik
+  hostnames:
+    - haber.local
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: frontend
+          port: 8080

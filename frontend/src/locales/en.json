@@ -1,0 +1,24 @@
+{
+  "app": {
+    "title": "News Search Platform"
+  },
+  "common": {
+    "loading": "Loading…"
+  },
+  "login": {
+    "button": "Sign in",
+    "failed": "Sign-in failed. Please try again."
+  },
+  "logout": {
+    "button": "Sign out"
+  },
+  "account": {
+    "loadFailed": "Your account details could not be loaded. Please try again later.",
+    "status": {
+      "PENDING": "Your account is waiting for administrator approval.",
+      "ACTIVE": "Welcome, {{name}}.",
+      "PASSIVE": "Your account has been deactivated.",
+      "REJECTED": "Your registration request was rejected."
+    }
+  }
+}

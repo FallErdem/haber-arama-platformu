@@ -1,0 +1,24 @@
+{
+  "app": {
+    "title": "Haber Arama Platformu"
+  },
+  "common": {
+    "loading": "Yükleniyor…"
+  },
+  "login": {
+    "button": "Giriş yap",
+    "failed": "Giriş yapılamadı. Lütfen yeniden deneyin."
+  },
+  "logout": {
+    "button": "Çıkış yap"
+  },
+  "account": {
+    "loadFailed": "Hesap bilgileri alınamadı. Lütfen daha sonra yeniden deneyin.",
+    "status": {
+      "PENDING": "Hesabınız yönetici onayı bekliyor.",
+      "ACTIVE": "Hoş geldiniz, {{name}}.",
+      "PASSIVE": "Hesabınız pasif duruma alınmış.",
+      "REJECTED": "Kayıt talebiniz reddedildi."
+    }
+  }
+}
