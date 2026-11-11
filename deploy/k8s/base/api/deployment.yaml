@@ -1,0 +1,79 @@
+# Spring Boot API (ADR-0005). Kullanıcı ve yönetici isteklerini karşılar;
+# açılırken veritabanı geçiş betiklerini çalıştırır (ADR-0018).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  # Birden fazla kopya ve kesintisiz güncelleme İ-32'de ele alınacak.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+      containers:
+        - name: api
+          # Etiket overlay'de verilir (commit özeti); scripts/dev/deploy-api.sh günceller.
+          image: haber-registry.localhost:5000/newssearch-api
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # Veritabanı: CloudNativePG'nin oluşturduğu yazma servisi (postgres-rw).
+            - name: DB_URL
+              value: jdbc:postgresql://postgres-rw:5432/news
+            # Uygulamanın normal bağlantısı (news_app).
+            - name: DB_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-news-app
+                  key: password
+            # Geçiş betiklerini çalıştıran bağlantı (news_owner).
+            - name: DB_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-news-owner
+                  key: password
+            # Token imzalarını doğrulayan açık anahtarlar Keycloak'ın küme içindeki adresinden alınır.
+            # Token'daki "iss" ise her zaman dış adrestir; uygulamadaki varsayılan değer kullanılır.
+            - name: KEYCLOAK_JWKS_URL
+              value: http://keycloak:8080/auth/realms/haber/protocol/openid-connect/certs
+            # İlk yöneticinin e-postası (ADR-0014).
+            - name: INITIAL_ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: api-settings
+                  key: initial-admin-email
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 768Mi
+          # Açılış (geçiş betikleri dahil) bitene kadar diğer kontroller beklenir.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          # Hazır değilse Service bu pod'a istek göndermez.
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+          # Yanıt vermiyorsa Kubernetes pod'u yeniden başlatır.
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10

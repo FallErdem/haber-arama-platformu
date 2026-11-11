@@ -16,6 +16,9 @@ resources:
   - keycloak/deployment.yaml
   - keycloak/service.yaml
   - keycloak/httproute.yaml
+  - api/deployment.yaml
+  - api/service.yaml
+  - api/httproute.yaml
 configMapGenerator:
   - name: keycloak-realm
     files:

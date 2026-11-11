@@ -109,6 +109,14 @@ class AccessControlTests {
 		assertRejected(get(PROTECTED_PATH, user), "USER_PASSIVE");
 	}
 
+	@Test
+	@DisplayName("sağlık adresleri token istemez, diğer yönetim adresleri kapalıdır")
+	void healthEndpointsAreOpenWithoutToken() {
+		assertThat(mvc.get().uri("/actuator/health/liveness")).hasStatusOk();
+		assertThat(mvc.get().uri("/actuator/health/readiness")).hasStatusOk();
+		assertThat(mvc.get().uri("/actuator/env")).hasStatus(HttpStatus.UNAUTHORIZED);
+	}
+
 	private MvcTestResult get(String path, TestUser user) {
 		return mvc.get().uri(path).header(HttpHeaders.AUTHORIZATION, "Bearer " + user.token()).exchange();
 	}

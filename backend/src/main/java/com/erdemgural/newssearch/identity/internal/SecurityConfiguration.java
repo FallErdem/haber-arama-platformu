@@ -20,6 +20,8 @@ class SecurityConfiguration {
 				// Rol yetkisi yalnızca aktif kullanıcıda bulunur (CurrentUserAuthentication);
 				// bu yüzden rol isteyen her kural aynı zamanda "aktif olmalı" demektir.
 				.authorizeHttpRequests(requests -> requests
+						// Sağlık kontrolünü Kubernetes yapar ve token'ı yoktur.
+						.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
 						// Onay bekleyen, pasif veya reddedilmiş kullanıcı da kendi durumunu görebilmeli.
 						.requestMatchers("/api/v1/me").authenticated()
 						.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

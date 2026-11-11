@@ -28,6 +28,19 @@ logging:
     format:
       console: ecs
 
+# Kubernetes'in "ayakta mı, istek almaya hazır mı" kontrolleri için sağlık adresleri
+# (/actuator/health/liveness ve /actuator/health/readiness). Başka hiçbir yönetim
+# adresi açılmaz; bu adresler /api altında olmadığı için dışarıdan da erişilemez.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
 newssearch:
   identity:
     # Bu e-postayla gelen ve e-postası doğrulanmış kullanıcı ilk girişinde aktif
