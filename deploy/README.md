@@ -79,6 +79,13 @@ helm upgrade --install cnpg cnpg/cloudnative-pg --version 0.29.1 \
 
 Şifreler `deploy/k8s/overlays/dev/secrets/` klasörüne yazılır. Bu klasör depoya girmez.
 
+Aynı klasöre, ilk yöneticinin e-posta adresini içeren `api-settings.env` dosyası elle eklenir (ADR-0014). Bu adresle kaydolan ve e-postasını doğrulayan kullanıcı ilk girişinde yönetici olur:
+
+```bash
+printf 'initial-admin-email=%s\n' 'YONETICI_EPOSTASI' > deploy/k8s/overlays/dev/secrets/api-settings.env
+chmod 600 deploy/k8s/overlays/dev/secrets/api-settings.env
+```
+
 ### 5. `haber.local` adresini tanıt
 
 ```bash
@@ -94,6 +101,16 @@ kubectl get pods -n haber -w
 
 Bütün pod'lar `Running`, kurulum işlerinin (`elasticsearch-setup`, `minio-setup`) pod'ları `Completed` olmalıdır. İlk kurulumda imajların indirilmesi birkaç dakika sürebilir.
 
+### 7. API'yi derle ve dağıt
+
+```bash
+./scripts/dev/deploy-api.sh
+```
+
+Betik API imajını derler (`backend/Dockerfile`, derleme bağlamı deponun kökü), yerel imaj deposuna gönderir, `deploy/k8s/overlays/dev/kustomization.yaml` dosyasındaki imaj etiketini günceller ve kümeye uygular. Etiket, o anki commit'in kısa özetidir; commit'lenmemiş değişiklik varsa sonuna `-dirty` eklenir. API kodunda yapılan her değişiklikten sonra aynı betik yeniden çalıştırılır.
+
+İmaj bilgisayardan `127.0.0.1:5000` adresine gönderilir; küme aynı imajı `haber-registry.localhost:5000` adıyla çeker.
+
 ## Doğrulama
 
 | Ne | Komut | Beklenen |
@@ -102,6 +119,8 @@ Bütün pod'lar `Running`, kurulum işlerinin (`elasticsearch-setup`, `minio-set
 | Elasticsearch kullanıcıları | `kubectl logs -n haber job/elasticsearch-setup` | "Roller ve kullanıcılar oluşturuldu." |
 | MinIO kullanıcıları | `kubectl logs -n haber job/minio-setup` | "Kova, politikalar ve kullanıcılar oluşturuldu." |
 | Keycloak | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.local/auth/` | `302` |
+| API | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.local/api/v1/me` | `401` (token olmadan) |
+| API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.local/actuator/health` | `404` |
 
 Keycloak'ın yönetim paneli: `http://haber.local/auth/admin/`. Kullanıcı adı ve şifre `deploy/k8s/overlays/dev/secrets/keycloak-admin.env` dosyasındadır.
 

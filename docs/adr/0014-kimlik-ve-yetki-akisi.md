@@ -66,6 +66,15 @@
 
 Yapılandırmada belirtilen e-posta adresine sahip ve e-postası doğrulanmış (`email_verified`) kullanıcı, ilk girişinde aktif yönetici olarak tanımlanır.
 
+- E-posta adresi `INITIAL_ADMIN_EMAIL` ortam değişkeninden okunur (`newssearch.identity.initial-admin-email`); boşsa kimse kendiliğinden yönetici olmaz. Karşılaştırmada büyük/küçük harf ayrımı yapılmaz.
+- Kural yalnızca kullanıcı kaydı oluşturulurken uygulanır; var olan bir kullanıcının rolünü veya durumunu değiştirmez.
+
+### Uygulama ayrıntıları
+
+- Kullanıcı kaydı oluşturulurken e-posta token'daki `email` alanından, görünen ad `name` alanından alınır; `name` yoksa `preferred_username` kullanılır. E-posta içermeyen bir token ile kayıt oluşturulamaz; istek `401` ile reddedilir.
+- Rol yetkisi yalnızca durumu aktif olan kullanıcıya verilir. Onay bekleyen, pasif veya reddedilmiş bir kullanıcı, tablodaki rolü ne olursa olsun yetkisizdir; yalnızca `GET /api/v1/me` ile kendi durumunu görebilir.
+- `403` yanıtındaki hata kodu kullanıcının durumundan çıkarılır (`USER_PENDING_APPROVAL`, `USER_REJECTED`, `USER_PASSIVE`); kullanıcı aktifse ve rolü yetmiyorsa `FORBIDDEN` döner.
+
 ### E-posta gönderimi
 
 - Başlangıçta bütün ortamlarda **Mailpit** kullanılır.

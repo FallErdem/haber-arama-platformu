@@ -1,0 +1,17 @@
+package com.erdemgural.newssearch.web;
+
+/**
+ * Hata yanıtlarındaki makine tarafından okunan {@code code} değerleri (API
+ * sözleşmesi 2.6). Arayüz, kullanıcıya göstereceği metni bu koddan üretir.
+ * Sözleşmedeki diğer kodlar, onları kullanan işlevlerle birlikte eklenir.
+ */
+public enum ErrorCode {
+	VALIDATION_FAILED,
+	UNAUTHENTICATED,
+	USER_PENDING_APPROVAL,
+	USER_REJECTED,
+	USER_PASSIVE,
+	FORBIDDEN,
+	NOT_FOUND,
+	INTERNAL_ERROR
+}

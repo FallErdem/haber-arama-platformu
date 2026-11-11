@@ -1,0 +1,11 @@
+# İmajlar deponun kökünden derlenir (bkz. backend/Dockerfile). Varsayılan olarak
+# hiçbir dosya Docker'a gönderilmez; yalnızca derleme için gerekenler açılır.
+# Böylece .env ve deploy/k8s/overlays/dev/secrets/ gibi gizli dosyalar derleme
+# bağlamına hiçbir zaman girmez.
+*
+
+!backend/.mvn
+!backend/mvnw
+!backend/pom.xml
+!backend/src
+!db/migrations

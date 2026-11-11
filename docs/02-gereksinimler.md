@@ -59,7 +59,7 @@ Son Dakika bir konu kategorisi değil, süreli bir zaman etiketidir (FG-AR-12). 
 | FG-KY-04 | İlk kez oturum açan kullanıcı, kullanıcı tablosunda "onay bekliyor" durumunda oluşturulmalıdır. | Must |
 | FG-KY-05 | Yetki kontrolü backend'de yapılmalıdır. Rolü yetmeyen, onay bekleyen veya pasif kullanıcıların istekleri reddedilmelidir. | Must |
 | FG-KY-06 | Pasif hale getirilen kullanıcının erişimi, elinde geçerli bir token olsa bile kesilmelidir. | Must |
-| FG-KY-07 | Uygulama ilk açılışta, yapılandırmada belirtilen e-posta adresine sahip kullanıcıyı aktif yönetici olarak tanımlamalıdır. | Must |
+| FG-KY-07 | Uygulama, yapılandırmada belirtilen e-posta adresine sahip kullanıcıyı ilk girişinde aktif yönetici olarak tanımlamalıdır. | Must |
 
 ### 3.2 Veri Toplama
 
