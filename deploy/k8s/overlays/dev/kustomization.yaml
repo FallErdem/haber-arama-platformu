@@ -7,7 +7,7 @@ images:
   # Kümede çalışan API imajının etiketi: imajın derlendiği commit'in kısa özeti.
   # scripts/dev/deploy-api.sh her dağıtımda bu satırı günceller.
   - name: haber-registry.localhost:5000/newssearch-api
-    newTag: henuz-dagitilmadi
+    newTag: 1e6fdef
 generatorOptions:
   # CloudNativePG, Secret'lara adlarıyla başvurur; Kustomize'ın adlara eklediği özet sonekini kapatıyoruz.
   disableNameSuffixHash: true

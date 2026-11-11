@@ -160,6 +160,16 @@ Alternatifler:
 - **Spring Data JPA (Hibernate):** Temel kayıt işlemlerini kendisi üretir ve geliştiricinin tanıdığı araçtır; ancak yukarıdaki sorgular için yine SQL yazılması gerekir ve hangi SQL'in ne zaman çalıştığı koddan doğrudan okunamaz.
 - **Spring Data JDBC:** ORM'den basittir ve temel kayıt işlemlerini üretir; ancak kayıtları bütün olarak yeniden yazma gibi kendi kuralları vardır ve bu projedeki tablo sayısı için kazancı sınırlıdır.
 
+### 10. Spring Boot API'nin imajı ve dağıtımı
+
+- İmaj `backend/Dockerfile` ile iki aşamada derlenir: ilk aşama JDK ile jar dosyasını üretir, ikinci aşama yalnızca JRE'yi ve jar dosyasını içerir. Derleme araçları ve kaynak kod son imaja girmez. Uygulama imajda root olmayan bir kullanıcıyla çalışır.
+- Temel imaj **Eclipse Temurin** `25.0.4.1_1` (`-jdk-noble` ve `-jre-noble`) sürümüdür; geliştirme ortamındaki Java ile aynı sürümdür.
+- Derleme bağlamı deponun köküdür, çünkü geçiş betikleri `backend/` dışındadır (3. bölüm). Kökteki `.dockerignore` varsayılan olarak hiçbir dosyayı Docker'a göndermez; yalnızca `backend/` altındaki derleme dosyaları ve `db/migrations/` açılır. Böylece gizli bilgi dosyaları derleme bağlamına girmez.
+- Testler imaj derlenirken çalıştırılmaz (Testcontainers Docker gerektirir); `./mvnw verify` ile ve CI'da çalışır.
+- İmajın etiketi, derlendiği commit'in kısa özetidir. Etiket geliştirme overlay'inde tutulur ve `scripts/dev/deploy-api.sh` tarafından güncellenir.
+- Kubernetes'in kontrolleri Spring Boot Actuator'ın sağlık adreslerini kullanır (`/actuator/health/liveness`, `/actuator/health/readiness`). Yalnızca sağlık adresi açıktır ve token istemez; trafik kuralı yalnızca `/api` ile başlayan adresleri API'ye yönlendirdiği için bu adreslere dışarıdan erişilemez (API sözleşmesi 2.8).
+- Kümede API, token imzalarını doğrulayan anahtarları Keycloak'ın küme içindeki adresinden alır; token'ın yayıncısı (`iss`) ise dış adresle karşılaştırılır.
+
 ## Sonuçlar
 
 - Kurulumda doğrulanacaklar: Flyway'in ücretsiz sürümünün lisans durumu, Spring Modulith'in Spring Boot 4.1 ile uyumlu sürümü, frontend kütüphanelerinin birbiriyle uyumlu sürümleri ve oidc-client-ts'in token'ı bellekte tutma ayarı.

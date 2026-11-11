@@ -7,7 +7,11 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OVERLAY="$REPO_ROOT/deploy/k8s/overlays/dev"
-IMAGE="haber-registry.localhost:5000/newssearch-api"
+IMAGE_NAME="newssearch-api"
+# Aynı imaj deposunun iki adresi vardır: bilgisayardan 127.0.0.1:5000, kümenin
+# içinden haber-registry.localhost:5000. Docker yalnızca 127.0.0.1 adresine
+# şifresiz (HTTP) bağlanmayı kabul ettiği için gönderim bu adresle yapılır.
+PUSH_IMAGE="127.0.0.1:5000/$IMAGE_NAME"
 
 cd "$REPO_ROOT"
 
@@ -16,9 +20,9 @@ if [[ -n "$(git status --porcelain -- backend db/migrations)" ]]; then
   TAG="$TAG-dirty"
 fi
 
-echo "İmaj derleniyor: $IMAGE:$TAG"
-docker build -f backend/Dockerfile -t "$IMAGE:$TAG" .
-docker push "$IMAGE:$TAG"
+echo "İmaj derleniyor: $IMAGE_NAME:$TAG"
+docker build -f backend/Dockerfile -t "$PUSH_IMAGE:$TAG" .
+docker push "$PUSH_IMAGE:$TAG"
 
 # Overlay'deki etiket satırını yeni etiketle değiştirir.
 sed -i "s|^\(    newTag: \).*|\1$TAG|" "$OVERLAY/kustomization.yaml"

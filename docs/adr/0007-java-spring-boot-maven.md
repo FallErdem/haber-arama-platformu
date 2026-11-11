@@ -71,6 +71,7 @@ Maven'ın tercih edilmesinin nedeni, projenin tek bir backend uygulamasından ol
 - Geliştirme ortamında Java 25, Ubuntu depolarındaki OpenJDK paketiyle kurulmuştur. `JAVA_HOME`, update-alternatives ile seçilen Java sürümüne göre belirlenmektedir.
 - Konteyner imajında kullanılacak Java temel imajı, dağıtım kararlarında belirlenecektir.
 - Projenin Spring Boot 4.1'in açık kaynak destek süresi içinde tamamlanması öngörülmektedir; bu süre aşılırsa yükseltme değerlendirilecektir.
+- Konteyner imajının temel imajı olarak Eclipse Temurin `25.0.4.1_1` seçilmiştir (ayrıntı ADR-0018, 10. bölüm).
 - Proje 10 Kasım 2026'da Spring Boot 4.1.2 ile oluşturulmuş ve sürüm `backend/pom.xml`'de sabitlenmiştir. Maven Wrapper, Maven 3.10.0'ı kullanacak şekilde yapılandırılmıştır (`backend/.mvn/wrapper/maven-wrapper.properties`).
 
 ## Kaynaklar
