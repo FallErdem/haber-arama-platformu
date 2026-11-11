@@ -60,7 +60,7 @@ class MeEndpointTests {
 	@Test
 	@DisplayName("başka bir yayıncının (iss) token'ı 401 ile reddedilir")
 	void tokenFromAnotherIssuerIsRejected() {
-		String token = tokenIssuer.token(claims -> claims.issuer("http://haber.local/auth/realms/baska"));
+		String token = tokenIssuer.token(claims -> claims.issuer("http://haber.localhost/auth/realms/baska"));
 
 		assertThat(getMe(token)).hasStatus(HttpStatus.UNAUTHORIZED);
 	}

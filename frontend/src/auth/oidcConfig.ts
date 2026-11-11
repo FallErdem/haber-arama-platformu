@@ -1,7 +1,7 @@
 import { InMemoryWebStorage, WebStorageStateStore } from 'oidc-client-ts'
 import type { AuthProviderProps } from 'react-oidc-context'
 
-// Frontend, API ve Keycloak aynı adresin altındadır (haber.local/, /api, /auth);
+// Frontend, API ve Keycloak aynı adresin altındadır (haber.localhost/, /api, /auth);
 // bu yüzden adresler sayfanın kendi adresinden türetilir.
 const origin = window.location.origin
 

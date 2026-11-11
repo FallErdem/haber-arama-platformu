@@ -1,4 +1,4 @@
-# haber.local altındaki diğer bütün istekleri frontend'e yönlendirir. Gateway API'de
+# haber.localhost altındaki diğer bütün istekleri frontend'e yönlendirir. Gateway API'de
 # en uzun eşleşen yol kazanır; bu yüzden /api ve /auth istekleri buraya gelmez,
 # kendi kurallarıyla API'ye ve Keycloak'a gider.
 apiVersion: gateway.networking.k8s.io/v1
@@ -10,7 +10,7 @@ spec:
     - name: traefik-gateway
       namespace: traefik
   hostnames:
-    - haber.local
+    - haber.localhost
   rules:
     - matches:
         - path:

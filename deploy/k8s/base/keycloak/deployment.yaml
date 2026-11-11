@@ -42,7 +42,7 @@ spec:
                   key: password
             # Keycloak'a dışarıdan hangi adresle erişildiği; token'lardaki "iss" alanı da buradan gelir.
             - name: KC_HOSTNAME
-              value: http://haber.local/auth
+              value: http://haber.localhost/auth
             - name: KC_HTTP_RELATIVE_PATH
               value: /auth
             - name: KC_HTTP_ENABLED
