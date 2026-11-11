@@ -66,6 +66,7 @@ Alternatif:
 
 - Spring Boot API'nin modül sınırları **Spring Modulith** ile denetlenir. Ana paketin altındaki her paket bir modül kabul edilir; bir test, modüllerin birbirinin iç paketlerine erişip erişmediğini ve döngüsel bağımlılık olup olmadığını kontrol eder.
 - Spring Modulith'in modüller arası olay kayıt mekanizması outbox için kullanılmaz: Bu mekanizma aynı uygulamanın içindeki modüller arasında çalışır; outbox kayıtlarını ise ayrı bir uygulama olan Python işçisi işler (ADR-0012).
+- Spring Modulith **2.1.1** kullanılır (Spring Initializr'ın Spring Boot 4.1.2 için ürettiği sürüm; `backend/pom.xml`'de sabitlenmiştir). Her modülün sorumluluğu kendi `package-info.java` dosyasında yazılıdır. Sınır testi `ModularityTests` sınıfındadır; aynı sınıf, mimarideki altı modülün tamamının tanındığını da doğrular.
 - Python işçisinin paketleri için benzer bir denetim (import-linter) işçinin yapısı netleştikten sonra değerlendirilecektir.
 
 Alternatifler:
