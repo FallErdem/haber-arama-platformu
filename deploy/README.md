@@ -117,6 +117,16 @@ Betik API imajını derler (`backend/Dockerfile`, derleme bağlamı deponun kök
 
 İmaj bilgisayardan `127.0.0.1:5000` adresine gönderilir; küme aynı imajı `haber-registry.localhost:5000` adıyla çeker.
 
+### 8. Frontend'i derle ve dağıt
+
+```bash
+./scripts/dev/deploy-frontend.sh
+```
+
+API betiğiyle aynı şekilde çalışır (`frontend/Dockerfile`). Yeni kurulan bir kümede `frontend` pod'u da bu adım çalıştırılana kadar `ImagePullBackOff` durumunda kalır.
+
+Ardından tarayıcıda `http://haber.localhost/` adresi açılır. "Giriş yap" Keycloak'ın giriş sayfasına götürür; ilk kullanıcı oradaki kayıt bağlantısıyla oluşturulur. Doğrulama e-postası Mailpit'e düşer.
+
 ## Doğrulama
 
 | Ne | Komut | Beklenen |
@@ -126,7 +136,8 @@ Betik API imajını derler (`backend/Dockerfile`, derleme bağlamı deponun kök
 | MinIO kullanıcıları | `kubectl logs -n haber job/minio-setup` | "Kova, politikalar ve kullanıcılar oluşturuldu." |
 | Keycloak | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/auth/` | `302` |
 | API | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/api/v1/me` | `401` (token olmadan) |
-| API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/actuator/health` | `404` |
+| Frontend | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/` | `200` |
+| API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{content_type}\n" http://haber.localhost/actuator/health` | `text/html` (yanıtı API değil frontend verir; API'nin yanıtı `application/...json` olurdu) |
 
 Keycloak'ın yönetim paneli: `http://haber.localhost/auth/admin/`. Kullanıcı adı ve şifre `deploy/k8s/overlays/dev/secrets/keycloak-admin.env` dosyasındadır.
 
