@@ -1,4 +1,4 @@
-# haber.local/auth ile başlayan istekleri Keycloak'a yönlendirir.
+# haber.localhost/auth ile başlayan istekleri Keycloak'a yönlendirir.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -8,7 +8,7 @@ spec:
     - name: traefik-gateway
       namespace: traefik
   hostnames:
-    - haber.local
+    - haber.localhost
   rules:
     - matches:
         - path:

@@ -4,10 +4,12 @@ namespace: haber
 resources:
   - ../../base
 images:
-  # Kümede çalışan API imajının etiketi: imajın derlendiği commit'in kısa özeti.
-  # scripts/dev/deploy-api.sh her dağıtımda bu satırı günceller.
+  # Kümede çalışan imajların etiketleri: imajın derlendiği commit'in kısa özeti.
+  # scripts/dev/deploy-api.sh ve deploy-frontend.sh her dağıtımda kendi satırını günceller.
   - name: haber-registry.localhost:5000/newssearch-api
-    newTag: 1e6fdef
+    newTag: 8a5b13e
+  - name: haber-registry.localhost:5000/newssearch-frontend
+    newTag: 3a5af30
 generatorOptions:
   # CloudNativePG, Secret'lara adlarıyla başvurur; Kustomize'ın adlara eklediği özet sonekini kapatıyoruz.
   disableNameSuffixHash: true

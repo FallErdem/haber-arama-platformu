@@ -31,7 +31,7 @@ import com.sun.net.httpserver.HttpServer;
  */
 public class TestTokenIssuer {
 
-	public static final String ISSUER = "http://haber.local/auth/realms/haber";
+	public static final String ISSUER = "http://haber.localhost/auth/realms/haber";
 	public static final String AUDIENCE = "haber-api";
 
 	private final RSAKey signingKey = generateKey("test-key");

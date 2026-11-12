@@ -86,11 +86,17 @@ printf 'initial-admin-email=%s\n' 'YONETICI_EPOSTASI' > deploy/k8s/overlays/dev/
 chmod 600 deploy/k8s/overlays/dev/secrets/api-settings.env
 ```
 
-### 5. `haber.local` adresini tanıt
+### 5. `haber.localhost` adresi
+
+Uygulamaya `http://haber.localhost` adresinden erişilir. `.localhost` ile biten adresler kendiliğinden bu bilgisayarı gösterir; `/etc/hosts` dosyasına kayıt eklemek gerekmez.
+
+Adresin `.localhost` ile bitmesi bilinçli bir seçimdir: Tarayıcılar, girişte kullanılan PKCE'nin gerektirdiği şifreleme işlevlerini yalnızca HTTPS adreslerinde ve `localhost` adreslerinde açar. HTTPS gelene kadar (İ-32) giriş bu sayede çalışır.
 
 ```bash
-echo '127.0.0.1 haber.local' | sudo tee -a /etc/hosts
+curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/
 ```
+
+Küme kuruluysa bir HTTP durum kodu döner (bileşenler kurulmadan önce `404`).
 
 ### 6. Bileşenleri kur
 
@@ -111,6 +117,16 @@ Betik API imajını derler (`backend/Dockerfile`, derleme bağlamı deponun kök
 
 İmaj bilgisayardan `127.0.0.1:5000` adresine gönderilir; küme aynı imajı `haber-registry.localhost:5000` adıyla çeker.
 
+### 8. Frontend'i derle ve dağıt
+
+```bash
+./scripts/dev/deploy-frontend.sh
+```
+
+API betiğiyle aynı şekilde çalışır (`frontend/Dockerfile`). Yeni kurulan bir kümede `frontend` pod'u da bu adım çalıştırılana kadar `ImagePullBackOff` durumunda kalır.
+
+Ardından tarayıcıda `http://haber.localhost/` adresi açılır. "Giriş yap" Keycloak'ın giriş sayfasına götürür; ilk kullanıcı oradaki kayıt bağlantısıyla oluşturulur. Doğrulama e-postası Mailpit'e düşer.
+
 ## Doğrulama
 
 | Ne | Komut | Beklenen |
@@ -118,11 +134,12 @@ Betik API imajını derler (`backend/Dockerfile`, derleme bağlamı deponun kök
 | PostgreSQL | `kubectl get cluster -n haber` | `Cluster in healthy state` |
 | Elasticsearch kullanıcıları | `kubectl logs -n haber job/elasticsearch-setup` | "Roller ve kullanıcılar oluşturuldu." |
 | MinIO kullanıcıları | `kubectl logs -n haber job/minio-setup` | "Kova, politikalar ve kullanıcılar oluşturuldu." |
-| Keycloak | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.local/auth/` | `302` |
-| API | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.local/api/v1/me` | `401` (token olmadan) |
-| API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.local/actuator/health` | `404` |
+| Keycloak | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/auth/` | `302` |
+| API | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/api/v1/me` | `401` (token olmadan) |
+| Frontend | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/` | `200` |
+| API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{content_type}\n" http://haber.localhost/actuator/health` | `text/html` (yanıtı API değil frontend verir; API'nin yanıtı `application/...json` olurdu) |
 
-Keycloak'ın yönetim paneli: `http://haber.local/auth/admin/`. Kullanıcı adı ve şifre `deploy/k8s/overlays/dev/secrets/keycloak-admin.env` dosyasındadır.
+Keycloak'ın yönetim paneli: `http://haber.localhost/auth/admin/`. Kullanıcı adı ve şifre `deploy/k8s/overlays/dev/secrets/keycloak-admin.env` dosyasındadır.
 
 Mailpit'in arayüzü:
 

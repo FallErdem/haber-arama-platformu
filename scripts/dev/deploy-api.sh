@@ -24,8 +24,9 @@ echo "İmaj derleniyor: $IMAGE_NAME:$TAG"
 docker build -f backend/Dockerfile -t "$PUSH_IMAGE:$TAG" .
 docker push "$PUSH_IMAGE:$TAG"
 
-# Overlay'deki etiket satırını yeni etiketle değiştirir.
-sed -i "s|^\(    newTag: \).*|\1$TAG|" "$OVERLAY/kustomization.yaml"
+# Overlay'de yalnızca bu imajın etiketini değiştirir: imaj adının geçtiği satırı
+# bulur ve hemen altındaki newTag satırını yeni etiketle yazar.
+sed -i "/name: .*\/$IMAGE_NAME\$/{n;s|newTag: .*|newTag: $TAG|;}" "$OVERLAY/kustomization.yaml"
 
 kubectl apply -k "$OVERLAY"
 kubectl rollout status -n haber deployment/api --timeout=180s

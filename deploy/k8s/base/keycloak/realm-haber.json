@@ -53,11 +53,11 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://haber.local/oidc-callback"],
+      "redirectUris": ["http://haber.localhost/oidc-callback"],
       "webOrigins": ["+"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://haber.local/"
+        "post.logout.redirect.uris": "http://haber.localhost/"
       },
       "protocolMappers": [
         {

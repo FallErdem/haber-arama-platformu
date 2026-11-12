@@ -15,6 +15,7 @@
 - Yerel Kubernetes ortamı olarak **k3d** kullanılır. k3d, uyumluluk testlerinden geçmiş hafif bir Kubernetes dağıtımı olan k3s'i Docker konteynerlerinde çalıştırır.
 - k3s ile hazır gelen Traefik devre dışı bırakılır. Dışarıdan gelen trafik **Gateway API** ile yönlendirilir. Gateway API'yi Traefik uygular; Traefik'in kendi kaynak türleri ve Ingress desteği kapatılır.
 - Frontend, API ve Keycloak aynı site altında sunulur (örnek: `/`, `/api/`, `/auth/`).
+- Yerel ortamda sitenin adresi `http://haber.localhost` adresidir. Tarayıcılar, girişte kullanılan PKCE'nin gerektirdiği şifreleme işlevlerini (`crypto.subtle`) yalnızca güvenli saydıkları adreslerde açar: HTTPS adresleri ve `localhost` ile `.localhost` ile biten adresler. İlk kurulumda kullanılan `http://haber.local` adresinde giriş bu nedenle başlatılamamış, adres 11 Kasım 2026'da değiştirilmiştir. HTTPS, İ-32'de Gateway'de açılacaktır.
 
 Gerekçeler:
 
@@ -106,6 +107,16 @@ Alternatifler:
 
 Not: nginx burada yalnızca statik dosya sunucusu olarak kullanılır; emekliye ayrılan Ingress NGINX bileşeniyle ilgisi yoktur.
 
+İskelet (İ-07) kurulurken netleşenler:
+
+- **TypeScript 6.0.3** kullanılır. Proje şablonu TypeScript 7 ile gelir; ancak ESLint'in TypeScript kodunu okumasını sağlayan `typescript-eslint` eklentisi (8.72) yalnızca TypeScript 6.0'a kadar destekler. Stil denetimi ESLint ile yapılacağından (5. bölüm) desteklenen en yeni TypeScript sürümü seçilmiştir.
+- **Giriş:** `oidc-client-ts` ve onu React'e bağlayan `react-oidc-context` kullanılır; akış Authorization Code + PKCE'dir. Token yalnızca bellekte tutulur (ADR-0014); kalıcı tarayıcı deposuna yazılmaz.
+- **Sessiz yeniden giriş:** Token bellekte tutulduğundan sayfa yenilendiğinde kaybolur. Sayfa açılırken uygulama, görünmeyen bir çerçevede Keycloak'a ekran göstermeden giriş isteği gönderir; Keycloak oturumu sürüyorsa yeni token alınır, sürmüyorsa giriş düğmesi gösterilir. Bu, Keycloak'ın oturum çerezine ve aynı site kararına dayanır (1. bölüm). Dönüş adresi normal girişle aynıdır (`/oidc-callback`); Keycloak'ta ek bir adres tanımlanmaz.
+- **Sunucu verisi** TanStack Query ile alınır; **çeviri** `i18next` ve `react-i18next` ile yapılır, metinler `src/locales/` altındaki dil dosyalarındadır (FOG-31).
+- **Testler** Vitest ve React Testing Library ile, jsdom ortamında çalışır; Keycloak ve API taklit edilir. Gerçek Keycloak ile giriş, uçtan uca testlerin konusudur (`08-test-stratejisi.md`).
+- **Sonraya bırakılanlar:** Görsel kütüphane (shadcn/ui, Tailwind) ve sayfa yönlendirmesi (React Router, Zod) iskelette kurulmamıştır; kullanıldıkları ilk ekranla birlikte eklenecektir. Kod stili aracı Prettier, İ-09'da eklenecektir.
+- **Sürümler** `package.json`'da aralık olmadan, kesin olarak yazılır; dolaylı bağımlılıkların sürümleri `package-lock.json` ile sabitlenir.
+
 ### 7. Yerel ortamdaki altyapı bileşenlerinin kurulumu
 
 | Bileşen | Kurulum | Gerekçe |
@@ -169,6 +180,14 @@ Alternatifler:
 - İmajın etiketi, derlendiği commit'in kısa özetidir. Etiket geliştirme overlay'inde tutulur ve `scripts/dev/deploy-api.sh` tarafından güncellenir.
 - Kubernetes'in kontrolleri Spring Boot Actuator'ın sağlık adreslerini kullanır (`/actuator/health/liveness`, `/actuator/health/readiness`). Yalnızca sağlık adresi açıktır ve token istemez; trafik kuralı yalnızca `/api` ile başlayan adresleri API'ye yönlendirdiği için bu adreslere dışarıdan erişilemez (API sözleşmesi 2.8).
 - Kümede API, token imzalarını doğrulayan anahtarları Keycloak'ın küme içindeki adresinden alır; token'ın yayıncısı (`iss`) ise dış adresle karşılaştırılır.
+
+### 11. React frontend'in imajı ve dağıtımı
+
+- İmaj `frontend/Dockerfile` ile iki aşamada derlenir: ilk aşama Node ile uygulamayı derler (`npm ci`, `npm run build`), ikinci aşama yalnızca nginx'i ve derlenmiş dosyaları içerir. Node ve `node_modules` son imaja girmez.
+- Derleme imajı `node:26.12.1-alpine`, çalışma imajı `nginxinc/nginx-unprivileged:1.30.6-alpine` sürümüdür. İkincisi, nginx'in kararlı dalının root olmayan kullanıcıyla ve 8080 portunda çalışan resmi imajıdır.
+- nginx, dosya karşılığı olmayan her adres için `index.html` dosyasını sunar; girişten dönüş adresi (`/oidc-callback`) bu sayede çalışır. `index.html` önbelleğe alınmaz; adında içerik özeti bulunan derleme çıktıları (`/assets/`) uzun süre önbellekte tutulabilir.
+- Derleme bağlamı, etiketleme ve dağıtım API imajıyla aynıdır (10. bölüm); betik `scripts/dev/deploy-frontend.sh` dosyasıdır. Her betik, overlay'de yalnızca kendi imajının etiketini günceller.
+- Trafik kuralı `/` ile başlayan bütün istekleri frontend'e yönlendirir. Gateway API'de en uzun eşleşen yol kazandığından `/api` ve `/auth` istekleri API'ye ve Keycloak'a gider.
 
 ## Sonuçlar
 

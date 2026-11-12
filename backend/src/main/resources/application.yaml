@@ -18,8 +18,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${KEYCLOAK_JWKS_URL:http://haber.local/auth/realms/haber/protocol/openid-connect/certs}
-          issuer-uri: ${KEYCLOAK_ISSUER_URL:http://haber.local/auth/realms/haber}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URL:http://haber.localhost/auth/realms/haber/protocol/openid-connect/certs}
+          issuer-uri: ${KEYCLOAK_ISSUER_URL:http://haber.localhost/auth/realms/haber}
           audiences: haber-api
 
 # Loglar her ortamda JSON olarak yazılır (FOG-39); istek kimliği her satırda bulunur.
