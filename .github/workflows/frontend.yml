@@ -1,0 +1,54 @@
+# React frontend'in CI kontrolleri: stil denetimi, testler ve derleme (FOG-24, FOG-28).
+name: Frontend
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Stil, testler ve derleme
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Depoyu indir
+        uses: actions/checkout@v7.0.1
+
+      - name: Node'u kur
+        uses: actions/setup-node@v7.1.0
+        with:
+          # İmajı derleyen Node ile aynı sürüm (frontend/Dockerfile).
+          node-version: "26.12.1"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # npm ci: kilit dosyasındaki sürümleri birebir kurar; dosya package.json ile uyuşmuyorsa durur.
+      - name: Paketleri kur
+        run: npm ci
+
+      - name: Stil denetimi (ESLint)
+        run: npm run lint
+
+      - name: Testler
+        run: npm test
+
+      # Derleme, TypeScript tür denetimini de içerir (tsc -b).
+      - name: Tür denetimi ve derleme
+        run: npm run build

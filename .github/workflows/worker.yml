@@ -1,0 +1,59 @@
+# Python işçisinin CI kontrolleri: stil, tür denetimi ve testler (FOG-24, FOG-28).
+name: Worker
+
+on:
+  # Geçiş betikleri de listededir: işçinin testleri onları geçici veritabanına uygular.
+  pull_request:
+    paths:
+      - "worker/**"
+      - "db/migrations/**"
+      - ".github/workflows/worker.yml"
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "db/migrations/**"
+      - ".github/workflows/worker.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Stil, tür denetimi ve testler
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - name: Depoyu indir
+        uses: actions/checkout@v7.0.1
+
+      - name: uv'yi kur
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          # Geliştirme ortamındaki ve imajdaki uv ile aynı sürüm.
+          version: "0.13.6"
+          enable-cache: true
+          cache-dependency-glob: worker/uv.lock
+
+      # --locked: uv.lock ile pyproject.toml uyuşmuyorsa durur. Python 3.14'ü de uv kurar (.python-version).
+      - name: Paketleri kur
+        run: uv sync --locked
+
+      - name: Biçim denetimi (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Stil denetimi (ruff)
+        run: uv run ruff check .
+
+      - name: Tür denetimi (mypy)
+        run: uv run mypy
+
+      - name: Testler
+        run: uv run pytest
