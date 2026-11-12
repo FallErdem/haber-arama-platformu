@@ -1,0 +1,50 @@
+# Spring Boot API'nin CI kontrolleri: derleme ve testler (FOG-24).
+name: Backend
+
+on:
+  # Yol filtreleri: yalnızca API'yi etkileyen dosyalar değiştiğinde çalışır (ADR-0008).
+  pull_request:
+    paths:
+      - "backend/**"
+      - "db/migrations/**"
+      - ".github/workflows/backend.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "db/migrations/**"
+      - ".github/workflows/backend.yml"
+
+# Bu iş depoyu yalnızca okur; başka hiçbir yetkiye ihtiyacı yoktur.
+permissions:
+  contents: read
+
+# Aynı dala yeni bir gönderim gelirse, o dalın süren eski çalışması iptal edilir.
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Derleme ve testler
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Depoyu indir
+        uses: actions/checkout@v7.0.1
+
+      - name: Java 25'i kur
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          # İndirilen Maven paketleri çalışmalar arasında saklanır; sonraki çalışmalar hızlanır.
+          cache: maven
+
+      # verify: derler ve bütün testleri çalıştırır. Testcontainers'ın ihtiyaç duyduğu
+      # Docker, GitHub'ın Linux sunucularında hazır bulunur.
+      - name: Derle ve test et
+        run: ./mvnw --batch-mode verify
