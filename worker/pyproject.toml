@@ -1,0 +1,47 @@
+[project]
+name = "news-worker"
+version = "0.1.0"
+description = "Haber Arama Platformu arka plan işçisi"
+requires-python = ">=3.14"
+dependencies = [
+    "psycopg[binary]==3.3.6",
+]
+
+[project.scripts]
+news-worker = "news_worker.app:main"
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy==2.4.1",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.4.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.17.3",
+    "testcontainers[postgres]==4.15.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# async test fonksiyonları ek işaret gerektirmeden çalışır.
+asyncio_mode = "auto"
+# Her test kendi olay döngüsüyle çalışır; testler birbirini etkilemez.
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--cov=news_worker --cov-report=term-missing"
+
+[tool.mypy]
+# Katı mod: tür ipucu olmayan veya türü belirsiz kod hata sayılır (kodlama standartları 7. bölüm).
+strict = true
+files = ["src", "tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+# E, W: stil; F: hatalı kod; I: import sırası; B: sık yapılan hatalar;
+# UP: eski yazımlar; SIM: sadeleştirme; ASYNC: asyncio hataları.
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "ASYNC"]

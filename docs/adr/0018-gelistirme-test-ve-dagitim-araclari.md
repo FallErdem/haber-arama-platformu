@@ -189,6 +189,15 @@ Alternatifler:
 - Derleme bağlamı, etiketleme ve dağıtım API imajıyla aynıdır (10. bölüm); betik `scripts/dev/deploy-frontend.sh` dosyasıdır. Her betik, overlay'de yalnızca kendi imajının etiketini günceller.
 - Trafik kuralı `/` ile başlayan bütün istekleri frontend'e yönlendirir. Gateway API'de en uzun eşleşen yol kazandığından `/api` ve `/auth` istekleri API'ye ve Keycloak'a gider.
 
+### 12. Python işçisinin imajı ve dağıtımı
+
+- İmaj `worker/Dockerfile` ile iki aşamada derlenir: ilk aşama uv ile paketleri kilit dosyasındaki sürümlerle kurar, ikinci aşama yalnızca Python'u ve kurulu paketleri içerir. uv ve test araçları son imaja girmez. İşçi imajda root olmayan bir kullanıcıyla çalışır.
+- Temel imaj `python:3.14.9-slim-trixie`, uv imajı `ghcr.io/astral-sh/uv:0.13.6` sürümüdür.
+- İşçi kümede tek kopya çalışır ve güncelleme yöntemi `Recreate`'tir: yeni sürüm dağıtılırken önce eski pod durdurulur, sonra yenisi başlar. Varsayılan yöntem iki pod'u kısa süre birlikte çalıştırırdı; iki işçi aynı beslemeyi aynı anda okurdu.
+- İşçi dışarıdan istek almaz; bu yüzden Service'i ve trafik kuralı yoktur. Sağlık adresleri yalnızca Kubernetes'in kontrolleri içindir.
+- Tablolar beklenirken işçi "ayakta ama hazır değil" görünür; Kubernetes onu yeniden başlatmaz.
+- Derleme bağlamı, etiketleme ve dağıtım diğer imajlarla aynıdır (10. bölüm); betik `scripts/dev/deploy-worker.sh` dosyasıdır.
+
 ## Sonuçlar
 
 - Kurulumda doğrulanacaklar: Flyway'in ücretsiz sürümünün lisans durumu, Spring Modulith'in Spring Boot 4.1 ile uyumlu sürümü, frontend kütüphanelerinin birbiriyle uyumlu sürümleri ve oidc-client-ts'in token'ı bellekte tutma ayarı.

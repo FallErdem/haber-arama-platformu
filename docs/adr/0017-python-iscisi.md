@@ -62,6 +62,25 @@ Veritabanı geçiş betikleri tek bir yerde tutulur. Python işçisi şemayı hi
 
 Kütüphane sürümleri kurulum sırasında sabitlenecek; yukarıdaki bilgiler kütüphanelerin resmi sayfalarından doğrulanmıştır.
 
+### 7. İskelet (İ-08)
+
+İskelet, işçinin ileride yapacağı işlerin çatısıdır. Henüz haber çekmez; yalnızca şunları yapar:
+
+- Ayarlarını ortam değişkenlerinden okur. Veritabanı şifresi (`DB_PASSWORD`) verilmemişse ne eksik olduğunu söyleyip durur.
+- Veritabanına yalnızca `news_worker` kullanıcısıyla bağlanır.
+- Tablolar hazır olana kadar bekler. Tabloları Spring Boot API kurar; işçi ondan önce başlarsa çökmez, birkaç saniyede bir yeniden bakar.
+- 30 saniyede bir, okuma zamanı gelmiş ve etkin beslemeleri bulur ve sayısını loga yazar. Bir turda hata olursa (örneğin veritabanına ulaşılamazsa) hata loga yazılır ve sonraki turda yeniden denenir; işçi durmaz.
+- Kubernetes'in sağlık kontrollerine iki adresten cevap verir: `/healthz/live` (işçi ayakta mı) ve `/healthz/ready` (tablolar görünüyor ve son tur başarılı mı).
+- Kapatılması istendiğinde elindeki turu bitirip kapanır.
+- Loglarını, API gibi, her satırı bir JSON nesnesi olacak biçimde yazar.
+
+İskelette alınan kararlar:
+
+- **Yalnızca kullanılan kütüphaneler kuruldu.** Şimdilik tek çalışma bağımlılığı `psycopg` 3.3.6'dır. Yukarıdaki tablodaki diğer kütüphaneler (httpx, feedparser, nh3, elasticsearch, boto3, Pillow), onları kullanan iş kalemleriyle birlikte eklenecektir. Geliştirme araçları: pytest 9.2.0, pytest-asyncio 1.4.1, pytest-cov 7.1.0, ruff 0.17.3, mypy 2.4.1, testcontainers 4.15.0. uv sürümü 0.13.6'dır.
+- **Her turda yeni bir veritabanı bağlantısı açılır.** 30 saniyede bir bağlantı açmak ucuzdur ve veritabanı yeniden başlasa bile işçi ek kod gerekmeden toparlanır. Toplama akışı geldiğinde (İ-12) bağlantı havuzu değerlendirilecektir.
+- **Testler PostgreSQL üzerinde çalışır.** Test başlarken geçici bir PostgreSQL 18.4 konteyneri açılır, roller oluşturulur ve `db/migrations/` altındaki betikler sırayla uygulanır. Böylece işçi, gerçekte göreceği tablolar ve yetkilerle sınanır; örneğin kullanıcı tablosunu okuyamadığı testle gösterilir.
+- **pip-audit kullanılmaz;** Python bağımlılıkları Trivy ile taranır (ADR-0018).
+
 ## Sonuçlar
 
 - Spring Boot API'nin zamanlanmış işi olmadığından, kopya sayısı kısıtsız artırılabilir.

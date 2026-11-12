@@ -1,0 +1,33 @@
+"""Logları yapılandırılmış (JSON) biçimde yazar; her satır tek bir JSON nesnesidir."""
+
+import json
+import logging
+import sys
+from datetime import UTC, datetime
+
+SERVICE_NAME = "news-worker"
+
+
+class JsonFormatter(logging.Formatter):
+    """Alan adları, API'nin loglarındaki gibi Elastic Common Schema'yı izler."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        entry: dict[str, str] = {
+            "@timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
+            "log.level": record.levelname,
+            "log.logger": record.name,
+            "service.name": SERVICE_NAME,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            entry["error.stack_trace"] = self.formatException(record.exc_info)
+        # ensure_ascii=False: Türkçe karakterler \u kaçışlarıyla değil olduğu gibi yazılır.
+        return json.dumps(entry, ensure_ascii=False)
+
+
+def configure_logging() -> None:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter())
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(logging.INFO)

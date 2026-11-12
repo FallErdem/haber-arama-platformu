@@ -127,6 +127,14 @@ API betiğiyle aynı şekilde çalışır (`frontend/Dockerfile`). Yeni kurulan 
 
 Ardından tarayıcıda `http://haber.localhost/` adresi açılır. "Giriş yap" Keycloak'ın giriş sayfasına götürür; ilk kullanıcı oradaki kayıt bağlantısıyla oluşturulur. Doğrulama e-postası Mailpit'e düşer.
 
+### 9. İşçiyi derle ve dağıt
+
+```bash
+./scripts/dev/deploy-worker.sh
+```
+
+Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, tabloları API kurduğu için API'den sonra dağıtılır; önce dağıtılırsa çökmez, tablolar hazır olana kadar bekler.
+
 ## Doğrulama
 
 | Ne | Komut | Beklenen |
@@ -137,6 +145,7 @@ Ardından tarayıcıda `http://haber.localhost/` adresi açılır. "Giriş yap" 
 | Keycloak | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/auth/` | `302` |
 | API | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/api/v1/me` | `401` (token olmadan) |
 | Frontend | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/` | `200` |
+| İşçi | `kubectl logs -n haber deploy/worker --tail=3` | "Okuma zamanı gelmiş besleme sayısı: ..." satırları (30 saniyede bir) |
 | API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{content_type}\n" http://haber.localhost/actuator/health` | `text/html` (yanıtı API değil frontend verir; API'nin yanıtı `application/...json` olurdu) |
 
 Keycloak'ın yönetim paneli: `http://haber.localhost/auth/admin/`. Kullanıcı adı ve şifre `deploy/k8s/overlays/dev/secrets/keycloak-admin.env` dosyasındadır.
