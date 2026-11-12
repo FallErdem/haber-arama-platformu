@@ -9,5 +9,4 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *                          kendiliğinden yönetici olmaz
  */
 @ConfigurationProperties("newssearch.identity")
-record IdentityProperties(String initialAdminEmail) {
-}
+record IdentityProperties(String initialAdminEmail) {}

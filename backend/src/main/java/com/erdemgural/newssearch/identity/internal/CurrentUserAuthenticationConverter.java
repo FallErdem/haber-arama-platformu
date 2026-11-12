@@ -13,15 +13,14 @@ import org.springframework.stereotype.Component;
 @Component
 class CurrentUserAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
-	private final UserProvisioningService userProvisioningService;
+    private final UserProvisioningService userProvisioningService;
 
-	CurrentUserAuthenticationConverter(UserProvisioningService userProvisioningService) {
-		this.userProvisioningService = userProvisioningService;
-	}
+    CurrentUserAuthenticationConverter(UserProvisioningService userProvisioningService) {
+        this.userProvisioningService = userProvisioningService;
+    }
 
-	@Override
-	public AbstractAuthenticationToken convert(Jwt jwt) {
-		return new CurrentUserAuthentication(jwt, userProvisioningService.findOrCreate(jwt));
-	}
-
+    @Override
+    public AbstractAuthenticationToken convert(Jwt jwt) {
+        return new CurrentUserAuthentication(jwt, userProvisioningService.findOrCreate(jwt));
+    }
 }

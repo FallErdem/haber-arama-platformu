@@ -1,18 +1,16 @@
 package com.erdemgural.newssearch.web.internal;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.UUID;
-
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Her isteğe bir kimlik verir; kimlik yanıtın {@code X-Request-Id} başlığına ve
@@ -24,22 +22,20 @@ import jakarta.servlet.http.HttpServletResponse;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 class RequestIdFilter extends OncePerRequestFilter {
 
-	static final String HEADER_NAME = "X-Request-Id";
-	static final String LOG_FIELD_NAME = "requestId";
+    static final String HEADER_NAME = "X-Request-Id";
+    static final String LOG_FIELD_NAME = "requestId";
 
-	@Override
-	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-			throws ServletException, IOException {
-		String requestId = UUID.randomUUID().toString();
-		MDC.put(LOG_FIELD_NAME, requestId);
-		response.setHeader(HEADER_NAME, requestId);
-		try {
-			filterChain.doFilter(request, response);
-		}
-		finally {
-			// İş parçacıkları yeniden kullanılır; kimlik bir sonraki isteğe taşınmamalı.
-			MDC.remove(LOG_FIELD_NAME);
-		}
-	}
-
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+        String requestId = UUID.randomUUID().toString();
+        MDC.put(LOG_FIELD_NAME, requestId);
+        response.setHeader(HEADER_NAME, requestId);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            // İş parçacıkları yeniden kullanılır; kimlik bir sonraki isteğe taşınmamalı.
+            MDC.remove(LOG_FIELD_NAME);
+        }
+    }
 }

@@ -6,12 +6,12 @@ package com.erdemgural.newssearch.web;
  * Sözleşmedeki diğer kodlar, onları kullanan işlevlerle birlikte eklenir.
  */
 public enum ErrorCode {
-	VALIDATION_FAILED,
-	UNAUTHENTICATED,
-	USER_PENDING_APPROVAL,
-	USER_REJECTED,
-	USER_PASSIVE,
-	FORBIDDEN,
-	NOT_FOUND,
-	INTERNAL_ERROR
+    VALIDATION_FAILED,
+    UNAUTHENTICATED,
+    USER_PENDING_APPROVAL,
+    USER_REJECTED,
+    USER_PASSIVE,
+    FORBIDDEN,
+    NOT_FOUND,
+    INTERNAL_ERROR
 }
