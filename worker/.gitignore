@@ -1,0 +1,19 @@
+# uv'nin oluşturduğu sanal ortam (paketler burada durur; uv.lock'tan yeniden kurulur)
+.venv/
+
+# Python'un derlenmiş dosyaları
+__pycache__/
+*.py[cod]
+
+# Araçların önbellekleri
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Test kapsamı çıktıları
+.coverage
+htmlcov/
+
+# Paketleme çıktıları
+dist/
+*.egg-info/

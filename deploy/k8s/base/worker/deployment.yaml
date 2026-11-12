@@ -1,0 +1,67 @@
+# Python işçisi (ADR-0017): bütün arka plan işlerini yürütür. Dışarıdan istek almaz;
+# bu yüzden Service'i ve trafik kuralı yoktur.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  # İşçi tek kopya çalışır: iki kopya aynı beslemeyi aynı anda okurdu.
+  replicas: 1
+  # Recreate: yeni sürüm dağıtılırken önce eski pod durdurulur, sonra yenisi başlar.
+  # Varsayılan yöntem (RollingUpdate) ikisini kısa süre birlikte çalıştırırdı.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+      containers:
+        - name: worker
+          # Etiket overlay'de verilir (commit özeti); scripts/dev/deploy-worker.sh günceller.
+          image: haber-registry.localhost:5000/newssearch-worker
+          ports:
+            - name: health
+              containerPort: 8080
+          env:
+            # Veritabanı: CloudNativePG'nin oluşturduğu yazma servisi (postgres-rw).
+            - name: DB_HOST
+              value: postgres-rw
+            # İşçi yalnızca kendi kullanıcısıyla bağlanır (news_worker); kullanıcı adı uygulamadaki varsayılandır.
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-news-worker
+                  key: password
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              memory: 192Mi
+          startupProbe:
+            httpGet:
+              path: /healthz/live
+              port: health
+            periodSeconds: 2
+            failureThreshold: 30
+          # Hazır: tablolar görünüyor ve zamanlayıcının son turu başarılı. Tablolar
+          # beklenirken işçi "ayakta ama hazır değil" görünür; yeniden başlatılmaz.
+          readinessProbe:
+            httpGet:
+              path: /healthz/ready
+              port: health
+            periodSeconds: 10
+          # Yanıt vermiyorsa Kubernetes pod'u yeniden başlatır.
+          livenessProbe:
+            httpGet:
+              path: /healthz/live
+              port: health
+            periodSeconds: 10

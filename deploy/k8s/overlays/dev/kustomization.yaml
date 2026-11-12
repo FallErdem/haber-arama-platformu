@@ -5,11 +5,13 @@ resources:
   - ../../base
 images:
   # Kümede çalışan imajların etiketleri: imajın derlendiği commit'in kısa özeti.
-  # scripts/dev/deploy-api.sh ve deploy-frontend.sh her dağıtımda kendi satırını günceller.
+  # scripts/dev/ altındaki deploy-*.sh betikleri her dağıtımda kendi satırını günceller.
   - name: haber-registry.localhost:5000/newssearch-api
     newTag: 8a5b13e
   - name: haber-registry.localhost:5000/newssearch-frontend
     newTag: 3a5af30
+  - name: haber-registry.localhost:5000/newssearch-worker
+    newTag: c3529c8
 generatorOptions:
   # CloudNativePG, Secret'lara adlarıyla başvurur; Kustomize'ın adlara eklediği özet sonekini kapatıyoruz.
   disableNameSuffixHash: true
