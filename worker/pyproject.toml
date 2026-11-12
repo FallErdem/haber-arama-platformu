@@ -30,7 +30,8 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 # Her test kendi olay döngüsüyle çalışır; testler birbirini etkilemez.
 asyncio_default_fixture_loop_scope = "function"
-addopts = "--cov=news_worker --cov-report=term-missing"
+# --cov-fail-under: satır kapsamı %80'in altındaysa test çalıştırması başarısız sayılır (FOG-23).
+addopts = "--cov=news_worker --cov-report=term-missing --cov-fail-under=80"
 
 [tool.mypy]
 # Katı mod: tür ipucu olmayan veya türü belirsiz kod hata sayılır (kodlama standartları 7. bölüm).
