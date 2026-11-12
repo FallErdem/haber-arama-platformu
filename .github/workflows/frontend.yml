@@ -43,6 +43,9 @@ jobs:
       - name: Paketleri kur
         run: npm ci
 
+      - name: Biçim denetimi (Prettier)
+        run: npm run format:check
+
       - name: Stil denetimi (ESLint)
         run: npm run lint
 
