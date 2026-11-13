@@ -106,6 +106,15 @@ Kubernetes yapılandırma dosyalarının klasörü, yerel Kubernetes ortamı kur
 
 Bütün kontroller CI'da çalışır; herhangi biri başarısız olursa PR birleştirilmez (ADR-0008).
 
+Kod yazdıktan sonra, commit'ten önce çalıştırılacak komutlar:
+
+| | Biçimlendir | Denetle (CI'ın çalıştırdığı) |
+|---|---|---|
+| Java (`backend/`) | `./mvnw spotless:apply` | `./mvnw verify` (biçim, testler ve kapsam) |
+| Python (`worker/`) | `uv run ruff format .` | `uv run ruff format --check .`, `uv run ruff check .`, `uv run mypy`, `uv run pytest` |
+| TypeScript (`frontend/`) | `npm run format` | `npm run format:check`, `npm run lint`, `npm test`, `npm run build` |
+| Commit başlıkları | — | `scripts/ci/check-commit-messages.sh origin/main HEAD` |
+
 **Seçimlerin gerekçeleri:**
 
 - **palantir-java-format:** Yapılandırma gerektirmez ve her zaman aynı sonucu üretir; 120 karakterlik satır uzunluğu, Spring kodundaki uzun zincirleme çağrıları okunaklı tutar. Alternatif google-java-format, 2 boşluk girinti ve 100 karakterlik satırla daha sık satır bölünmesine yol açar.

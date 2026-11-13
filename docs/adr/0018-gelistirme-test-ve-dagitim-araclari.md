@@ -93,6 +93,15 @@ Gerekçeler:
 - **gitleaks'in commit öncesinde çalışması:** Bir gizli bilgi push edildikten sonra Git geçmişinden silinmesi yeterli değildir; anahtarın iptal edilip yenilenmesi gerekir (R-16). Commit öncesinde yakalamak sızıntının oluşmasını engeller; CI'daki tarama bu kontrolün atlandığı durumlar için ikinci güvencedir.
 - **Trivy:** Bütün ekosistemleri, konteyner imajlarını ve Kubernetes yapılandırma dosyalarını tek araçla tarar. Python için ADR-0017'de seçilen pip-audit'in yerini alır; aynı işi yapan iki aracın raporlarının ve yapılandırmalarının ayrı ayrı yönetilmesi önlenir.
 
+CI kurulurken (İ-09) netleşenler:
+
+- **Araçlar hazır CI adımlarıyla değil, kendi resmi imajlarından sabit sürümle çalıştırılır:** gitleaks v8.30.1 ve Trivy 0.76.1. Böylece CI'da ve geliştirme bilgisayarında aynı komut çalışır ve üçüncü tarafların yazdığı CI adımlarına bağımlılık azalır. Trivy için sarmalayıcı `scripts/ci/trivy.sh` dosyasıdır.
+- **gitleaks** CI'da deponun bütün geçmişini tarar. Geliştirme bilgisayarında commit öncesi kontrol `.githooks/pre-commit` dosyasıdır; `git config core.hooksPath .githooks` komutuyla etkinleştirilir.
+- **Trivy'de neyin engellediği:** Kendi seçtiğimiz kütüphanelerde (Java, npm, Python) yüksek veya kritik düzeyde açık varsa CI başarısız olur (FOG-18). İmajlardaki işletim sistemi paketleri ve Kubernetes tanımları taranır ve raporlanır, ancak birleştirmeyi engellemez: bunların düzeltilmesi temel imajların yeni sürümlerine ve İ-32'deki sıkılaştırmaya bağlıdır (R-37).
+- **Java kütüphaneleri imajdaki jar dosyasından taranır,** `pom.xml`'den değil. Gerçekten dağıtılan kütüphaneler bunlardır ve tarama Maven deposuna istek göndermez. Frontend ve işçi kütüphaneleri kilit dosyalarından (`package-lock.json`, `uv.lock`) taranır.
+- **Açık taraması yol filtresiyle ve haftalık çalışır:** Üç imajı derlediği için yalnızca kod, imaj veya Kubernetes dosyaları değiştiğinde çalışır; ayrıca her Pazartesi kendiliğinden çalışır, çünkü kod değişmese de yeni açıklar yayımlanır.
+- **Dependabot şimdilik kurulmamıştır.** Sürümler elle güncellenir; haftalık açık taraması, güncelleme gerektiren kütüphaneleri gösterir. İhtiyaç olursa sonradan eklenebilir.
+
 Alternatifler:
 
 - **TruffleHog:** Bulduğu anahtarın geçerli olup olmadığını doğrulayabilir; daha ağırdır ve doğrulama için ilgili servise istek gönderir.
