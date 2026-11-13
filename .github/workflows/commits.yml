@@ -1,0 +1,26 @@
+# PR'daki commit başlıklarını denetler (FOG-29, ADR-0002).
+name: Commit mesajları
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Conventional Commits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Depoyu geçmişiyle birlikte indir
+        uses: actions/checkout@v7.0.1
+        with:
+          # 0: bütün geçmiş. Varsayılan yalnızca son commit'i indirir; karşılaştırma yapılamaz.
+          fetch-depth: 0
+
+      - name: Commit başlıklarını denetle
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: scripts/ci/check-commit-messages.sh "origin/$BASE_REF" "$HEAD_SHA"

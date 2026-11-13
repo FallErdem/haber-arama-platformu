@@ -15,38 +15,44 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @Import(TestDatabaseConfiguration.class)
 class DatabaseMigrationTests {
 
-	private final JdbcClient jdbcClient;
+    private final JdbcClient jdbcClient;
 
-	@Autowired
-	DatabaseMigrationTests(JdbcClient jdbcClient) {
-		this.jdbcClient = jdbcClient;
-	}
+    @Autowired
+    DatabaseMigrationTests(JdbcClient jdbcClient) {
+        this.jdbcClient = jdbcClient;
+    }
 
-	@Test
-	@DisplayName("uygulama veritabanına news_app kullanıcısıyla bağlanır")
-	void applicationConnectsAsApplicationUser() {
-		String currentUser = jdbcClient.sql("SELECT current_user").query(String.class).single();
+    @Test
+    @DisplayName("uygulama veritabanına news_app kullanıcısıyla bağlanır")
+    void applicationConnectsAsApplicationUser() {
+        String currentUser =
+                jdbcClient.sql("SELECT current_user").query(String.class).single();
 
-		assertThat(currentUser).isEqualTo("news_app");
-	}
+        assertThat(currentUser).isEqualTo("news_app");
+    }
 
-	@Test
-	@DisplayName("geçiş betikleri uygulanır ve news_app başlangıç verisini okuyabilir")
-	void migrationsAreAppliedAndSeedDataIsReadable() {
-		Long categoryCount = jdbcClient.sql("SELECT count(*) FROM categories").query(Long.class).single();
-		Long feedCount = jdbcClient.sql("SELECT count(*) FROM feeds").query(Long.class).single();
+    @Test
+    @DisplayName("geçiş betikleri uygulanır ve news_app başlangıç verisini okuyabilir")
+    void migrationsAreAppliedAndSeedDataIsReadable() {
+        Long categoryCount = jdbcClient
+                .sql("SELECT count(*) FROM categories")
+                .query(Long.class)
+                .single();
+        Long feedCount =
+                jdbcClient.sql("SELECT count(*) FROM feeds").query(Long.class).single();
 
-		assertThat(categoryCount).isEqualTo(10);
-		assertThat(feedCount).isEqualTo(42);
-	}
+        assertThat(categoryCount).isEqualTo(10);
+        assertThat(feedCount).isEqualTo(42);
+    }
 
-	@Test
-	@DisplayName("news_app tablo oluşturamaz")
-	void applicationUserCannotCreateTables() {
-		assertThatThrownBy(() -> jdbcClient.sql("CREATE TABLE should_not_exist (id integer)").update())
-				.isInstanceOf(DataAccessException.class)
-				.rootCause()
-				.hasMessageContaining("permission denied");
-	}
-
+    @Test
+    @DisplayName("news_app tablo oluşturamaz")
+    void applicationUserCannotCreateTables() {
+        assertThatThrownBy(() -> jdbcClient
+                        .sql("CREATE TABLE should_not_exist (id integer)")
+                        .update())
+                .isInstanceOf(DataAccessException.class)
+                .rootCause()
+                .hasMessageContaining("permission denied");
+    }
 }

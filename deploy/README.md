@@ -37,6 +37,14 @@ Bu komut hiçbir çıktı vermemelidir.
 
 Bütün komutlar deponun kök klasöründen çalıştırılır.
 
+Depo ilk indirildiğinde, commit öncesi gizli bilgi kontrolü bir kez etkinleştirilir:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Bundan sonra her `git commit`, commit'e eklenen değişiklikleri gitleaks ile tarar ve parola, token veya API anahtarına benzeyen bir değer bulursa commit'i durdurur. Kontrol Docker'ı kullanır.
+
 ### 1. Kümeyi oluştur
 
 ```bash

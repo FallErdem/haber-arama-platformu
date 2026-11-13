@@ -1,6 +1,6 @@
 # Riskler
 
-- **Son güncelleme:** 2026-11-03
+- **Son güncelleme:** 2026-11-12
 
 ## 1. Yöntem
 
@@ -74,6 +74,7 @@ Risk kaydı her hafta ilerleme notu yazılırken gözden geçirilir. Yeni riskle
 | R-17 | Kullanılan bağımlılıklarda güvenlik açığı bulunur. | 4 | 4 | 16 (Kritik) | Azaltma | Bağımlılıklar CI'da taranır; yüksek ve kritik açıklar birleştirmeyi engeller (FOG-18). |
 | R-18 | Token, parola gibi hassas veriler uygulama loglarına girer (örneğin bir hata mesajının içinde). | 3 | 4 | 12 (Yüksek) | Azaltma | Hassas alanlar log yazılmadan önce maskelenir (FG-AL-04); örnek hata senaryolarında logların hassas veri içermediği testle doğrulanır. |
 | R-19 | Audit log kayıtları, veritabanına doğrudan erişen biri tarafından değiştirilir veya silinir. | 2 | 4 | 8 (Orta) | Azaltma | Uygulamanın veritabanı kullanıcısına audit kayıtlarında yalnızca ekleme ve okuma yetkisi verilir; tablodaki güncelleme ve silmeler bir tetikleyiciyle reddedilir (FG-AL-03, ADR-0016). Veritabanının tam yetkili kullanıcısının yapacağı değişiklikler engellenemez bu sınırlama kabul edilmiştir. |
+| R-37 | Konteyner imajlarındaki işletim sistemi paketlerinde ve Kubernetes tanımlarında, taramanın bulduğu yüksek veya kritik düzeydeki bulgular bir süre düzeltilmeden kalır. | 4 | 3 | 12 (Yüksek) | Kabul | Bulgular CI'da her çalışmada raporlanır ama birleştirmeyi engellemez; kendi seçtiğimiz kütüphanelerdeki açıklar ise engeller (ADR-0018). İmajlardaki bulgular temel imajların yeni sürümleriyle, Kubernetes tanımlarındaki bulgular (salt okunur dosya sistemi, güvenlik bağlamı) İ-32'deki sıkılaştırmayla giderilecektir. Bileşenler yalnızca yerel kümede çalışır ve dışarıya açık değildir. |
 
 ### 2.4 Veri ve Altyapı
 

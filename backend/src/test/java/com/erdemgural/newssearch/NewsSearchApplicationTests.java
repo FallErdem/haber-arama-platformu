@@ -8,8 +8,6 @@ import org.springframework.context.annotation.Import;
 @Import(TestDatabaseConfiguration.class)
 class NewsSearchApplicationTests {
 
-	@Test
-	void contextLoads() {
-	}
-
+    @Test
+    void contextLoads() {}
 }

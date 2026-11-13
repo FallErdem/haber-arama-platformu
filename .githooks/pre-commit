@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Commit'e eklenen değişikliklerde gizli bilgi (parola, token, API anahtarı) arar
+# ve bulursa commit'i durdurur (FOG-17).
+#
+# Bir gizli bilgi push edildikten sonra geçmişten silinmesi yetmez; anahtarın iptal
+# edilip yenilenmesi gerekir (R-16). Bu yüzden sızıntı, depoya girmeden yakalanır.
+# CI'daki tarama, bu kontrolün atlandığı durumlar için ikinci güvencedir.
+#
+# Etkinleştirmek için (her bilgisayarda bir kez): git config core.hooksPath .githooks
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# --staged: yalnızca "git add" ile commit'e eklenmiş değişikliklere bakar.
+# --redact: bulunan değer ekrana yazılmaz.
+docker run --rm -v "$REPO_ROOT:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.30.1 \
+  git /repo --pre-commit --staged --redact --no-banner

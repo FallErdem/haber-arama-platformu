@@ -1,0 +1,91 @@
+# Bilinen güvenlik açıklarını Trivy ile tarar (FOG-18, ADR-0018).
+#
+# - Kütüphane bağımlılıkları (Java, npm, Python): yüksek veya kritik açık varsa iş başarısız olur.
+# - İmajlardaki işletim sistemi paketleri ve Kubernetes dosyaları: yalnızca raporlanır.
+#   Bunların düzeltilmesi temel imajların yeni sürümlerine ve İ-32'deki sıkılaştırmaya bağlıdır.
+name: Açık taraması
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "worker/**"
+      - "db/migrations/**"
+      - "deploy/**"
+      - ".dockerignore"
+      - "scripts/ci/trivy.sh"
+      - ".github/workflows/vulnerabilities.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "worker/**"
+      - "db/migrations/**"
+      - "deploy/**"
+      - ".dockerignore"
+      - "scripts/ci/trivy.sh"
+      - ".github/workflows/vulnerabilities.yml"
+  # Kod değişmese de yeni açıklar yayımlanır; bu yüzden her Pazartesi 06:00'da (UTC) da çalışır.
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vulnerabilities-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trivy:
+    name: Trivy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SEVERITY: HIGH,CRITICAL
+    steps:
+      - name: Depoyu indir
+        uses: actions/checkout@v7.0.1
+
+      # ---- Engelleyen taramalar: kendi seçtiğimiz kütüphaneler ----
+
+      - name: Frontend kütüphaneleri (engeller)
+        run: >
+          scripts/ci/trivy.sh fs --scanners vuln --severity "$SEVERITY" --exit-code 1
+          /repo/frontend/package-lock.json
+
+      - name: İşçi kütüphaneleri (engeller)
+        run: >
+          scripts/ci/trivy.sh fs --scanners vuln --severity "$SEVERITY" --exit-code 1
+          /repo/worker/uv.lock
+
+      # Java kütüphaneleri pom.xml'den değil, imajın içindeki jar dosyasından taranır:
+      # gerçekten dağıtılan kütüphaneler bunlardır ve tarama Maven deposuna istek göndermez.
+      - name: API imajını derle
+        run: docker build -f backend/Dockerfile -t newssearch-api:ci .
+
+      - name: API kütüphaneleri (engeller)
+        run: >
+          scripts/ci/trivy.sh image --scanners vuln --pkg-types library
+          --severity "$SEVERITY" --exit-code 1 newssearch-api:ci
+
+      # ---- Raporlayan taramalar: işi başarısız kılmaz, bulguları loga yazar ----
+
+      - name: Frontend ve işçi imajlarını derle
+        run: |
+          docker build -f frontend/Dockerfile -t newssearch-frontend:ci .
+          docker build -f worker/Dockerfile -t newssearch-worker:ci .
+
+      # --ignore-unfixed: yalnızca düzeltmesi yayımlanmış açıklar listelenir.
+      - name: İmajlardaki sistem paketleri (raporlar)
+        run: |
+          for image in newssearch-api:ci newssearch-frontend:ci newssearch-worker:ci; do
+            scripts/ci/trivy.sh image --scanners vuln --pkg-types os \
+              --severity "$SEVERITY" --ignore-unfixed --exit-code 0 "$image"
+          done
+
+      - name: Kubernetes dosyaları (raporlar)
+        run: >
+          scripts/ci/trivy.sh config --severity "$SEVERITY" --exit-code 0 /repo/deploy

@@ -103,6 +103,9 @@ Bu kararı etkileyen koşullar:
 - Kontroller yol filtreleriyle yalnızca ilgili dosyalar değiştiğinde çalıştırılır (ADR-0001).
 - Kontrollerde kullanılacak araçlar, ilgili bölüm kurulurken ayrıca belirlenecektir.
 - Birleştirme commit'leri, Conventional Commits biçiminde olmadığından commit mesajı denetiminin dışında tutulur (ADR-0002).
+- CI 12 Kasım 2026'da kurulmuştur (İ-09); iş tanımları `.github/workflows/` klasöründedir, kullanılan araçlar ADR-0018'in 5. bölümündedir. Yukarıdaki tablodan iki fark vardır:
+  - Python işçisi için de aynı kontroller çalışır: kod stili, tür denetimi, testler ve test kapsamı (işçi veya geçiş betikleri değiştiğinde).
+  - Bağımlılık açığı taraması her PR'da değil, kod, imaj veya Kubernetes dosyaları değiştiğinde ve haftada bir çalışır. Tarama üç konteyner imajını derlediğinden, yalnızca doküman değişen PR'larda çalıştırılmaz.
 
 ### İş takibi
 

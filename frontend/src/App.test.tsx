@@ -105,7 +105,13 @@ describe('App', () => {
       vi.fn(() =>
         Promise.resolve(
           new Response(
-            JSON.stringify({ id: '1', email: 'erdem@example.test', displayName: 'Erdem', role: 'USER', status: 'PENDING' }),
+            JSON.stringify({
+              id: '1',
+              email: 'erdem@example.test',
+              displayName: 'Erdem',
+              role: 'USER',
+              status: 'PENDING',
+            }),
             { status: 200 },
           ),
         ),

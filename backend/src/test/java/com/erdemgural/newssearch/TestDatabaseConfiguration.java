@@ -12,21 +12,20 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @TestConfiguration(proxyBeanMethods = false)
 public class TestDatabaseConfiguration {
 
-	@Bean
-	PostgreSQLContainer postgresContainer() {
-		return new PostgreSQLContainer("postgres:18.4-trixie")
-				.withDatabaseName("news")
-				.withEnv("POSTGRES_INITDB_ARGS", "--encoding=UTF8 --locale=C")
-				.withInitScript("db/create-roles.sql");
-	}
+    @Bean
+    PostgreSQLContainer postgresContainer() {
+        return new PostgreSQLContainer("postgres:18.4-trixie")
+                .withDatabaseName("news")
+                .withEnv("POSTGRES_INITDB_ARGS", "--encoding=UTF8 --locale=C")
+                .withInitScript("db/create-roles.sql");
+    }
 
-	@Bean
-	DynamicPropertyRegistrar databaseProperties(PostgreSQLContainer postgresContainer) {
-		return registry -> {
-			registry.add("DB_URL", postgresContainer::getJdbcUrl);
-			registry.add("DB_APP_PASSWORD", () -> "test-app");
-			registry.add("DB_OWNER_PASSWORD", () -> "test-owner");
-		};
-	}
-
+    @Bean
+    DynamicPropertyRegistrar databaseProperties(PostgreSQLContainer postgresContainer) {
+        return registry -> {
+            registry.add("DB_URL", postgresContainer::getJdbcUrl);
+            registry.add("DB_APP_PASSWORD", () -> "test-app");
+            registry.add("DB_OWNER_PASSWORD", () -> "test-owner");
+        };
+    }
 }

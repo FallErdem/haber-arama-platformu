@@ -45,3 +45,4 @@ Conventional Commits kullanılacaktır. Projeye uygulanma biçimi:
 
 - Commit geçmişi tür ve kapsama göre okunabilir ve filtrelenebilir olur.
 - Kurallar ileride commitlint gibi bir araçla otomatik denetlenecek, uymayan commit'ler engellenecektir.
+- Denetim 12 Kasım 2026'da kurulmuştur (İ-09): `scripts/ci/check-commit-messages.sh` betiği, PR'daki commit başlıklarının `<tür>: <açıklama>` biçimine ve yukarıdaki tür listesine uyduğunu denetler; birleştirme commit'leri denetlenmez. commitlint yerine kısa bir betik tercih edilmiştir: commitlint bir Node aracıdır ve tek bir biçim kontrolü için deponun köküne ayrı bir paket listesi ve yüzlerce dolaylı bağımlılık getirirdi. Betik yalnızca biçimi denetler; açıklamanın dili ve kipi gözle kontrol edilir.
