@@ -49,6 +49,7 @@ Bir beslemenin toplanması şu adımlardan oluşur:
 - Art arda 5 başarısız okumadan sonra besleme otomatik olarak devre dışı kalır ve durum yönetim panelinde gösterilir (FG-YP-07).
 - Bot koruması veya erişim engeli (örneğin HTTP 403) aşılmaya çalışılmaz; başarısız okuma olarak kaydedilir (FG-VT-06).
 - İstek limiti aşıldığında (HTTP 429) beslemenin okunması ertelenir.
+- Uygulama ayrıntıları (4. hatadaki süre, 429'da erteleme süresi, otomatik devre dışı bırakmanın audit kaydı) ADR-0017'nin 10. bölümündedir.
 
 ### 5. Görsel indirme
 
