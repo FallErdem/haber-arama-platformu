@@ -9,7 +9,7 @@ import respx
 
 from news_worker import app
 from news_worker.config import Settings
-from news_worker.logging_config import JsonFormatter
+from news_worker.logging_config import JsonFormatter, configure_logging
 
 
 async def test_worker_finds_tables_ingests_due_feeds_and_stops_on_request(
@@ -74,3 +74,19 @@ def test_log_lines_are_json() -> None:
     assert entry["log.logger"] == "news_worker.test"
     assert entry["service.name"] == "news-worker"
     assert "@timestamp" in entry
+
+
+def test_http_client_request_lines_are_not_logged() -> None:
+    """httpx'in her istek için yazdığı satırlar (adresle birlikte) loga girmez; uyarıları girer."""
+    root = logging.getLogger()
+    handlers, level = root.handlers, root.level
+    try:
+        configure_logging()
+
+        assert logging.getLogger("httpx").isEnabledFor(logging.INFO) is False
+        assert logging.getLogger("httpx").isEnabledFor(logging.WARNING) is True
+        assert logging.getLogger("news_worker").isEnabledFor(logging.INFO) is True
+    finally:
+        # Diğer testlerin log ayarı bozulmasın.
+        root.handlers, root.level = handlers, level
+        logging.getLogger("httpx").setLevel(logging.NOTSET)

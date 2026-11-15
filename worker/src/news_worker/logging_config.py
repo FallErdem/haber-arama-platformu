@@ -31,3 +31,7 @@ def configure_logging() -> None:
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(logging.INFO)
+    # httpx her isteği adresiyle birlikte INFO düzeyinde loglar. Aynı bilgi toplama akışının kendi
+    # satırlarında vardır; ayrıca adresinde API anahtarı taşıyan kaynaklarda (NYT) anahtar loga
+    # maskelenmeden yazılırdı (R-18). Bu yüzden httpx'in yalnızca uyarı ve hataları yazılır.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
