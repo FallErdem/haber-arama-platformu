@@ -19,6 +19,12 @@ class Settings:
     db_password: str = field(repr=False)
     scheduler_interval_seconds: float
     health_port: int
+    # Kaynak sitelere işçinin kendini tanıttığı ad (FG-VT-05).
+    http_user_agent: str = "HaberAramaPlatformu/0.1 (egitim projesi)"
+    # Bir isteğin her aşaması (bağlanma, yanıtı bekleme) için ayrı ayrı uygulanan süre.
+    http_timeout_seconds: float = 10.0
+    # Bir indirmenin baştan sona sürebileceği en uzun süre.
+    http_total_timeout_seconds: float = 30.0
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str] | None = None) -> Settings:
@@ -37,6 +43,11 @@ class Settings:
             db_password=password,
             scheduler_interval_seconds=_positive_float(env, "SCHEDULER_INTERVAL_SECONDS", 30.0),
             health_port=_positive_int(env, "HEALTH_PORT", 8080),
+            http_user_agent=env.get("HTTP_USER_AGENT") or cls.http_user_agent,
+            http_timeout_seconds=_positive_float(env, "HTTP_TIMEOUT_SECONDS", cls.http_timeout_seconds),
+            http_total_timeout_seconds=_positive_float(
+                env, "HTTP_TOTAL_TIMEOUT_SECONDS", cls.http_total_timeout_seconds
+            ),
         )
 
 

@@ -143,6 +143,17 @@ Ardından tarayıcıda `http://haber.localhost/` adresi açılır. "Giriş yap" 
 
 Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, tabloları API kurduğu için API'den sonra dağıtılır; önce dağıtılırsa çökmez, tablolar hazır olana kadar bekler.
 
+İşçi başladığında okuma zamanı gelmiş beslemeleri kaynak sitelerden toplamaya başlar; bunun için pod'un internete çıkabilmesi gerekir. Yeni bir veritabanında 42 beslemenin hepsinin zamanı gelmiş olduğundan ilk tur, kaynak başına istek aralıkları nedeniyle birkaç dakika sürer.
+
+İsteğe bağlı ayarlar (ortam değişkenleri; verilmezse varsayılan kullanılır):
+
+| Değişken | Varsayılan | Anlamı |
+|---|---|---|
+| `HTTP_USER_AGENT` | `HaberAramaPlatformu/0.1 (egitim projesi)` | İşçinin kaynak sitelere kendini tanıttığı ad |
+| `HTTP_TIMEOUT_SECONDS` | `10` | Bir isteğin her aşaması için süre sınırı |
+| `HTTP_TOTAL_TIMEOUT_SECONDS` | `30` | Bir indirmenin toplam süre sınırı |
+| `SCHEDULER_INTERVAL_SECONDS` | `30` | Zamanlayıcının iki turu arasındaki süre |
+
 ## Doğrulama
 
 | Ne | Komut | Beklenen |
@@ -153,7 +164,7 @@ Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, ta
 | Keycloak | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/auth/` | `302` |
 | API | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/api/v1/me` | `401` (token olmadan) |
 | Frontend | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/` | `200` |
-| İşçi | `kubectl logs -n haber deploy/worker --tail=3` | "Okuma zamanı gelmiş besleme sayısı: ..." satırları (30 saniyede bir) |
+| İşçi | `kubectl logs -n haber deploy/worker --tail=5` | "Okuma zamanı gelmiş besleme sayısı: ..." ve "Besleme toplandı: ... (yeni: ..., tekrar: ..., atlanan: ...)" satırları |
 | API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{content_type}\n" http://haber.localhost/actuator/health` | `text/html` (yanıtı API değil frontend verir; API'nin yanıtı `application/...json` olurdu) |
 
 Keycloak'ın yönetim paneli: `http://haber.localhost/auth/admin/`. Kullanıcı adı ve şifre `deploy/k8s/overlays/dev/secrets/keycloak-admin.env` dosyasındadır.

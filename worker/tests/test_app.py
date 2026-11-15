@@ -3,18 +3,32 @@ import json
 import logging
 from dataclasses import replace
 
+import psycopg
 import pytest
+import respx
 
 from news_worker import app
 from news_worker.config import Settings
 from news_worker.logging_config import JsonFormatter
 
 
-async def test_worker_finds_tables_runs_ticks_and_stops_on_request(
-    settings: Settings, caplog: pytest.LogCaptureFixture
+async def test_worker_finds_tables_ingests_due_feeds_and_stops_on_request(
+    settings: Settings,
+    admin: psycopg.Connection,
+    respx_mock: respx.MockRouter,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """İşçi tabloları bulur, turları çalıştırır ve durdurma istenince düzgünce kapanır."""
+    """İşçi tabloları bulur, zamanı gelen beslemeleri toplar ve durdurma istenince düzgünce kapanır."""
     caplog.set_level(logging.INFO)
+    # Gerçek sitelere gidilmez: her istek sahte bir "değişmedi" yanıtı alır.
+    respx_mock.route().respond(304)
+    # Yalnızca iki ayrı kaynağın birer beslemesinin zamanı gelmiş olsun; aynı kaynağa ikinci
+    # istek atılmadığı için istek aralığı beklenmez ve test hızlı biter.
+    admin.execute("UPDATE feeds SET next_fetch_at = now() + interval '1 hour'")
+    admin.execute(
+        "UPDATE feeds SET next_fetch_at = now() WHERE url IN "
+        "('https://www.trthaber.com/gundem_articles.rss', 'https://globalvoices.org/feed/')"
+    )
     stop = asyncio.Event()
     # 18080: testte sağlık adresi için sabit bir port; 8080 başka bir süreçte dolu olabilir.
     task = asyncio.create_task(app.run(replace(settings, health_port=18080), stop))
@@ -26,8 +40,17 @@ async def test_worker_finds_tables_runs_ticks_and_stops_on_request(
 
     messages = [record.getMessage() for record in caplog.records]
     assert "Tablolar hazır; zamanlayıcı başlıyor" in messages
-    assert any(message.startswith("Okuma zamanı gelmiş besleme sayısı: ") for message in messages)
+    assert "Okuma zamanı gelmiş besleme sayısı: 2" in messages
     assert messages[-1] == "İşçi durdu"
+    runs = admin.execute(
+        "SELECT f.url, r.status FROM ingestion_runs r JOIN feeds f ON f.id = r.feed_id ORDER BY f.url"
+    ).fetchall()
+    assert runs == [
+        ("https://globalvoices.org/feed/", "NOT_MODIFIED"),
+        ("https://www.trthaber.com/gundem_articles.rss", "NOT_MODIFIED"),
+    ]
+    # İşçi kendini ayarlardaki adla tanıtmıştır.
+    assert respx_mock.calls.last.request.headers["User-Agent"] == settings.http_user_agent
 
 
 def test_worker_exits_with_error_code_when_password_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:

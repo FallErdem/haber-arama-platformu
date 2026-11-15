@@ -146,6 +146,65 @@ Eşleme tablosu hazırlanmadan önce 42 beslemenin tamamı okundu; 42 beslemenin
 - **Yoruma dayanan eşlemeler:** Çevre haberleri (TRT `cevre`, Global Voices `Environment`) Yaşam'a, TRT `savunma` Gündem'e, TRT `turk-dunyasi` Dünya'ya eşlendi.
 - **Türkçe küçük harf:** Kategori değerleri karşılaştırılmadan önce kaynağın dilinin kurallarıyla küçük harfe çevrilir. Python'un `str.lower()` fonksiyonu "I" harfini "i" yapar ve "İ" harfini iki karaktere çevirir; Türkçe kaynaklar için `turkish_lower` fonksiyonu kullanılır.
 
+### 10. Kaydetme ve toplama akışı (İ-12)
+
+Bu iş kalemiyle işçi haber toplamaya başladı. Eklenen kütüphaneler: `httpx` 0.28.1 (HTTP istemcisi) ve test için `respx` 0.23.1 (sahte HTTP yanıtları; testler kaynak sitelere gitmez).
+
+Bir beslemenin okunması (`IngestionService.ingest`):
+
+1. `ingestion_runs` tablosuna okumanın başladığı yazılır (`RUNNING`).
+2. Kaynağın istek sırası alınır ve besleme indirilir.
+3. İçerik okunur (8. bölüm), her haberin kategorileri bulunur (9. bölüm) ve haberler kaydedilir.
+4. Okumanın sonucu ve beslemenin yeni durumu birlikte yazılır.
+
+**Kaydetme (FG-VT-04)**
+
+- Bir haber dört tabloya tek işlemde yazılır: haber (`articles`), kategorileri (`article_categories`), indirilecek görselleri (`media`, `PENDING`) ve Elasticsearch'e aktarım notu (`outbox_events`, ADR-0012). Biri yazılamazsa hiçbiri yazılmaz.
+- Tekrar kontrolü `ON CONFLICT DO NOTHING` ile yapılır: aynı kaynaktan aynı kimlikli veya aynı normalleştirilmiş adresli haber zaten varsa satır eklenmez, hata oluşmaz ve ilk kayıt değişmez. Önce "var mı" diye sorup sonra eklemek yerine doğrudan eklemenin denenmesi, iki işlemin arasına başka bir eklemenin girmesi ihtimalini ortadan kaldırır.
+- Haberin ilk yaşam döngüsü durumu yayın tarihine göre belirlenir (30 güne kadar `HOT`, 1 yıla kadar `WARM`, daha eskisi `COLD`; ADR-0011). Eski tarihli haber veren beslemeler vardır (TRT Haber `koronavirus`: 2023).
+- Her haber kendi işlemindedir. Verinin kendisinden kaynaklanan bir hata (örneğin saklanamayan bir karakter) yalnızca o haberi atlatır; diğer haberler kaydedilir ve atlanan haber `items_failed` içinde sayılır.
+
+**İndirme (`FeedFetcher`)**
+
+- İşçi kendini `HTTP_USER_AGENT` ayarındaki adla tanıtır (varsayılan `HaberAramaPlatformu/0.1 (egitim projesi)`); tarayıcı gibi görünmeye çalışmaz (FG-VT-05).
+- En fazla 3 yönlendirme takip edilir.
+- İki zaman sınırı vardır: `httpx`'in aşama başına sınırı (`HTTP_TIMEOUT_SECONDS`, varsayılan 10) ve indirmenin tamamı için toplam sınır (`HTTP_TOTAL_TIMEOUT_SECONDS`, varsayılan 30). `httpx`'in sınırı bağlanma ve yanıt bekleme gibi her aşamaya ayrı ayrı uygulandığından, çok yavaş ama hiç durmayan bir yanıtı tek başına kesmez.
+- Koşullu istek: kaynağın verdiği `ETag` ve `Last-Modified` değerleri saklanır ve bir sonraki istekte geri gönderilir. Kaynak 304 dönerse içerik işlenmez; okuma `NOT_MODIFIED` olarak kaydedilir.
+- İndirici karar vermez: sonucu "içerik geldi", "değişmedi" veya nedeniyle birlikte "başarısız" olarak döndürür. Ne yapılacağına toplama akışı karar verir.
+
+**İstek sınırlayıcı (`SourceRateLimiter`)**
+
+- Aynı kaynağa iki istek arasında `sources.request_interval_seconds` kadar beklenir; süre önceki isteğin bitişinden sayılır.
+- Her kaynağın kendi kilidi vardır: aynı kaynağın beslemeleri sırayla, farklı kaynaklar aynı anda okunur.
+- Sınırlayıcı tektir; ileride görsel indirme işi de (İ-14) aynı nesneyi kullanacaktır.
+
+**Hata yönetimi (ADR-0013, 4. bölüm)**
+
+| Durum | Okuma kaydı | Besleme |
+|---|---|---|
+| İçerik geldi | `SUCCEEDED` | Hata sayacı sıfırlanır; sonraki okuma beslemenin sıklığı kadar sonra |
+| Değişmedi (304) | `NOT_MODIFIED` | Hata sayacı sıfırlanır; sonraki okuma beslemenin sıklığı kadar sonra |
+| İstek sınırı (429) | `FAILED` | Hata sayacı artmaz; okuma, beslemenin sıklığı ile kaynağın `Retry-After` ile istediği süreden uzun olanı kadar ertelenir |
+| Diğer hatalar | `FAILED` | Hata sayacı artar; yeniden deneme 1., 2. ve 3. hatadan sonra 1, 5 ve 15 dakika, 4. hatadan sonra yine 15 dakika sonra; 5. hatada besleme devre dışı kalır |
+
+- "Diğer hatalar": erişim engeli (401, 403), diğer hata kodları, ağ hataları, zaman aşımı, RSS veya Atom olarak tanınmayan içerik ve öngörülmeyen hatalar.
+- Erişim engeli aşılmaya çalışılmaz (FG-VT-06): aynı istek, aynı adla ve yalnızca yeniden deneme süreleriyle tekrarlanır.
+- 429 hata sayılmaz, çünkü besleme bozuk değildir; kaynak daha seyrek gelinmesini istemektedir.
+- ADR-0013 üç yeniden deneme süresi verir, devre dışı bırakma ise 5. hatadadır; 4. hata için son süre (15 dakika) kullanılır.
+- Otomatik devre dışı bırakma (FG-YP-07): beslemenin kapatılması (`disabled_reason = 'AUTO'`), audit kaydı ve okuma kaydı tek işlemde yazılır. Sayaç artırılırken besleme satırı kilitlenir (`FOR UPDATE`); okuma sürerken yöneticinin elle kapattığı bir besleme "otomatik kapatıldı" olarak işaretlenmez.
+- Audit kaydı: `actor_type = SYSTEM`, `action = FEED_AUTO_DISABLED`, `target_type = FEED`, hedef beslemenin kimliği; `details` içinde yalnızca art arda hata sayısı ve son hatanın metni bulunur.
+
+**Zamanlayıcı**
+
+- Her turda okuma zamanı gelmiş beslemeler kaynağa göre gruplanır; her kaynak ayrı bir görevde okunur. Bir beslemenin hatası ne kendi kaynağının sıradaki beslemelerini ne de diğer kaynakları durdurur (FOG-08).
+- Sağlık kontrolü turun bitmesine değil, zamanlayıcının çalışıyor olmasına bakar: her beslemeden sonra canlılık işareti yenilenir. İlk turda 42 beslemenin okunması istek aralıkları nedeniyle 90 saniyeden uzun sürer; işçi bu sırada da hazır görünür.
+- Durdurma istendiğinde elindeki besleme bitirilir, sıradakilere başlanmaz. Bir besleme en kötü durumda 40 saniye sürebildiği için (10 saniye bekleme, 30 saniye indirme) pod'a kapanması için 60 saniye tanınır (`terminationGracePeriodSeconds`).
+
+**Sonraya bırakılanlar**
+
+- `ingestion_runs.trigger` şimdilik her okumada `SCHEDULED` yazılır. Elle başlatılan toplamanın ayırt edilmesi yönetim ekranıyla birlikte ele alınacaktır (İ-22).
+- Her beslemede yeni bir veritabanı bağlantısı açılır; bağlantı havuzu gerek görülürse eklenecektir.
+
 ## Sonuçlar
 
 - Spring Boot API'nin zamanlanmış işi olmadığından, kopya sayısı kısıtsız artırılabilir.

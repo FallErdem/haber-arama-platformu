@@ -33,6 +33,7 @@ Kullanıcılar Keycloak'ta oturum açtığından, uygulama oturum açma olayın�
   - Keycloak'ın olay kayıtları açılır; giriş ve başarısız giriş denemeleri Keycloak'ta kaydedilir.
   - Uygulama, token'daki oturum kimliği (`sid`) kullanıcının son kaydedilen oturum kimliğinden (`users.last_session_id`) farklı olduğunda bir "yeni oturum" kaydı yazar. Güncelleme koşullu yapılır; aynı anda gelen iki istekten yalnızca güncellemeyi başaran istek kaydı yazar.
 - Kullanıcıların arama sorguları kaydedilmez (FG-AL-05).
+- Beslemenin otomatik olarak devre dışı kalması `FEED_AUTO_DISABLED` işlem koduyla, `actor_type = SYSTEM` ve `target_type = FEED` olarak kaydedilir (ADR-0017, 10. bölüm).
 
 ### 2. Kayıt alanları
 

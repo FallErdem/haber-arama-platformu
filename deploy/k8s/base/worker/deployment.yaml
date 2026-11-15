@@ -19,6 +19,9 @@ spec:
       labels:
         app: worker
     spec:
+      # Pod durdurulurken işçi elindeki beslemeyi bitirir; bu en kötü durumda 40 saniye sürebilir
+      # (10 sn istek aralığı + 30 sn indirme). Varsayılan 30 saniye yerine 60 saniye tanınır.
+      terminationGracePeriodSeconds: 60
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
