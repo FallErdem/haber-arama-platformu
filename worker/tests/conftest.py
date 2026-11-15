@@ -37,9 +37,16 @@ CREATE_ROLES_SQL = """
 # CREATE DATABASE başka komutlarla aynı istekte çalıştırılamaz; bu yüzden ayrıdır.
 CREATE_EMPTY_DATABASE_SQL = "CREATE DATABASE empty"
 
-RESET_FEEDS_SQL = """
+# Testlerin değiştirebildiği her şey başlangıç durumuna döner. Haber silinince kategorileri
+# ve görselleri de silinir (ON DELETE CASCADE); outbox kayıtları habere bağlı olmadığı için ayrıca silinir.
+RESET_DATA_SQL = """
+    DELETE FROM outbox_events;
+    DELETE FROM articles;
+    DELETE FROM ingestion_runs;
     UPDATE sources SET enabled = true;
-    UPDATE feeds SET enabled = true, disabled_reason = NULL, next_fetch_at = now();
+    UPDATE feeds
+    SET enabled = true, disabled_reason = NULL, next_fetch_at = now(), etag = NULL, last_modified = NULL,
+        consecutive_failures = 0, last_success_at = NULL, last_error = NULL;
 """
 
 
@@ -126,8 +133,8 @@ def database(settings: Settings) -> Database:
 def admin(postgres: PostgresContainer) -> Iterator[psycopg.Connection]:
     """Test verisini değiştirmek için süper kullanıcı bağlantısı.
 
-    Test bitince beslemeler başlangıç durumuna döndürülür; testler birbirini etkilemez.
+    Test bitince veriler başlangıç durumuna döndürülür; testler birbirini etkilemez.
     """
     with admin_connect(postgres) as connection:
         yield connection
-        connection.execute(RESET_FEEDS_SQL)
+        connection.execute(RESET_DATA_SQL)

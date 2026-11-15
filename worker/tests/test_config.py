@@ -14,6 +14,9 @@ def test_defaults_are_used_when_only_password_is_given() -> None:
     assert settings.db_password == "gizli"
     assert settings.scheduler_interval_seconds == 30.0
     assert settings.health_port == 8080
+    assert settings.http_user_agent == "HaberAramaPlatformu/0.1 (egitim projesi)"
+    assert settings.http_timeout_seconds == 10.0
+    assert settings.http_total_timeout_seconds == 30.0
 
 
 def test_environment_variables_override_defaults() -> None:
@@ -26,6 +29,9 @@ def test_environment_variables_override_defaults() -> None:
             "DB_NAME": "haberler",
             "SCHEDULER_INTERVAL_SECONDS": "2.5",
             "HEALTH_PORT": "9090",
+            "HTTP_USER_AGENT": "BaskaAd/1.0",
+            "HTTP_TIMEOUT_SECONDS": "3",
+            "HTTP_TOTAL_TIMEOUT_SECONDS": "12.5",
         }
     )
 
@@ -34,6 +40,9 @@ def test_environment_variables_override_defaults() -> None:
     assert settings.db_name == "haberler"
     assert settings.scheduler_interval_seconds == 2.5
     assert settings.health_port == 9090
+    assert settings.http_user_agent == "BaskaAd/1.0"
+    assert settings.http_timeout_seconds == 3.0
+    assert settings.http_total_timeout_seconds == 12.5
 
 
 @pytest.mark.parametrize("environment", [{}, {"DB_PASSWORD": ""}])
@@ -51,6 +60,8 @@ def test_missing_password_raises_a_clear_error(environment: dict[str, str]) -> N
         ("HEALTH_PORT", "-1"),
         ("SCHEDULER_INTERVAL_SECONDS", "hizli"),
         ("SCHEDULER_INTERVAL_SECONDS", "0"),
+        ("HTTP_TIMEOUT_SECONDS", "uzun"),
+        ("HTTP_TOTAL_TIMEOUT_SECONDS", "0"),
     ],
 )
 def test_invalid_numeric_setting_is_rejected(name: str, value: str) -> None:
