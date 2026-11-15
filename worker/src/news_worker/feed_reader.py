@@ -96,7 +96,7 @@ def _to_article(entry: Any, custom_images: Mapping[str, str]) -> ParsedArticle |
         published_at=published_at,
         item_type=ItemType.VIDEO if urlsplit(url).path.startswith(_VIDEO_PATH_PREFIX) else ItemType.ARTICLE,
         image_urls=_image_urls(entry, custom_images.get(external_id), cleaned.image_urls if cleaned else ()),
-        source_categories=_source_categories(entry),
+        source_categories=_source_categories(entry, url),
     )
 
 
@@ -152,10 +152,22 @@ def _image_urls(entry: Any, custom_image: str | None, content_images: tuple[str,
     return ()
 
 
-def _source_categories(entry: Any) -> tuple[str, ...]:
+def _source_categories(entry: Any, url: str) -> tuple[str, ...]:
+    """Haberin kaynaktaki kategori değerlerini döner; ortak kategoriye çevirmek eşleme tablosunun işidir.
+
+    Kategori etiketi veren kaynaklarda (NTV, Global Voices) etiketler kullanılır. Etiket vermeyen
+    kaynaklarda (TRT, CNN Türk) kategori adrestedir: adresin klasör kısımları aday olarak döner
+    (`/haber/ekonomi/baslik-1.html` → `haber`, `ekonomi`). Eşleme tablosunda bulunmayan aday
+    (`haber`, `video`) kendiliğinden elenir.
+    """
     terms = (_text(tag.get("term")) for tag in entry.get("tags") or [])
     # dict.fromkeys: sırayı koruyarak tekrarları atar.
-    return tuple(dict.fromkeys(term for term in terms if term is not None))
+    tags = tuple(dict.fromkeys(term for term in terms if term is not None))
+    if tags:
+        return tags
+    segments = [segment for segment in urlsplit(url).path.split("/") if segment]
+    # Son parça haberin kendi adıdır, kategori değildir.
+    return tuple(dict.fromkeys(segments[:-1]))
 
 
 def _read_custom_field(body: bytes, element_name: str) -> dict[str, str]:

@@ -51,7 +51,27 @@ def test_rss_item_is_converted_to_common_structure() -> None:
     assert article.title == "Cumhurbaşkanı Erdoğan'ın, Katar Emiri Al Sani ile görüşüyor"
     assert article.author == "TRT Haber"
     assert article.item_type is ItemType.ARTICLE
-    assert article.source_categories == ()
+
+
+def test_url_folders_are_category_candidates_when_there_are_no_category_tags() -> None:
+    """TRT ve CNN Türk kategori etiketi vermez; adresin klasör kısımları aday olur, haberin adı olmaz."""
+    trt_article = read_fixture("trt-gundem.xml").articles[0]
+    cnnturk_articles = read_fixture("cnnturk-all.xml").articles
+
+    assert trt_article.source_categories == ("haber", "gundem")
+    assert [article.source_categories for article in cnnturk_articles] == [
+        ("video", "dunya"),
+        ("ekonomi",),
+        ("yerel-haberler", "usak"),
+    ]
+
+
+def test_category_tags_are_preferred_over_url_folders() -> None:
+    """Kategori etiketi veren kaynakta (NTV) adres kullanılmaz."""
+    article = read_fixture("ntv-turkiye.xml").articles[0]
+
+    assert "/turkiye/" in article.url
+    assert article.source_categories == ("Türkiye",)
 
 
 def test_publication_time_is_converted_to_utc() -> None:
