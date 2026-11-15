@@ -25,8 +25,10 @@ docker build -f backend/Dockerfile -t "$PUSH_IMAGE:$TAG" .
 docker push "$PUSH_IMAGE:$TAG"
 
 # Overlay'de yalnızca bu imajın etiketini değiştirir: imaj adının geçtiği satırı
-# bulur ve hemen altındaki newTag satırını yeni etiketle yazar.
-sed -i "/name: .*\/$IMAGE_NAME\$/{n;s|newTag: .*|newTag: $TAG|;}" "$OVERLAY/kustomization.yaml"
+# bulur ve hemen altındaki newTag satırını yeni etiketle yazar. Etiket tırnak içinde
+# yazılır: yalnızca rakamlardan oluşan bir commit özeti (ör. 0609026) tırnaksız
+# yazılırsa YAML onu sayı olarak okur ve Kustomize dosyayı reddeder.
+sed -i "/name: .*\/$IMAGE_NAME\$/{n;s|newTag: .*|newTag: \"$TAG\"|;}" "$OVERLAY/kustomization.yaml"
 
 kubectl apply -k "$OVERLAY"
 kubectl rollout status -n haber deployment/api --timeout=180s
