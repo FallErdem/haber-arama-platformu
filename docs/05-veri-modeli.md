@@ -145,7 +145,8 @@ Başlangıç verisi:
 
 - Benzersiz: `(source_id, source_category)`.
 - Normalleştirme: Baştaki ve sondaki boşluklar atılır, değer kaynağın dilinin kurallarıyla küçük harfe çevrilir (Türkçe kaynaklarda "I" → "ı", "İ" → "i").
-- Eşlemeler veritabanı geçiş betikleriyle eklenir.
+- Eşlemeler veritabanı geçiş betikleriyle eklenir. Başlangıç eşlemeleri (47 satır) `V13__seed_category_mappings.sql` betiğindedir; eşleme tablosunun tek kaynağı bu betiktir.
+- Kaynağın kategori değeri, kategori etiketi veren kaynaklarda (NTV, Global Voices) etikettir. Etiket vermeyen kaynaklarda (TRT Haber, CNN Türk) haber adresinin klasör kısımlarıdır: `trthaber.com/haber/ekonomi/...` adresinde `ekonomi`. Tabloda bulunmayan değer eşlenmez (ADR-0017, 9. bölüm).
 
 ### 3.6 `articles` (modül: ingestion)
 
@@ -189,6 +190,7 @@ Başlangıç verisi:
 | `created_at` | `timestamptz` | Zorunlu | |
 
 - Birincil anahtar: `(article_id, category_id)`.
+- Aynı kategori iki düzeyde de bulunursa `FEED` olarak kaydedilir. Hiçbir konu kategorisi atanamadığı için eklenen Diğer kategorisinin düzeyi `ITEM`'dır.
 
 ### 3.8 `media` (modül: ingestion)
 

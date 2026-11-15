@@ -134,6 +134,18 @@ Okuyucu yazılmadan önce dört kaynaktan on bir besleme indirilip incelendi (13
 - TRT Haber'in içerik alanı özetin tekrarından ve bir telif satırından oluşur; olduğu gibi (temizlenerek) saklanır.
 - NTV'nin bir görsel adresinde Türkçe karakter bulunuyor. Adresin indirilebilir biçime çevrilmesi görsel indirme işinde (İ-14) ele alınacak.
 
+### 9. Kategori eşlemesi (İ-11)
+
+Bir haberin ortak kategorileri `CategoryResolver` ile bulunur (ADR-0004, FG-VT-12, FG-VT-13). Kategorilerin veritabanına yazılması toplama akışındadır (İ-12).
+
+Eşleme tablosu hazırlanmadan önce 42 beslemenin tamamı okundu; 42 beslemenin hepsi yanıt verdi (NTV'nin `galeri` ve `video` beslemeleri boştu). Gözlenen kategori değerleri ve karşılıkları `V13__seed_category_mappings.sql` betiğindedir.
+
+- **Kategori değerinin geldiği yer:** NTV ve Global Voices kategori etiketi verir. TRT Haber ve CNN Türk vermez; kategori haber adresindedir (`trthaber.com/haber/ekonomi/...`, `cnnturk.com/video/dunya/...`). Okuyucu, etiketi olmayan haberde adresin klasör kısımlarını (haberin kendi adı hariç) kategori adayı olarak döndürür. Eşleme tablosunda bulunmayan adaylar (`haber`, `video`) kendiliğinden elenir.
+- **İki düzey:** Beslemenin varsayılan kategorisi `FEED` düzeyinde atanır. Besleme haber düzeyi eşleme kullanıyorsa (`feeds.use_item_categories`), haberin kategori değerleri eşleme tablosundan ortak kategoriye çevrilir ve `ITEM` düzeyinde atanır. Aynı kategori iki düzeyde de bulunursa `FEED` kalır.
+- **Diğer kuralı:** Atanan kategoriler arasında hiç konu kategorisi (`categories.kind = 'TOPIC'`) yoksa haber Diğer'e atanır. Son Dakika bir zaman etiketi olduğundan konu sayılmaz: konusu bulunamayan bir son dakika haberi hem Son Dakika'yı hem Diğer'i alır.
+- **Yoruma dayanan eşlemeler:** Çevre haberleri (TRT `cevre`, Global Voices `Environment`) Yaşam'a, TRT `savunma` Gündem'e, TRT `turk-dunyasi` Dünya'ya eşlendi.
+- **Türkçe küçük harf:** Kategori değerleri karşılaştırılmadan önce kaynağın dilinin kurallarıyla küçük harfe çevrilir. Python'un `str.lower()` fonksiyonu "I" harfini "i" yapar ve "İ" harfini iki karaktere çevirir; Türkçe kaynaklar için `turkish_lower` fonksiyonu kullanılır.
+
 ## Sonuçlar
 
 - Spring Boot API'nin zamanlanmış işi olmadığından, kopya sayısı kısıtsız artırılabilir.
