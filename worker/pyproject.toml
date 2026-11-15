@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Haber Arama Platformu arka plan işçisi"
 requires-python = ">=3.14"
 dependencies = [
+    "feedparser==6.0.14",
+    "nh3==0.3.7",
     "psycopg[binary]==3.3.6",
 ]
 
@@ -37,6 +39,12 @@ addopts = "--cov=news_worker --cov-report=term-missing --cov-fail-under=80"
 # Katı mod: tür ipucu olmayan veya türü belirsiz kod hata sayılır (kodlama standartları 7. bölüm).
 strict = true
 files = ["src", "tests"]
+
+# feedparser tür bilgisi yayımlamıyor ve ayrı bir tür paketi de yok; yalnızca bu modül için
+# "tür bilgisi bulunamadı" hatası kapatılır. Ondan dönen değerler kendi kodumuzda türlenir.
+[[tool.mypy.overrides]]
+module = "feedparser"
+ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 120
