@@ -75,6 +75,7 @@ erDiagram
 | `created_at`, `updated_at` | `timestamptz` | Zorunlu | |
 
 - API anahtarları bu tabloda tutulmaz; kaynağın `code` değerine göre yapılandırmadan okunur.
+- `field_mapping`, kaynağın standart dışı etiketlerini okuyucuya tanıtır. Şu an tek anahtar `image`'dır: haberin ana görselinin okunacağı etiketin adı. Örnek: CNN Türk için `{"image": "image"}` (`V12` betiği). Değer boşsa görsel standart alanlardan okunur (ADR-0017, 8. bölüm).
 
 ### 3.3 `feeds` (modül: ingestion)
 
