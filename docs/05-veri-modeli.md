@@ -174,7 +174,7 @@ Başlangıç verisi:
 | `hidden_by` | `uuid` | `users` | |
 | `created_at`, `updated_at` | `timestamptz` | Zorunlu | |
 
-- Benzersiz: `(source_id, external_id)` ve `(source_id, normalized_url)` (FG-VT-04). Tekrar eden haber görmezden gelinir.
+- Benzersiz: `(source_id, external_id)` ve `(source_id, normalized_url)` (FG-VT-04). Tekrar eden haber görmezden gelinir; yalnızca eksik kategorileri eklenir (ADR-0017, 10. bölüm).
 - Kısıt: `hidden` `true` ise `hidden_at` ve `hidden_by` dolu olmalıdır.
 - İndeksler: `(lifecycle_state, published_at)`, `(source_id, published_at)`, `fetched_at`.
 - Tablo bölümlenmez (ADR-0015).
