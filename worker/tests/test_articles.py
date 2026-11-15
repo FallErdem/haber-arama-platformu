@@ -223,3 +223,72 @@ async def test_nothing_is_stored_when_a_step_fails(
     assert count(admin, "articles") == 0
     assert count(admin, "article_categories") == 0
     assert count(admin, "outbox_events") == 0
+
+
+def category_rows(admin: psycopg.Connection) -> list[tuple[str, str]]:
+    return admin.execute(
+        "SELECT c.code, ac.mapping_level FROM article_categories ac "
+        "JOIN categories c ON c.id = ac.category_id ORDER BY c.code"
+    ).fetchall()
+
+
+async def test_duplicate_from_another_feed_adds_its_missing_categories(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Haber önce konu beslemesinden, sonra son dakika beslemesinden gelirse Son Dakika'yı da alır.
+
+    Haberin kendisi değişmez (FG-VT-04); yalnızca eksik kategorisi eklenir. Aksi halde bir haberin
+    Son Dakika'da görünmesi, hangi beslemenin önce okunduğuna bağlı kalırdı.
+    """
+    from_topic_feed = replace(new_article(trt_feed), categories=(AssignedCategory("GENERAL", MappingLevel.FEED),))
+    from_breaking_feed = replace(
+        new_article(trt_feed, replace(ARTICLE, title="Değişmiş başlık")),
+        categories=(AssignedCategory("BREAKING", MappingLevel.FEED), AssignedCategory("GENERAL", MappingLevel.ITEM)),
+    )
+    await insert(database, from_topic_feed)
+
+    inserted = await insert(database, from_breaking_feed)
+
+    assert inserted is False
+    assert admin.execute("SELECT title FROM articles").fetchall() == [("Örnek haber",)]
+    # GENERAL zaten vardı ve ilk atandığı düzeyde (FEED) kalır; BREAKING eklenir.
+    assert category_rows(admin) == [("BREAKING", "FEED"), ("GENERAL", "FEED")]
+    assert count(admin, "media") == 2
+
+
+async def test_added_category_is_reported_to_search_index(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Kategori eklenince outbox'a yeni bir not düşer; yoksa arama indeksindeki kopya eski kategorilerle kalır."""
+    await insert(database, replace(new_article(trt_feed), categories=(AssignedCategory("GENERAL", MappingLevel.FEED),)))
+
+    await insert(
+        database, replace(new_article(trt_feed), categories=(AssignedCategory("BREAKING", MappingLevel.FEED),))
+    )
+
+    rows = admin.execute("SELECT operation, status FROM outbox_events").fetchall()
+    assert rows == [("INDEX", "PENDING"), ("INDEX", "PENDING")]
+
+
+async def test_duplicate_with_known_categories_changes_nothing(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Tekrar gelen haberin kategorileri zaten kayıtlıysa hiçbir şey yazılmaz; outbox'a not da düşmez."""
+    await insert(database, new_article(trt_feed))
+
+    await insert(database, new_article(trt_feed))
+
+    assert category_rows(admin) == [("BREAKING", "FEED"), ("ECONOMY", "ITEM")]
+    assert count(admin, "outbox_events") == 1
+
+
+async def test_other_is_not_added_to_an_existing_article(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Konusu bulunmuş bir habere, konuyu bulamayan başka bir besleme sonradan Diğer'i ekleyemez."""
+    await insert(database, replace(new_article(trt_feed), categories=(AssignedCategory("GENERAL", MappingLevel.FEED),)))
+
+    await insert(database, replace(new_article(trt_feed), categories=(AssignedCategory("OTHER", MappingLevel.ITEM),)))
+
+    assert category_rows(admin) == [("GENERAL", "FEED")]
+    assert count(admin, "outbox_events") == 1

@@ -227,6 +227,28 @@ async def test_repeated_articles_are_counted_as_duplicates(
     assert count(admin, "ingestion_runs") == 2
 
 
+async def test_article_seen_later_in_breaking_feed_also_gets_breaking_category(
+    service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
+) -> None:
+    """Aynı haberler önce `gundem`, sonra `sondakika` beslemesinden gelir; ikisinin de kategorisini taşırlar."""
+    topic_feed = await due_feed(database, "TRT", "gundem")
+    breaking_feed = await due_feed(database, "TRT", "sondakika")
+    respx_mock.get(topic_feed.url).respond(200, content=fixture_body("trt-gundem.xml"))
+    respx_mock.get(breaking_feed.url).respond(200, content=fixture_body("trt-gundem.xml"))
+    await service.ingest(topic_feed)
+
+    await service.ingest(breaking_feed)
+
+    assert count(admin, "articles") == 3
+    run = last_run(admin, breaking_feed)
+    assert (run["items_new"], run["items_duplicate"]) == (0, 3)
+    rows = admin.execute(
+        "SELECT c.code, ac.mapping_level, count(*) FROM article_categories ac "
+        "JOIN categories c ON c.id = ac.category_id GROUP BY c.code, ac.mapping_level ORDER BY c.code"
+    ).fetchall()
+    assert rows == [("BREAKING", "FEED", 3), ("GENERAL", "FEED", 3)]
+
+
 async def test_stored_validators_are_sent_and_not_modified_is_recorded(
     service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
 ) -> None:
