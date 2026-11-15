@@ -33,5 +33,6 @@ class ParsedArticle:
     item_type: ItemType
     # İlk adres haberin ana görselidir.
     image_urls: tuple[str, ...]
-    # Kaynağın kendi kategori değerleri; ortak kategoriye eşleme İ-11'dedir.
+    # Kaynağın kendi kategori değerleri: kategori etiketleri, yoksa adresin klasör kısımları.
+    # Ortak kategoriye çevirme CategoryResolver'ın işidir.
     source_categories: tuple[str, ...]
