@@ -81,6 +81,59 @@ Kütüphane sürümleri kurulum sırasında sabitlenecek; yukarıdaki bilgiler k
 - **Testler PostgreSQL üzerinde çalışır.** Test başlarken geçici bir PostgreSQL 18.4 konteyneri açılır, roller oluşturulur ve `db/migrations/` altındaki betikler sırayla uygulanır. Böylece işçi, gerçekte göreceği tablolar ve yetkilerle sınanır; örneğin kullanıcı tablosunu okuyamadığı testle gösterilir.
 - **pip-audit kullanılmaz;** Python bağımlılıkları Trivy ile taranır (ADR-0018).
 
+### 8. Besleme okuyucusu (İ-10)
+
+Okuyucu (`FeedReader`), bir beslemenin metnini alır ve içindeki her haberi kaynaktan bağımsız ortak bir yapıya (`ParsedArticle`) çevirir. Beslemeyi indirmez ve veritabanına yazmaz; bunlar toplama akışının işidir (İ-12). Bu sayede okuyucu, ağ ve veritabanı olmadan, kaydedilmiş gerçek beslemelerle sınanır.
+
+Bu iş kalemiyle eklenen kütüphaneler: `feedparser` 6.0.14 ve `nh3` 0.3.7.
+
+Okuyucu yazılmadan önce dört kaynaktan on bir besleme indirilip incelendi (13 Kasım 2026). Aşağıdaki kararlar bu incelemeye dayanır; örneklerin birkaç habere kırpılmış halleri `worker/tests/fixtures/feeds/` altındadır.
+
+**Okuma**
+
+- **RSS ve Atom için tek sınıf.** `feedparser` iki biçimi de aynı alan adlarıyla verir; `sources.reader_type` değeri `RSS` de olsa `ATOM` da olsa aynı okuyucu kullanılır.
+- **İçerik `feedparser`'a dosya benzeri bir nesne olarak verilir.** Düz metin verildiğinde `feedparser` onu bir adres veya dosya yolu sanıp açmayı dener; bir kaynağın gönderdiği yanıt bu yolla bilgisayardaki bir dosyayı okutabilirdi.
+- **Tanınmayan içerik hatadır, boş besleme değildir.** Besleme yerine boş yanıt, düz metin veya bir hata sayfası gelirse okuyucu `FeedParseError` fırlatır. Haber içermeyen geçerli bir besleme (incelemede NTV'nin `galeri` ve `video` beslemeleri) sıfır haberle başarılı sayılır.
+- **Zorunlu alanı eksik haber atlanır.** Kimliği, adresi (`http` veya `https`), başlığı veya tarihi olmayan haber atlanır; atlanan haber sayısı sonuçta döner ve loga yazılır. Besleme bu yüzden başarısız sayılmaz.
+- **Kimlik:** RSS'te `guid`, Atom'da `id`. Kaynak kimlik vermiyorsa haberin adresi kimlik sayılır.
+- **Tarih:** `feedparser` tarihi hangi saat diliminde gelirse gelsin UTC'ye çevirir; okuyucu bunu saat dilimi bilgisi taşıyan bir Python tarihine dönüştürür (FG-VT-08). Yayın tarihi yoksa güncellenme tarihi kullanılır.
+- **Tür:** Adresinin yolu `/video/` ile başlayan haber `VIDEO`, diğerleri `ARTICLE` sayılır (CNN Türk'te gözlendi). `GALLERY` için incelemede örnek bulunmadığından kural yazılmadı.
+
+**HTML temizliği (FOG-16)**
+
+- İçerik `nh3` ile, kütüphanenin varsayılan izin verilen etiketler listesi kullanılarak temizlenir; listeden yalnızca `<img>` çıkarılmıştır. Yasaklı liste yerine izin listesi kullanıldığı için, bilinmeyen bir etiket de kendiliğinden elenir.
+- İçerikteki `<img>` etiketleri çıkarılır ve adresleri görsel listesine alınır; görseller ayrıca indirilip kendi depomuzdan sunulur (ADR-0010).
+- Başlık ve özet düz metne çevrilir; HTML içermezler.
+- `feedparser` da kendi içinde HTML temizler. Temizliğin başka bir kütüphanenin varsayılan ayarına bağlı kalmaması için `nh3` yine de uygulanır; testler `nh3` katmanını kaynağın gönderdiği ham HTML ile sınar.
+
+**Görseller**
+
+- Öncelik sırası: kaynağa özgü alan (alan eşlemesi), `<enclosure>` (yalnızca görsel türündekiler), içerikteki `<img>` etiketleri. İlk görsel haberin ana görselidir.
+- `media:content` yalnızca başka görsel bulunamadığında kullanılır: Global Voices'ta bu alan küçük bir önizleme resmidir, büyük görsel içeriktedir.
+- Aynı görsel farklı parametrelerle tekrar gelirse (NTV: `?width=930&format=webp`) tek sayılır; karşılaştırma adresin parametresiz haliyle yapılır.
+
+**Alan eşlemesi (FG-VT-03)**
+
+- `feedparser` standart dışı etiketleri atar. CNN Türk görseli haberin içindeki `<image>` etiketinde verdiği için bu görsel `feedparser`'ın sonucunda yer almaz.
+- `sources.field_mapping` bu tür etiketleri okuyucuya tanıtır. Şu an tek anahtar `image`'dır: ana görselin okunacağı etiketin adı. CNN Türk'ün eşlemesi `{"image": "image"}` olarak `V12` betiğiyle yazıldı; diğer üç kaynak görseli standart alanlarda verdiği için eşlemeleri boştur.
+- Eşleme tanımlıysa okuyucu beslemeyi Python'un kendi XML okuyucusuyla ikinci kez açar ve yalnızca o etiketi okur. Değerlendirilen alternatif, `feedparser`'ı bırakıp bütün ayrıştırmayı elle yazmaktı; dört farklı biçim için çok daha fazla kod gerektirdiğinden seçilmedi.
+- Python'un XML okuyucusu dış varlıkları yüklemez; iç içe varlıklarla belleği doldurma saldırısına karşı koruma expat 2.4.1'den beri vardır (işçi imajında 2.9.0). Bu yüzden ek bir kütüphane eklenmedi.
+- Besleme geçerli bir XML değilse (`feedparser` bozuk XML'i de okuyabilir) haberler özel alan olmadan döner ve durum loga yazılır.
+
+**Adres normalleştirme (FG-VT-04)**
+
+- `articles.normalized_url` için: şema ve alan adı küçük harfe çevrilir, `#` ile başlayan kısım, `utm_` ile başlayan parametreler ve yolun sonundaki eğik çizgi atılır. Yol kısaltılmaz ve diğer parametreler korunur; iki farklı haber aynı adrese inmez.
+- Kullanıcıya gösterilen adres haberin özgün adresidir (`articles.url`).
+
+**Tür kontrolü**
+
+- `feedparser` tür bilgisi yayımlamaz ve ayrı bir tür paketi de yoktur. `mypy` ayarında yalnızca bu modül için "tür bilgisi bulunamadı" hatası kapatıldı; `feedparser`'dan gelen değerler okuyucuda tek tek kontrol edilerek kullanılır.
+
+**Bilinen sınırlar**
+
+- TRT Haber'in içerik alanı özetin tekrarından ve bir telif satırından oluşur; olduğu gibi (temizlenerek) saklanır.
+- NTV'nin bir görsel adresinde Türkçe karakter bulunuyor. Adresin indirilebilir biçime çevrilmesi görsel indirme işinde (İ-14) ele alınacak.
+
 ## Sonuçlar
 
 - Spring Boot API'nin zamanlanmış işi olmadığından, kopya sayısı kısıtsız artırılabilir.

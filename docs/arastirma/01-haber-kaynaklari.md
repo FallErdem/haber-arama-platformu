@@ -174,6 +174,8 @@ RSS 2.0'da bir habere görsel eklemenin standart yolu `<enclosure>` veya Media R
 
 **Sonuç:** Genel bir besleme okuyucusu bu görsellerin çoğunu bulamaz. Kaynak tanımında, görselin hangi alandan okunacağını belirten bir alan eşleme ayarı bulunmalıdır.
 
+> **13 Kasım 2026 notu (İ-10):** Okuyucu geliştirilirken kullanılan besleme adresleri yeniden incelendi. TRT Haber'in `..._articles.rss` adreslerinde `<imageUrl>` etiketi yok; görsel standart alanlarda (`<enclosure>` ve `media:content`) geliyor. Yukarıdaki TRT gözlemi farklı bir adres (`sondakika.rss`) üzerinde yapılmıştı. Global Voices'ın İngilizce beslemesinde görsel hem tam metindeki `<img>` etiketinde hem de küçük bir önizleme olarak `media:content` alanında geliyor. Sonuç olarak alan eşlemesi yalnızca CNN Türk için gerekti; ayrıntılar ADR-0017'nin 8. bölümündedir.
+
 ### 5.3 Benzersiz kimlikler tutarsız
 
 | Kaynak | Kimlik değeri | Not |
