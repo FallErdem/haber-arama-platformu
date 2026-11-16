@@ -9,6 +9,7 @@ from news_worker.articles import ArticleRepository, NewArticle, UnknownCategoryE
 from news_worker.category_resolver import AssignedCategory, MappingLevel
 from news_worker.database import Database
 from news_worker.parsed_article import ItemType, ParsedArticle
+from news_worker.search_document import IndexableArticle
 
 FETCHED_AT = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 
@@ -223,6 +224,96 @@ async def test_nothing_is_stored_when_a_step_fails(
     assert count(admin, "articles") == 0
     assert count(admin, "article_categories") == 0
     assert count(admin, "outbox_events") == 0
+
+
+async def find_indexable(database: Database, article_ids: list[UUID]) -> dict[UUID, IndexableArticle]:
+    async with await database.connect() as connection:
+        return await ArticleRepository().find_indexable(connection, article_ids)
+
+
+def stored_article_id(admin: psycopg.Connection) -> UUID:
+    row = admin.execute("SELECT id FROM articles").fetchone()
+    assert row is not None
+    article_id: UUID = row[0]
+    return article_id
+
+
+async def test_indexable_article_carries_source_code_and_category_codes(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Arama indeksi için haber, kaynağının kodu ve kategorilerinin kodlarıyla birlikte okunur."""
+    await insert(database, new_article(trt_feed))
+    article_id = stored_article_id(admin)
+
+    found = await find_indexable(database, [article_id])
+
+    assert found == {
+        article_id: IndexableArticle(
+            id=article_id,
+            source_code="TRT",
+            language="tr",
+            item_type="ARTICLE",
+            published_at=ARTICLE.published_at,
+            group_id=None,
+            title="Örnek haber",
+            summary="Kısa özet.",
+            content="<p>Tam metin.</p>",
+            categories=("BREAKING", "ECONOMY"),
+        )
+    }
+
+
+async def test_indexable_articles_are_read_together(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Birden fazla haber tek sorguda okunur; her biri kendi kimliğiyle bulunur."""
+    second = replace(
+        ARTICLE,
+        external_id="haber-2",
+        url="https://example.test/haber-2",
+        normalized_url="https://example.test/haber-2",
+        title="İkinci haber",
+    )
+    await insert(database, new_article(trt_feed))
+    await insert(database, new_article(trt_feed, second))
+    ids = [row[0] for row in admin.execute("SELECT id FROM articles").fetchall()]
+
+    found = await find_indexable(database, ids)
+
+    assert {article.title for article in found.values()} == {"Örnek haber", "İkinci haber"}
+    assert set(found) == set(ids)
+
+
+async def test_hidden_article_is_not_indexable(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Gizlenen haber arama indeksinde bulunmaz; bu yüzden indekslenecekler arasında gelmez."""
+    await insert(database, new_article(trt_feed))
+    article_id = stored_article_id(admin)
+    admin.execute(
+        "INSERT INTO users (keycloak_sub, email, role, status) "
+        "VALUES ('yonetici', 'yonetici@example.test', 'ADMIN', 'ACTIVE')"
+    )
+    admin.execute("UPDATE articles SET hidden = true, hidden_at = now(), hidden_by = (SELECT id FROM users)")
+
+    assert await find_indexable(database, [article_id]) == {}
+
+
+async def test_unknown_article_is_not_indexable(database: Database, admin: psycopg.Connection) -> None:
+    """Kayıtlı olmayan (silinmiş) bir haberin kimliği sonuçta yer almaz; boş liste de hata vermez."""
+    assert await find_indexable(database, [UUID("019a0000-0000-7000-8000-000000000000")]) == {}
+    assert await find_indexable(database, []) == {}
+
+
+async def test_article_without_categories_has_empty_category_list(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Kategorisi olmayan haber de okunur; kategori listesi boştur."""
+    await insert(database, replace(new_article(trt_feed), categories=()))
+
+    found = await find_indexable(database, [stored_article_id(admin)])
+
+    assert [article.categories for article in found.values()] == [()]
 
 
 def category_rows(admin: psycopg.Connection) -> list[tuple[str, str]]:
