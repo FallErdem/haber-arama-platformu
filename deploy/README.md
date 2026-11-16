@@ -157,6 +157,21 @@ Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, ta
 | `OUTBOX_BATCH_SIZE` | `200` | Bir turda Elasticsearch'e aktarılan en fazla outbox notu |
 | `ES_TIMEOUT_SECONDS` | `30` | Elasticsearch'e giden bir isteğin süre sınırı |
 
+### 10. Arama indeksini yeniden oluştur (yalnızca gerektiğinde)
+
+İlk kurulumda gerekmez; işçi haberleri topladıkça arama indeksine kendisi yazar. İndeks yapısı değiştiğinde (yeni bir alan, başka bir analizör) veya PostgreSQL ile Elasticsearch arasında tutarsızlık şüphesi olduğunda çalıştırılır:
+
+```bash
+./scripts/dev/reindex.sh
+```
+
+Betik işçiyi durdurur, bütün haberleri yeni bir nesle (`articles-g2-...`) yazar, `articles` takma adını oraya taşır, eski neslin indekslerini siler ve işçiyi yeniden başlatır. Arama bu sırada kesilmez; yalnızca haber toplama bekler. İş başarısız olursa etkin nesil değişmez; betik yeniden çalıştırılabilir. Etkin nesil şu komutla görülür (takma adı taşıyan şablon):
+
+```bash
+export ES_PW=$(grep '^password=' deploy/k8s/overlays/dev/secrets/elasticsearch-news-worker.env | cut -d= -f2)
+kubectl exec -n haber elasticsearch-0 -- curl -s -u "news_worker:$ES_PW" 'localhost:9200/_index_template/articles*?filter_path=index_templates.name'
+```
+
 ## Doğrulama
 
 | Ne | Komut | Beklenen |

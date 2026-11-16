@@ -305,6 +305,40 @@ async def test_article_without_categories_has_empty_category_list(
     assert [article.categories for article in found.values()] == [()]
 
 
+async def test_indexable_articles_are_paged_in_id_order(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Tam yeniden indeksleme için haberler kimlik sırasıyla sayfalanır ("şundan sonrakiler"); gizli haber gelmez."""
+    for number in (1, 2, 3, 4):
+        numbered = replace(
+            ARTICLE,
+            external_id=f"haber-{number}",
+            url=f"https://example.test/haber-{number}",
+            normalized_url=f"https://example.test/haber-{number}",
+        )
+        await insert(database, new_article(trt_feed, numbered))
+    ids = [row[0] for row in admin.execute("SELECT id FROM articles ORDER BY id").fetchall()]
+    admin.execute(
+        "INSERT INTO users (keycloak_sub, email, role, status) "
+        "VALUES ('yonetici', 'yonetici@example.test', 'ADMIN', 'ACTIVE')"
+    )
+    admin.execute(
+        "UPDATE articles SET hidden = true, hidden_at = now(), hidden_by = (SELECT id FROM users) WHERE id = %s",
+        (ids[1],),
+    )
+
+    async with await database.connect() as connection:
+        repository = ArticleRepository()
+        first_page = await repository.find_indexable_after(connection, None, 2)
+        second_page = await repository.find_indexable_after(connection, first_page[-1].id, 2)
+        third_page = await repository.find_indexable_after(connection, second_page[-1].id, 2)
+
+    assert [article.id for article in first_page] == [ids[0], ids[2]]
+    assert [article.id for article in second_page] == [ids[3]]
+    assert third_page == []
+    assert first_page[0].categories == ("BREAKING", "ECONOMY")
+
+
 def category_rows(admin: psycopg.Connection) -> list[tuple[str, str]]:
     return admin.execute(
         "SELECT c.code, ac.mapping_level FROM article_categories ac "

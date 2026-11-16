@@ -8,6 +8,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID
 
+import pytest
 from elasticsearch import AsyncElasticsearch
 
 from news_worker.search_document import IndexableArticle, build_document, document_id
@@ -145,6 +146,36 @@ async def test_turkish_article_is_found_by_differently_inflected_words(search_cl
     assert await search_ids(search_client, "title_tr", "istanbul") == [str(ARTICLE_ID)]
     assert await search_ids(search_client, "content_tr", "kitap") == [str(ARTICLE_ID)]
     assert await search_ids(search_client, "content_tr", "IŞIK") == [str(ARTICLE_ID)]
+
+
+@pytest.mark.parametrize(
+    ("field", "text"),
+    [
+        ("title_tr", "ISTANBUL"),
+        ("title_tr", "Istanbul"),
+        ("title_tr", "acildi"),
+        ("content_tr", "ziyaretciler"),
+        ("content_tr", "isiklar"),
+    ],
+)
+async def test_turkish_article_is_found_without_turkish_letters(
+    search_client: AsyncElasticsearch, field: str, text: str
+) -> None:
+    """Türkçe karaktersiz veya noktasız büyük I ile yazılan sorgu asıl alanda değil, katlanmış alt alanda bulunur."""
+    await SearchIndex(search_client).ensure_ready()
+    await store(search_client, TURKISH_ARTICLE)
+
+    assert await search_ids(search_client, field, text) == []
+    assert await search_ids(search_client, f"{field}.folded", text) == [str(ARTICLE_ID)]
+
+
+async def test_plural_only_article_is_found_by_singular_word(search_client: AsyncElasticsearch) -> None:
+    """Yalnızca "seçimler" geçen haber "seçim" aramasıyla asıl alanda bulunamaz; katlanmış alt alanda bulunur."""
+    await SearchIndex(search_client).ensure_ready()
+    await store(search_client, replace(TURKISH_ARTICLE, title="Seçimler ertelendi"))
+
+    assert await search_ids(search_client, "title_tr", "seçim") == []
+    assert await search_ids(search_client, "title_tr.folded", "seçim") == [str(ARTICLE_ID)]
 
 
 async def test_link_addresses_in_content_are_not_searchable(search_client: AsyncElasticsearch) -> None:

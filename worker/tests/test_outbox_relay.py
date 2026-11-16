@@ -15,7 +15,7 @@ from news_worker.database import Database
 from news_worker.outbox import OutboxRepository
 from news_worker.outbox_relay import OutboxRelay, retry_delay_minutes
 from news_worker.parsed_article import ItemType, ParsedArticle
-from news_worker.search_index import ALIAS, TEMPLATE_NAME, SearchIndex, create_search_client, index_name_for
+from news_worker.search_index import ALIAS, SearchIndex, create_search_client, index_name_for
 
 NOVEMBER = datetime(2026, 11, 13, 13, 40, tzinfo=UTC)
 JUNE_2023 = datetime(2023, 6, 6, 16, 2, tzinfo=UTC)
@@ -312,8 +312,6 @@ async def test_loop_sets_up_the_index_before_the_first_document(
     database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
 ) -> None:
     """Döngü, ilk belgeden önce şablonu kendisi kurar; aylık indeks doğru analizörlerle açılır."""
-    # Önceki testlerden kalan şablon silinir: Elasticsearch ilk kez kuruluyormuş gibi.
-    await search_client.options(ignore_status=404).indices.delete_index_template(name=TEMPLATE_NAME)
     await add_article(database, trt_feed, 1)
     stop = asyncio.Event()
 
@@ -324,7 +322,8 @@ async def test_loop_sets_up_the_index_before_the_first_document(
 
     mapping = await search_client.indices.get_mapping(index="articles-g1-2026.11.01")
     properties = mapping["articles-g1-2026.11.01"]["mappings"]["properties"]
-    assert properties["title_tr"] == {"type": "text", "analyzer": "turkish"}
+    assert properties["title_tr"]["analyzer"] == "turkish"
+    assert properties["title_tr"]["fields"]["folded"]["analyzer"] == "turkish_folded"
 
 
 async def test_loop_survives_elasticsearch_outage(

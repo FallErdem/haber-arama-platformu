@@ -23,6 +23,7 @@ resources:
   - frontend/service.yaml
   - frontend/httproute.yaml
   - worker/deployment.yaml
+  - worker/reindex-cronjob.yaml
 configMapGenerator:
   - name: keycloak-realm
     files:

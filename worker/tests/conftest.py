@@ -231,7 +231,7 @@ def elasticsearch_url() -> Iterator[str]:
 
 @pytest.fixture
 async def search_client(elasticsearch_url: str) -> AsyncIterator[AsyncElasticsearch]:
-    """İşçinin kendi kullanıcısıyla bağlanan istemci. Test bitince testin açtığı indeksler silinir."""
+    """İşçinin kendi kullanıcısıyla bağlanan istemci. Test bitince testin açtığı indeksler ve şablonlar silinir."""
     client = create_search_client(
         elasticsearch_url, SEARCH_WORKER_USER, SEARCH_WORKER_PASSWORD, request_timeout_seconds=30
     )
@@ -243,4 +243,8 @@ async def search_client(elasticsearch_url: str) -> AsyncIterator[AsyncElasticsea
         indices = await client.indices.get(index=INDEX_PATTERN, expand_wildcards="all")
         if indices.body:
             await client.indices.delete(index=",".join(indices.body))
+        # Şablonlar da silinir: bir testin etkin yaptığı nesil sonraki testi etkilemez.
+        templates = await client.options(ignore_status=404).indices.get_index_template(name="articles*")
+        for template in templates.get("index_templates", []):
+            await client.indices.delete_index_template(name=template["name"])
         await client.close()

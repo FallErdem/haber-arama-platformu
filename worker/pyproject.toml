@@ -13,6 +13,8 @@ dependencies = [
 
 [project.scripts]
 news-worker = "news_worker.app:main"
+# Tam yeniden indeksleme; elle çalıştırılır (bkz. news_worker/reindex.py).
+news-worker-reindex = "news_worker.reindex:main"
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]

@@ -12,7 +12,7 @@ from elasticsearch import AsyncElasticsearch
 from news_worker import app
 from news_worker.config import Settings
 from news_worker.logging_config import JsonFormatter, configure_logging
-from news_worker.search_index import TEMPLATE_NAME
+from news_worker.search_index import template_name_for
 
 
 async def test_worker_finds_tables_ingests_due_feeds_relays_outbox_and_stops_on_request(
@@ -72,7 +72,7 @@ async def test_worker_finds_tables_ingests_due_feeds_relays_outbox_and_stops_on_
     assert feed_requests.calls.last.request.headers["User-Agent"] == settings.http_user_agent
     # Outbox aktarımı da çalışmıştır: bekleyen not işlenmiş, indeks şablonu kurulmuştur.
     assert admin.execute("SELECT status FROM outbox_events").fetchall() == [("PROCESSED",)]
-    templates = await search_client.indices.get_index_template(name=TEMPLATE_NAME)
+    templates = await search_client.indices.get_index_template(name=template_name_for(1))
     assert len(templates["index_templates"]) == 1
 
 
@@ -100,7 +100,7 @@ def test_log_lines_are_json() -> None:
 
 
 def test_http_client_request_lines_are_not_logged() -> None:
-    """httpx'in her istek için yazdığı satırlar (adresle birlikte) loga girmez; uyarıları girer."""
+    """httpx'in ve Elasticsearch istemcisinin her istek için yazdığı satırlar loga girmez."""
     root = logging.getLogger()
     handlers, level = root.handlers, root.level
     try:
@@ -108,8 +108,11 @@ def test_http_client_request_lines_are_not_logged() -> None:
 
         assert logging.getLogger("httpx").isEnabledFor(logging.INFO) is False
         assert logging.getLogger("httpx").isEnabledFor(logging.WARNING) is True
+        assert logging.getLogger("elastic_transport.transport").isEnabledFor(logging.WARNING) is False
+        assert logging.getLogger("elastic_transport.transport").isEnabledFor(logging.ERROR) is True
         assert logging.getLogger("news_worker").isEnabledFor(logging.INFO) is True
     finally:
         # Diğer testlerin log ayarı bozulmasın.
         root.handlers, root.level = handlers, level
         logging.getLogger("httpx").setLevel(logging.NOTSET)
+        logging.getLogger("elastic_transport").setLevel(logging.NOTSET)

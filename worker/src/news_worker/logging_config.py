@@ -35,3 +35,8 @@ def configure_logging() -> None:
     # satırlarında vardır; ayrıca adresinde API anahtarı taşıyan kaynaklarda (NYT) anahtar loga
     # maskelenmeden yazılırdı (R-18). Bu yüzden httpx'in yalnızca uyarı ve hataları yazılır.
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    # Elasticsearch istemcisi her isteği INFO düzeyinde, başarısız her bağlantı denemesini de
+    # WARNING düzeyinde yığın iziyle loglar. İkisinin bilgisi de outbox aktarımının kendi
+    # satırlarında vardır ("Outbox aktarıldı", "Elasticsearch'e ulaşılamadı"); Elasticsearch
+    # kapalıyken logun yığın izleriyle dolmaması için istemcinin yalnızca hataları yazılır.
+    logging.getLogger("elastic_transport").setLevel(logging.ERROR)

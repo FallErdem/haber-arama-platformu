@@ -7,7 +7,6 @@ durumuna göre verildiği için bir notun geç veya iki kez işlenmesi yanlış 
 
 import asyncio
 import logging
-from typing import Any
 from uuid import UUID
 
 from elasticsearch import ApiError, AsyncElasticsearch, TransportError
@@ -15,8 +14,7 @@ from elasticsearch import ApiError, AsyncElasticsearch, TransportError
 from news_worker.articles import ArticleRepository
 from news_worker.database import Database, wait_for_stop
 from news_worker.outbox import OutboxEvent, OutboxRepository
-from news_worker.search_document import IndexableArticle, build_document, document_id
-from news_worker.search_index import ALIAS, SearchIndex, index_name_for
+from news_worker.search_index import ALIAS, SearchIndex
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +65,10 @@ class OutboxRelay:
             articles = await self._article_repository.find_indexable(connection, article_ids)
 
         errors: dict[UUID, str] = {}
-        errors.update(await self._index(list(articles.values())))
+        # Etkin nesil her turda Elasticsearch'e sorulur: yeniden indekslemeden sonra işçi kendiliğinden
+        # yeni nesle yazar.
+        generation = await self._search_index.active_generation()
+        errors.update(await self._search_index.write(list(articles.values()), generation))
         # Okunamayan haber silinmiş ya da gizlenmiştir; indekste bulunmamalıdır.
         errors.update(await self._delete([article_id for article_id in article_ids if article_id not in articles]))
 
@@ -104,25 +105,6 @@ class OutboxRelay:
             # Grup dolu geldiyse bekleyen başka notlar da vardır; beklemeden devam edilir.
             if count < self._batch_size:
                 await wait_for_stop(stop, self._interval_seconds)
-
-    async def _index(self, articles: list[IndexableArticle]) -> dict[UUID, str]:
-        """Belgeleri tek bir toplu istekle yazar; Elasticsearch'in reddettiklerini hatasıyla döner."""
-        if not articles:
-            return {}
-        # Toplu istek (bulk) satır çiftlerinden oluşur: önce "hangi indekse, hangi kimlikle", sonra belge.
-        operations: list[dict[str, Any]] = []
-        for article in articles:
-            operations.append({"index": {"_index": index_name_for(article.published_at), "_id": document_id(article)}})
-            operations.append(build_document(article))
-        response = await self._client.bulk(operations=operations)
-
-        # İstek başarılı dönse de içindeki belgeler tek tek reddedilmiş olabilir; her birinin sonucuna bakılır.
-        errors: dict[UUID, str] = {}
-        for item in response["items"]:
-            result = item["index"]
-            if "error" in result:
-                errors[UUID(result["_id"])] = f"{result['error']['type']}: {result['error']['reason']}"
-        return errors
 
     async def _delete(self, article_ids: list[UUID]) -> dict[UUID, str]:
         """Verilen haberlerin belgelerini siler. Belge zaten yoksa hata sayılmaz."""

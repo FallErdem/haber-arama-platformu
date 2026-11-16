@@ -106,7 +106,7 @@ _INSERT_OUTBOX_QUERY = """
 # Arama indeksine yazılacak haberler: kaynak kodu ve kategori kodlarıyla birlikte, tek sorguda.
 # Gizlenen haberler gelmez (indekste bulunmazlar). array_agg kategori kodlarını tek bir dizide
 # toplar; FILTER, kategorisi olmayan haberde dizinin [NULL] yerine boş olmasını sağlar.
-_FIND_INDEXABLE_QUERY = """
+_INDEXABLE_SELECT = """
     SELECT a.id, s.code, a.language, a.item_type, a.published_at, a.group_id, a.title, a.summary,
            a.content,
            COALESCE(array_agg(c.code ORDER BY c.code) FILTER (WHERE c.code IS NOT NULL), '{}'::text[])
@@ -114,10 +114,30 @@ _FIND_INDEXABLE_QUERY = """
     JOIN sources s ON s.id = a.source_id
     LEFT JOIN article_categories ac ON ac.article_id = a.id
     LEFT JOIN categories c ON c.id = ac.category_id
+"""
+
+_FIND_INDEXABLE_QUERY = (
+    _INDEXABLE_SELECT
+    + """
     WHERE a.id = ANY(%(article_ids)s::uuid[])
       AND NOT a.hidden
     GROUP BY a.id, s.code
 """
+)
+
+# Tam yeniden indeksleme için bütün görünür haberler, kimlik sırasıyla ve sayfa sayfa. Sayfalama
+# "şu kimlikten sonrakiler" diye yapılır (OFFSET değil): her sayfa birincil anahtar indeksiyle
+# doğrudan bulunur, baştan sayılmaz.
+_FIND_INDEXABLE_AFTER_QUERY = (
+    _INDEXABLE_SELECT
+    + """
+    WHERE (%(after_id)s::uuid IS NULL OR a.id > %(after_id)s::uuid)
+      AND NOT a.hidden
+    GROUP BY a.id, s.code
+    ORDER BY a.id
+    LIMIT %(limit)s
+"""
+)
 
 
 class ArticleRepository:
@@ -187,22 +207,17 @@ class ArticleRepository:
         almaz; çağıran, istediği kimlik sözlükte yoksa haberin indekste bulunmaması gerektiğini anlar.
         """
         cursor = await connection.execute(_FIND_INDEXABLE_QUERY, {"article_ids": list(article_ids)})
-        articles = [
-            IndexableArticle(
-                id=row[0],
-                source_code=row[1],
-                language=row[2],
-                item_type=row[3],
-                published_at=row[4],
-                group_id=row[5],
-                title=row[6],
-                summary=row[7],
-                content=row[8],
-                categories=tuple(row[9]),
-            )
-            for row in await cursor.fetchall()
-        ]
-        return {article.id: article for article in articles}
+        return {row[0]: _to_indexable(row) for row in await cursor.fetchall()}
+
+    async def find_indexable_after(
+        self, connection: psycopg.AsyncConnection[TupleRow], after_id: UUID | None, limit: int
+    ) -> list[IndexableArticle]:
+        """Görünür haberlerin bir sayfasını kimlik sırasıyla döner; `after_id` önceki sayfanın son kimliğidir.
+
+        İlk sayfa için `after_id` verilmez. Boş liste, haberlerin bittiğini gösterir.
+        """
+        cursor = await connection.execute(_FIND_INDEXABLE_AFTER_QUERY, {"after_id": after_id, "limit": limit})
+        return [_to_indexable(row) for row in await cursor.fetchall()]
 
     async def _add_missing_categories(
         self, connection: psycopg.AsyncConnection[TupleRow], new_article: NewArticle
@@ -241,3 +256,18 @@ class ArticleRepository:
         if added:
             # Kategoriler değişti: arama indeksindeki kopyanın güncellenmesi için yeni bir not bırakılır.
             await connection.execute(_INSERT_OUTBOX_QUERY, {"article_id": article_id})
+
+
+def _to_indexable(row: TupleRow) -> IndexableArticle:
+    return IndexableArticle(
+        id=row[0],
+        source_code=row[1],
+        language=row[2],
+        item_type=row[3],
+        published_at=row[4],
+        group_id=row[5],
+        title=row[6],
+        summary=row[7],
+        content=row[8],
+        categories=tuple(row[9]),
+    )
