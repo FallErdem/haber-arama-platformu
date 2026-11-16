@@ -4,6 +4,7 @@ import asyncio
 import logging
 import signal
 
+from news_worker.articles import ArticleRepository
 from news_worker.config import ConfigurationError, Settings
 from news_worker.database import Database
 from news_worker.feed_fetcher import FeedFetcher, create_http_client
@@ -12,17 +13,29 @@ from news_worker.feeds import FeedRepository
 from news_worker.health import HealthServer
 from news_worker.ingestion_service import IngestionService
 from news_worker.logging_config import configure_logging
+from news_worker.outbox import OutboxRepository
+from news_worker.outbox_relay import OutboxRelay
 from news_worker.rate_limiter import SourceRateLimiter
 from news_worker.scheduler import Scheduler
+from news_worker.search_index import SearchIndex, create_search_client
 
 log = logging.getLogger(__name__)
 
 
 async def run(settings: Settings, stop: asyncio.Event) -> None:
-    """Sağlık adresini açar, tabloları bekler ve durdurma istenene kadar zamanlayıcıyı çalıştırır."""
+    """Sağlık adresini açar, tabloları bekler ve durdurma istenene kadar işleri çalıştırır.
+
+    İki iş yan yana çalışır: zamanlayıcı (haber toplama) ve outbox aktarımı (Elasticsearch).
+    """
     database = Database(settings)
     # Bütün indirmeler tek bir HTTP istemcisini paylaşır; blok bitince istemci ve açık bağlantıları kapanır.
-    async with create_http_client(settings.http_user_agent, settings.http_timeout_seconds) as http_client:
+    # Elasticsearch istemcisi de aynı şekilde blok bitince kapanır.
+    async with (
+        create_http_client(settings.http_user_agent, settings.http_timeout_seconds) as http_client,
+        create_search_client(
+            settings.es_url, settings.es_user, settings.es_password, settings.es_timeout_seconds
+        ) as search_client,
+    ):
         ingestion_service = IngestionService(
             database,
             FeedFetcher(http_client, settings.http_total_timeout_seconds),
@@ -31,6 +44,17 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             SourceRateLimiter(),
         )
         scheduler = Scheduler(database, FeedRepository(), ingestion_service.ingest, settings.scheduler_interval_seconds)
+        outbox_relay = OutboxRelay(
+            database,
+            OutboxRepository(),
+            ArticleRepository(),
+            search_client,
+            SearchIndex(search_client),
+            settings.outbox_interval_seconds,
+            settings.outbox_batch_size,
+        )
+        # Hazır olma yalnızca zamanlayıcıya bakar: Elasticsearch kapalıyken de haber toplama sürer
+        # ve notlar PostgreSQL'de birikir (FOG-09); işçi bu yüzden sağlıksız sayılmaz.
         health_server = HealthServer(settings.health_port, is_ready=scheduler.is_healthy)
 
         # Sağlık adresi beklemeden önce açılır: tablolar beklenirken işçi "ayakta ama
@@ -41,7 +65,8 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             await database.wait_until_ready(stop)
             if not stop.is_set():
                 log.info("Tablolar hazır; zamanlayıcı başlıyor")
-                await scheduler.run(stop)
+                # gather: iki döngü aynı anda çalışır; durdurma istenince ikisi de elindeki turu bitirip döner.
+                await asyncio.gather(scheduler.run(stop), outbox_relay.run(stop))
         finally:
             await health_server.stop()
             log.info("İşçi durdu")

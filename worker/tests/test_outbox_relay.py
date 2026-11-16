@@ -15,7 +15,7 @@ from news_worker.database import Database
 from news_worker.outbox import OutboxRepository
 from news_worker.outbox_relay import OutboxRelay, retry_delay_minutes
 from news_worker.parsed_article import ItemType, ParsedArticle
-from news_worker.search_index import ALIAS, SearchIndex, create_search_client, index_name_for
+from news_worker.search_index import ALIAS, TEMPLATE_NAME, SearchIndex, create_search_client, index_name_for
 
 NOVEMBER = datetime(2026, 11, 13, 13, 40, tzinfo=UTC)
 JUNE_2023 = datetime(2023, 6, 6, 16, 2, tzinfo=UTC)
@@ -84,7 +84,13 @@ def event_rows(admin: psycopg.Connection) -> list[tuple[str, int, bool]]:
 
 def build_relay(database: Database, client: AsyncElasticsearch, batch_size: int = 10) -> OutboxRelay:
     return OutboxRelay(
-        database, OutboxRepository(), ArticleRepository(), client, interval_seconds=60, batch_size=batch_size
+        database,
+        OutboxRepository(),
+        ArticleRepository(),
+        client,
+        SearchIndex(client),
+        interval_seconds=60,
+        batch_size=batch_size,
     )
 
 
@@ -290,7 +296,6 @@ async def test_loop_continues_without_waiting_while_batches_are_full(
     database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
 ) -> None:
     """Grup dolu geldikçe döngü beklemez: 5 not, 2'şerli gruplarla, 60 saniyelik aralık beklenmeden biter."""
-    await SearchIndex(search_client).ensure_ready()
     for number in range(1, 6):
         await add_article(database, trt_feed, number)
     stop = asyncio.Event()
@@ -301,6 +306,25 @@ async def test_loop_continues_without_waiting_while_batches_are_full(
     await asyncio.wait_for(task, timeout=5)
 
     assert [status for status, _, _ in event_rows(admin)] == ["PROCESSED"] * 5
+
+
+async def test_loop_sets_up_the_index_before_the_first_document(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
+) -> None:
+    """Döngü, ilk belgeden önce şablonu kendisi kurar; aylık indeks doğru analizörlerle açılır."""
+    # Önceki testlerden kalan şablon silinir: Elasticsearch ilk kez kuruluyormuş gibi.
+    await search_client.options(ignore_status=404).indices.delete_index_template(name=TEMPLATE_NAME)
+    await add_article(database, trt_feed, 1)
+    stop = asyncio.Event()
+
+    task = asyncio.create_task(build_relay(database, search_client).run(stop))
+    await wait_until_no_event_is_pending(admin)
+    stop.set()
+    await asyncio.wait_for(task, timeout=5)
+
+    mapping = await search_client.indices.get_mapping(index="articles-g1-2026.11.01")
+    properties = mapping["articles-g1-2026.11.01"]["mappings"]["properties"]
+    assert properties["title_tr"] == {"type": "text", "analyzer": "turkish"}
 
 
 async def test_loop_survives_elasticsearch_outage(
@@ -314,7 +338,13 @@ async def test_loop_survives_elasticsearch_outage(
     await add_article(database, trt_feed, 1)
     stop = asyncio.Event()
     relay = OutboxRelay(
-        database, OutboxRepository(), ArticleRepository(), unreachable_client, interval_seconds=0.05, batch_size=10
+        database,
+        OutboxRepository(),
+        ArticleRepository(),
+        unreachable_client,
+        SearchIndex(unreachable_client),
+        interval_seconds=0.05,
+        batch_size=10,
     )
 
     with caplog.at_level(logging.WARNING, logger="news_worker.outbox_relay"):

@@ -16,7 +16,7 @@ from news_worker.articles import ArticleRepository
 from news_worker.database import Database, wait_for_stop
 from news_worker.outbox import OutboxEvent, OutboxRepository
 from news_worker.search_document import IndexableArticle, build_document, document_id
-from news_worker.search_index import ALIAS, index_name_for
+from news_worker.search_index import ALIAS, SearchIndex, index_name_for
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ class OutboxRelay:
         outbox_repository: OutboxRepository,
         article_repository: ArticleRepository,
         client: AsyncElasticsearch,
+        search_index: SearchIndex,
         interval_seconds: float,
         batch_size: int,
     ) -> None:
@@ -47,6 +48,7 @@ class OutboxRelay:
         self._outbox_repository = outbox_repository
         self._article_repository = article_repository
         self._client = client
+        self._search_index = search_index
         self._interval_seconds = interval_seconds
         self._batch_size = batch_size
 
@@ -80,9 +82,16 @@ class OutboxRelay:
         return len(events)
 
     async def run(self, stop: asyncio.Event) -> None:
-        """Durdurma istenene kadar notları aktarır."""
+        """İndeks şablonunu kurar ve durdurma istenene kadar notları aktarır."""
+        index_ready = False
         while not stop.is_set():
             try:
+                if not index_ready:
+                    # İlk belgeden önce şablon kurulmuş olmalıdır; yoksa Elasticsearch aylık indeksi
+                    # alanları tahmin ederek açar (yanlış analizör). Elasticsearch açılışta kapalıysa
+                    # kurulum da aşağıdaki gibi bir sonraki turda yeniden denenir; işçi çökmez.
+                    await self._search_index.ensure_ready()
+                    index_ready = True
                 count = await self.relay_batch()
             except (ApiError, TransportError) as error:
                 # Elasticsearch kapalı veya yanıt vermiyor: notlar PostgreSQL'de bekler, bir sonraki

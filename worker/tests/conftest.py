@@ -126,6 +126,10 @@ def settings(postgres: PostgresContainer) -> Settings:
         db_name="news",
         db_user="news_worker",
         db_password=WORKER_PASSWORD,
+        # Kimsenin dinlemediği bir adres: Elasticsearch gerektiren testler gerçek adresi kendileri verir.
+        es_url="http://127.0.0.1:9",
+        es_user=SEARCH_WORKER_USER,
+        es_password=SEARCH_WORKER_PASSWORD,
         scheduler_interval_seconds=0.05,
         health_port=8080,
     )

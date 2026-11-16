@@ -5,7 +5,7 @@ from news_worker.config import ConfigurationError, Settings
 
 def test_defaults_are_used_when_only_password_is_given() -> None:
     """Yalnızca şifre verildiğinde varsayılan değerler kullanılır."""
-    settings = Settings.from_environment({"DB_PASSWORD": "gizli"})
+    settings = Settings.from_environment({"DB_PASSWORD": "gizli", "ES_PASSWORD": "arama-gizli"})
 
     assert settings.db_host == "localhost"
     assert settings.db_port == 5432
@@ -17,6 +17,12 @@ def test_defaults_are_used_when_only_password_is_given() -> None:
     assert settings.http_user_agent == "HaberAramaPlatformu/0.1 (egitim projesi)"
     assert settings.http_timeout_seconds == 10.0
     assert settings.http_total_timeout_seconds == 30.0
+    assert settings.es_url == "http://localhost:9200"
+    assert settings.es_user == "news_worker"
+    assert settings.es_password == "arama-gizli"
+    assert settings.es_timeout_seconds == 30.0
+    assert settings.outbox_interval_seconds == 5.0
+    assert settings.outbox_batch_size == 200
 
 
 def test_environment_variables_override_defaults() -> None:
@@ -24,6 +30,12 @@ def test_environment_variables_override_defaults() -> None:
     settings = Settings.from_environment(
         {
             "DB_PASSWORD": "gizli",
+            "ES_PASSWORD": "arama-gizli",
+            "ES_URL": "http://elasticsearch:9200",
+            "ES_USER": "baska_kullanici",
+            "ES_TIMEOUT_SECONDS": "7",
+            "OUTBOX_INTERVAL_SECONDS": "1.5",
+            "OUTBOX_BATCH_SIZE": "50",
             "DB_HOST": "postgres-rw",
             "DB_PORT": "6432",
             "DB_NAME": "haberler",
@@ -43,12 +55,25 @@ def test_environment_variables_override_defaults() -> None:
     assert settings.http_user_agent == "BaskaAd/1.0"
     assert settings.http_timeout_seconds == 3.0
     assert settings.http_total_timeout_seconds == 12.5
+    assert settings.es_url == "http://elasticsearch:9200"
+    assert settings.es_user == "baska_kullanici"
+    assert settings.es_timeout_seconds == 7.0
+    assert settings.outbox_interval_seconds == 1.5
+    assert settings.outbox_batch_size == 50
 
 
-@pytest.mark.parametrize("environment", [{}, {"DB_PASSWORD": ""}])
-def test_missing_password_raises_a_clear_error(environment: dict[str, str]) -> None:
-    """Şifre yoksa hangi ayarın eksik olduğunu söyleyen bir hata verir."""
-    with pytest.raises(ConfigurationError, match="DB_PASSWORD"):
+@pytest.mark.parametrize(
+    ("environment", "missing"),
+    [
+        ({"ES_PASSWORD": "arama-gizli"}, "DB_PASSWORD"),
+        ({"DB_PASSWORD": "", "ES_PASSWORD": "arama-gizli"}, "DB_PASSWORD"),
+        ({"DB_PASSWORD": "gizli"}, "ES_PASSWORD"),
+        ({"DB_PASSWORD": "gizli", "ES_PASSWORD": ""}, "ES_PASSWORD"),
+    ],
+)
+def test_missing_password_raises_a_clear_error(environment: dict[str, str], missing: str) -> None:
+    """Bir şifre yoksa hangi ayarın eksik olduğunu söyleyen bir hata verir."""
+    with pytest.raises(ConfigurationError, match=missing):
         Settings.from_environment(environment)
 
 
@@ -62,16 +87,21 @@ def test_missing_password_raises_a_clear_error(environment: dict[str, str]) -> N
         ("SCHEDULER_INTERVAL_SECONDS", "0"),
         ("HTTP_TIMEOUT_SECONDS", "uzun"),
         ("HTTP_TOTAL_TIMEOUT_SECONDS", "0"),
+        ("ES_TIMEOUT_SECONDS", "0"),
+        ("OUTBOX_INTERVAL_SECONDS", "sik"),
+        ("OUTBOX_BATCH_SIZE", "0"),
+        ("OUTBOX_BATCH_SIZE", "2.5"),
     ],
 )
 def test_invalid_numeric_setting_is_rejected(name: str, value: str) -> None:
     """Sayı olmayan veya sıfırdan büyük olmayan sayısal ayar reddedilir."""
     with pytest.raises(ConfigurationError, match=name):
-        Settings.from_environment({"DB_PASSWORD": "gizli", name: value})
+        Settings.from_environment({"DB_PASSWORD": "gizli", "ES_PASSWORD": "arama-gizli", name: value})
 
 
 def test_password_is_hidden_in_repr() -> None:
-    """Şifre, ayarların yazdırılan halinde görünmez."""
-    settings = Settings.from_environment({"DB_PASSWORD": "cok-gizli-sifre"})
+    """Şifreler, ayarların yazdırılan halinde görünmez."""
+    settings = Settings.from_environment({"DB_PASSWORD": "cok-gizli-sifre", "ES_PASSWORD": "arama-sifresi"})
 
     assert "cok-gizli-sifre" not in repr(settings)
+    assert "arama-sifresi" not in repr(settings)

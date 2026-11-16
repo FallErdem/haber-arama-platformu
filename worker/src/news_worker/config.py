@@ -17,6 +17,9 @@ class Settings:
     db_user: str
     # repr=False: ayarlar loga yazılırsa veya bir hata mesajında görünürse şifre çıkmaz.
     db_password: str = field(repr=False)
+    es_url: str
+    es_user: str
+    es_password: str = field(repr=False)
     scheduler_interval_seconds: float
     health_port: int
     # Kaynak sitelere işçinin kendini tanıttığı ad (FG-VT-05).
@@ -25,6 +28,11 @@ class Settings:
     http_timeout_seconds: float = 10.0
     # Bir indirmenin baştan sona sürebileceği en uzun süre.
     http_total_timeout_seconds: float = 30.0
+    # Elasticsearch'e giden bir isteğin süre sınırı.
+    es_timeout_seconds: float = 30.0
+    # Outbox aktarımının iki turu arasındaki süre ve bir turda işlenen en fazla not sayısı (ADR-0012).
+    outbox_interval_seconds: float = 5.0
+    outbox_batch_size: int = 200
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str] | None = None) -> Settings:
@@ -33,6 +41,9 @@ class Settings:
         password = env.get("DB_PASSWORD", "")
         if not password:
             raise ConfigurationError("DB_PASSWORD ortam değişkeni tanımlı değil")
+        es_password = env.get("ES_PASSWORD", "")
+        if not es_password:
+            raise ConfigurationError("ES_PASSWORD ortam değişkeni tanımlı değil")
 
         return cls(
             db_host=env.get("DB_HOST", "localhost"),
@@ -41,6 +52,10 @@ class Settings:
             # İşçi yalnızca kendi kullanıcısıyla bağlanır; yetkileri V9 betiğinde tanımlıdır.
             db_user=env.get("DB_USER", "news_worker"),
             db_password=password,
+            es_url=env.get("ES_URL", "http://localhost:9200"),
+            # Elasticsearch'te de yalnızca işçinin kendi kullanıcısı; rolü elasticsearch-setup Job'unda tanımlıdır.
+            es_user=env.get("ES_USER", "news_worker"),
+            es_password=es_password,
             scheduler_interval_seconds=_positive_float(env, "SCHEDULER_INTERVAL_SECONDS", 30.0),
             health_port=_positive_int(env, "HEALTH_PORT", 8080),
             http_user_agent=env.get("HTTP_USER_AGENT") or cls.http_user_agent,
@@ -48,6 +63,9 @@ class Settings:
             http_total_timeout_seconds=_positive_float(
                 env, "HTTP_TOTAL_TIMEOUT_SECONDS", cls.http_total_timeout_seconds
             ),
+            es_timeout_seconds=_positive_float(env, "ES_TIMEOUT_SECONDS", cls.es_timeout_seconds),
+            outbox_interval_seconds=_positive_float(env, "OUTBOX_INTERVAL_SECONDS", cls.outbox_interval_seconds),
+            outbox_batch_size=_positive_int(env, "OUTBOX_BATCH_SIZE", cls.outbox_batch_size),
         )
 
 

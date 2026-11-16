@@ -43,6 +43,15 @@ spec:
                 secretKeyRef:
                   name: postgres-news-worker
                   key: password
+            # Arama indeksi: outbox aktarımı haberleri buraya yazar (ADR-0012). Küme içinde TLS yoktur (bkz. İ-32).
+            - name: ES_URL
+              value: http://elasticsearch:9200
+            # Elasticsearch'te de yalnızca işçinin kendi kullanıcısı (news_worker); kullanıcı adı uygulamadaki varsayılandır.
+            - name: ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-news-worker
+                  key: password
           resources:
             requests:
               cpu: 50m
@@ -57,6 +66,7 @@ spec:
             failureThreshold: 30
           # Hazır: tablolar görünüyor ve zamanlayıcının son turu başarılı. Tablolar
           # beklenirken işçi "ayakta ama hazır değil" görünür; yeniden başlatılmaz.
+          # Elasticsearch'e bakılmaz: o kapalıyken de haber toplama sürer, notlar PostgreSQL'de birikir.
           readinessProbe:
             httpGet:
               path: /healthz/ready
