@@ -33,17 +33,6 @@ CATEGORIES = (
 )
 
 
-@pytest.fixture
-def trt_feed(admin: psycopg.Connection) -> tuple[UUID, UUID]:
-    """TRT kaynağının ve bir beslemesinin kimlikleri. `admin` kullanıldığı için test sonunda haberler silinir."""
-    row = admin.execute(
-        "SELECT s.id, f.id FROM feeds f JOIN sources s ON s.id = f.source_id "
-        "WHERE s.code = 'TRT' ORDER BY f.name LIMIT 1"
-    ).fetchone()
-    assert row is not None
-    return row[0], row[1]
-
-
 def new_article(feed: tuple[UUID, UUID], article: ParsedArticle = ARTICLE) -> NewArticle:
     source_id, feed_id = feed
     return NewArticle(

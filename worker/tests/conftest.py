@@ -10,6 +10,7 @@ import re
 import time
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from uuid import UUID
 
 import httpx
 import psycopg
@@ -146,6 +147,17 @@ def admin(postgres: PostgresContainer) -> Iterator[psycopg.Connection]:
         connection.execute(RESET_DATA_SQL)
 
 
+@pytest.fixture
+def trt_feed(admin: psycopg.Connection) -> tuple[UUID, UUID]:
+    """TRT kaynağının ve bir beslemesinin kimlikleri. `admin` kullanıldığı için test sonunda haberler silinir."""
+    row = admin.execute(
+        "SELECT s.id, f.id FROM feeds f JOIN sources s ON s.id = f.source_id "
+        "WHERE s.code = 'TRT' ORDER BY f.name LIMIT 1"
+    ).fetchone()
+    assert row is not None
+    return row[0], row[1]
+
+
 # --- Elasticsearch -------------------------------------------------------------------------
 
 # Kümedeki Elasticsearch ile aynı sürüm ve aynı güvenlik ayarları (deploy/k8s/base/elasticsearch).
@@ -223,7 +235,8 @@ async def search_client(elasticsearch_url: str) -> AsyncIterator[AsyncElasticsea
         yield client
     finally:
         # Elasticsearch joker karakterle silmeye izin vermez; indeksler adlarıyla silinir.
-        indices = await client.indices.get(index=INDEX_PATTERN)
+        # expand_wildcards: bir testin kapattığı indeks de bulunup silinir.
+        indices = await client.indices.get(index=INDEX_PATTERN, expand_wildcards="all")
         if indices.body:
             await client.indices.delete(index=",".join(indices.body))
         await client.close()
