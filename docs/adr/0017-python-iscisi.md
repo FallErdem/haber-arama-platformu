@@ -58,7 +58,7 @@ Veritabanı geçiş betikleri tek bir yerde tutulur. Python işçisi şemayı hi
 | ruff | Kod stili denetimi ve biçimlendirme | İki işi tek araçla yapar (FOG-28). |
 | mypy | Tür kontrolü | Tür ipuçlarını CI'da zorunlu kılar; pyright benzer yetenekte, ancak Node.js gerektirir. |
 | pytest | Test çerçevesi | Test verisi hazırlama (fixture), aynı testi farklı girdilerle çalıştırma, asyncio testleri ve kapsam ölçümü (FOG-23). |
-| pip-audit | Bağımlılık açığı taraması | Paketleri açık açık veritabanlarına karşı tarar (FOG-18). |
+| pip-audit | Bağımlılık açığı taraması | Paketleri açık açık veritabanlarına karşı tarar (FOG-18). ADR-0018 ile çıkarıldı; yerine Trivy kullanılır. |
 
 Kütüphane sürümleri kurulum sırasında sabitlenecek; yukarıdaki bilgiler kütüphanelerin resmi sayfalarından doğrulanmıştır.
 
@@ -205,6 +205,81 @@ Bir beslemenin okunması (`IngestionService.ingest`):
 
 - `ingestion_runs.trigger` şimdilik her okumada `SCHEDULED` yazılır. Elle başlatılan toplamanın ayırt edilmesi yönetim ekranıyla birlikte ele alınacaktır (İ-22).
 - Her beslemede yeni bir veritabanı bağlantısı açılır; bağlantı havuzu gerek görülürse eklenecektir.
+
+### 11. Arama indeksi ve outbox aktarımı (İ-15)
+
+Bu iş kalemiyle haberler Elasticsearch'e aktarılmaya başladı. Eklenen kütüphane: `elasticsearch` 9.4.1 (sunucu 9.4.9 ile aynı ana ve alt sürüm). İstemcinin asyncio sürümü varsayılan olarak `aiohttp` ister; projede zaten bulunan `httpx` üzerinden çalışacak şekilde kuruldu (`HttpxAsyncHttpNode`), ikinci bir HTTP kütüphanesi eklenmedi. Testler kümedekiyle aynı sürümde geçici bir Elasticsearch konteynerinde ve işçinin kendi rolüyle (`news_worker`) çalışır.
+
+**İndeks kurulumu (`SearchIndex`)**
+
+- İşçi açılışta yaşam döngüsü politikasını ve indeks şablonunu Elasticsearch'e gönderir; aynı tanımın yeniden gönderilmesi bir şeyi bozmaz. Aylık indeksler elle açılmaz: bir aya ait ilk haber yazıldığında Elasticsearch indeksi şablondaki alanlar, ayarlar ve takma adla kendisi açar.
+- Şablon `dynamic: strict` kullanır: tanımlı olmayan bir alan gönderilirse belge reddedilir; yazım hatası sessizce yeni bir alan oluşturamaz.
+- Kopya sayısı 0'dır: tek düğümlü kümede kopyanın konacağı ikinci bir düğüm yoktur, 0 dışındaki değer bütün indeksleri "sarı" durumda bırakır. Değer `SearchIndex`'e parametre olarak verilir.
+- Aylık indeks, haberin yayın tarihinin UTC'deki ayına göre seçilir.
+- Kurulum outbox döngüsünün içindedir, işçinin açılışında değil: Elasticsearch açılışta kapalıysa işçi çökmez, haber toplama sürer, kurulum bir sonraki turda yeniden denenir. Şablon kurulmadan belge yazılmaz; yazılsaydı Elasticsearch alanları tahmin ederek açardı.
+- Kurulumdan önce geçici bir Elasticsearch'te işçinin yetkileriyle doğrulananlar: indeksin yaşı adındaki tarihten hesaplanıyor (2023 adlı indeks açılır açılmaz soğuk aşamaya geçti); ılık aşamadaki birleştirme indeksi salt okunur yapmıyor (ADR-0015); işçinin mevcut rolü yeterli.
+
+**Belge (`search_document.py`)**
+
+- Belge kimliği haberin kimliğidir; aynı haber yeniden gönderildiğinde ikinci bir belge oluşmaz, var olanın üzerine yazılır.
+- Metinler haberin diline ait alanlara yazılır (`title_tr` veya `title_en`); değeri olmayan alan belgeye konmaz.
+- İçerik PostgreSQL'de temizlenmiş HTML olarak durur; indekse yalnızca yazısı gider (`to_plain_text`). Aksi halde etiket adları ve bağlantı adresleri de aranabilir kelime olurdu.
+
+**Outbox aktarımı (`OutboxRelay`, ADR-0012)**
+
+- İşçide iki döngü yan yana çalışır: zamanlayıcı (haber toplama) ve outbox aktarımı. Aktarım `OUTBOX_INTERVAL_SECONDS` (varsayılan 5) saniyede bir, turda en fazla `OUTBOX_BATCH_SIZE` (varsayılan 200) notu en eskisinden başlayarak işler; grup dolu geldiyse beklemeden bir sonrakini alır.
+- Her not "bu haberi arama indeksinde güncel haline getir" diye işlenir: haber duruyorsa ve gizli değilse belgesi yazılır, aksi halde belgesi silinir. Karar notun türüne (`INDEX`, `DELETE`) göre değil haberin o anki durumuna göre verilir; bu yüzden bir notun geç, sırası değişmiş veya iki kez işlenmesi yanlış sonuç üretmez. Örnek: gizlenip geri açılan bir haberin eski `DELETE` notu sonradan işlense de belge silinmez.
+- Aynı habere ait birden fazla not aynı turdaysa haber bir kez okunur ve bir kez yazılır; notların hepsi işlenmiş sayılır.
+- Belgeler tek bir toplu istekle (bulk) yazılır. Silinecek belgeler bütün aylık indekslerde kimlikle aranıp silinir, çünkü silinmiş bir haberin yayın tarihi ve dolayısıyla indeksi bilinmez. Arama yalnızca yenilenmiş belgeleri gördüğünden silmeden önce indeks yenilenir; yoksa yazıldıktan hemen sonra gizlenen haberin belgesi bulunamaz ve aramada kalırdı.
+- Notlar satır kilidiyle alınmaz: işçi tek kopya çalışır; dağıtım sırasında iki işçi kısa süre çakışsa bile aynı belge iki kez yazılır ve sonuç değişmez. Kilit, Elasticsearch isteği boyunca açık bir veritabanı işlemi gerektirirdi.
+
+| Durum | Not | Sonraki deneme |
+|---|---|---|
+| Belge yazıldı veya silindi | `PROCESSED` | — |
+| Elasticsearch tek bir belgeyi reddetti | `PENDING`; deneme sayısı artar, hata `last_error`'a yazılır | 1, 5, 15 dakika sonra; ardından hep 15 dakikada bir |
+| Elasticsearch'e ulaşılamadı veya isteğin tamamı hata verdi | Notlara dokunulmaz | Bir sonraki turda (5 saniye) |
+
+- Reddedilen nottan vazgeçilmez (veri modeli 3.10): neden (örneğin şablondaki bir eksik) düzeltildiğinde not bir sonraki denemede kendiliğinden işlenir ve haber aramaya girer.
+- Elasticsearch'e ulaşılamadığında notlar ertelenmez, çünkü sorun notlarda değildir; ertelenselerdi Elasticsearch geri geldiğinde boşuna beklenirdi. İşçinin hazır olma kontrolü Elasticsearch'e bakmaz: Elasticsearch kapalıyken haber toplama sürer ve notlar PostgreSQL'de birikir (FOG-09).
+- İstemcinin kendi yeniden denemesi kapalıdır (`max_retries=0`) ve logları yalnızca hata düzeyinde yazılır: her isteği ve başarısız her bağlantı denemesini yığın iziyle logluyordu; aynı bilgi aktarımın kendi satırlarında vardır.
+
+**Türkçe analizörün gerçek haberlerle denenmesi (16 Kasım 2026, 1.952 haber)**
+
+Yerleşik `turkish` analizörü isim çekim eklerinde, ünsüz yumuşamasında (kitap / kitabı), kesme işaretinde ve Türkçe büyük harfte (İSTANBUL) doğru çalıştı. Görülen zayıflıklar:
+
+| Zayıflık | Kanıt (sonuç sayısı) |
+|---|---|
+| Türkçe karaktersiz yazım eşleşmiyor | `cumhurbaskani erdogan` 0, `cumhurbaşkanı erdoğan` 47; `turkiye` 1, `türkiye` 404 |
+| Noktasız büyük I | `ISTANBUL` 0, `Istanbul` 0, `istanbul` 107 (analizör Türkçe kuralıyla `I`'yı `ı` yapar) |
+| Kök bulucu bazı kelimelerde tekil ile çoğulu farklı köke indiriyor | `seçim` 36, `seçimler` 19; `deprem` 36, `depremler` 27 |
+| Şapkalı harfler ayrı sayılıyor | `yapay zeka` 57, `yapay zekâ` 4 |
+| Ses düşmesi | `şehir` 38, `şehri` 5 |
+
+Değerlendirilen seçenekler:
+
+- **Biçimbilimsel kök bulma (Zemberek):** en doğru sonucu verir, ancak Elasticsearch'e eklenti olarak kurulmalıdır ve Elasticsearch 9 için bakımı yapılan bir eklenti bulunamadı; eklentiyi derleyip bakımını üstlenmek gerekirdi.
+- **Hunspell (sözlük tabanlı):** Elasticsearch'te hazırdır, ancak sözlük dosyalarının imaja eklenmesini gerektirir ve sözlükte olmayan kelimelere (özel adlar) dokunamaz.
+- **Türkçe alanlara ikinci bir alt alan (seçilen):** `turkish` analizörüne dokunulmaz; `title_tr`, `summary_tr` ve `content_tr` alanlarının her birine `folded` alt alanı eklenir. Alt alanın analizörü (`turkish_folded`) kesme işaretinden sonrasını atar, Türkçe kurallarıyla küçük harfe çevirir, harfleri ASCII karşılığına çevirir (`asciifolding`) ve kelimenin ilk beş harfini alır. Örnek: İstanbul, ISTANBUL, Istanbul → `istan`; seçim, seçimler → `secim`; hâlâ, hala → `hala`.
+
+İlk beş harf, kök bulmanın kaba bir biçimidir: Türkçe sondan eklemeli olduğundan kelimenin başı kökü taşır. Türkçe haber metinleriyle yapılan deneylerde basit kesme yönteminin biçimbilimsel kök bulucuya yakın sonuç verdiği bildirilmiştir (Can ve ark., "Information retrieval on Turkish texts", JASIST 2008). Bedeli kaba eşleşmelerdir (türkiye ve türkistan ikisi de `turki`; cumhurbaşkanı ve cumhuriyet ikisi de `cumhu`). Bu yüzden arama iki alana birlikte bakacak ve asıl alana daha yüksek ağırlık verecektir (İ-17); katlanmış alan yalnızca asıl alanın kaçırdıklarını yakalar. Ses düşmesi (şehir / şehri) bu yöntemle de tam çözülmez; bilinen sınırlamadır.
+
+Yeniden indekslemeden sonra aynı sorguların sonuçları (2.028 haber; asıl alan → asıl ve katlanmış alan birlikte): `ISTANBUL` 0 → 110; `cumhurbaskani erdogan` 0 → 55; `turkiye` 1 → 419; `seçimler` 22 → 45; `yapay zekâ` 4 → 58.
+
+**Nesiller ve tam yeniden indeksleme (`reindex.py`, ADR-0012)**
+
+- Şablon yalnızca yeni açılan indekse uygulanır; var olan indekslerin alanları değişmez. İndeks yapısı değiştiğinde veya PostgreSQL ile Elasticsearch arasında tutarsızlık şüphesi olduğunda (R-20) haberler yeni bir nesle (`articles-g2-...`) baştan yazılır.
+- Her neslin kendi şablonu vardır (`articles-g1`, `articles-g2`); `articles` takma adını yalnızca etkin neslin şablonu taşır. Tek bir şablon bütün nesilleri kapsasaydı, doldurulmakta olan yeni nesil de aramaya girer ve her haber iki kez çıkardı.
+- Etkin nesil bir ayarda veya kodda tutulmaz; Elasticsearch'e sorulur: takma adı taşıyan şablonun nesli. Outbox aktarımı bunu her turda sorar ve yeniden indekslemeden sonra kendiliğinden yeni nesle yazar.
+- Adımlar: yarıda kalmış bir önceki denemenin indeksleri silinir → yeni neslin şablonu takma ad olmadan kurulur → görünür haberler kimlik sırasıyla, 500'erli sayfalarla okunup yazılır → yeni nesildeki belge sayısı yazılan haber sayısıyla karşılaştırılır → takma ad tek istekte eski indekslerden yeni indekslere taşınır → eski neslin şablonu ve indeksleri silinir.
+- Herhangi bir adımda hata olursa etkin nesil değişmez ve arama eskisi gibi çalışır; komut yeniden çalıştırılabilir.
+- Yeniden indeksleme sırasında işçi durdurulur. Arama kesilmez (API eski indekslerden okur); yalnızca haber toplama bekler ve o sırada oluşan outbox notları işçi açıldığında yeni nesle işlenir. İşçi çalışırken yapmak, kopyalama sürerken toplanan haberlerin hangi nesle yazıldığını izlemeyi gerektirirdi; bu karmaşıklık, birkaç dakikalık bekleme karşılığında tercih edilmedi.
+- Kümede `scripts/dev/reindex.sh` ile çalıştırılır: işçiyi durdurur, askıya alınmış `worker-reindex` CronJob'undan bir Job üretir (işçiyle aynı imaj ve şifreler; komut `news-worker-reindex`), bitmesini bekler ve işçiyi yeniden başlatır.
+- İlk sürümde tek bir şablon vardı (`articles`, kapsamı `articles-*`). Böyle kurulmuş bir kümede bu şablon 1. nesil sayılır ve ilk yeniden indekslemede silinir. İlk yeniden indeksleme 16 Kasım 2026'da katlanmış alt alan için yapıldı: 2.028 haber, 55 aylık indeks, yaklaşık 2 saniye.
+
+**Gözlemler**
+
+- İlk aktarımda biriken 2.043 not 200'erli gruplarla yaklaşık 2,5 saniyede işlendi.
+- 2.028 haber 55 aylık indekse dağılmıştır; eski tarihli haber veren beslemeler (TRT Haber `koronavirus`) 2018'e kadar giden ayların indekslerini açtırır ve bunların çoğunda birkaç belge vardır. Elasticsearch'in düğüm başına varsayılan sınırı 1.000 parçadır; aylık indeks kararı (ADR-0015) değiştirilmedi.
 
 ## Sonuçlar
 

@@ -257,9 +257,9 @@ Başlangıç verisi:
 
 - İndeks: `status = 'PENDING'` olan satırları kapsayan, `next_attempt_at` üzerinde kısmi indeks.
 - `article_id` yabancı anahtar değildir: Silinen bir haberin `DELETE` kaydının, haber silindikten sonra da var olabilmesi gerekir.
-- Kayıt haberin içeriğini taşımaz; işleyen iş haberin PostgreSQL'deki güncel halini okur. Silinmiş bir habere ait `INDEX` kaydı atlanır.
+- Kayıt haberin içeriğini taşımaz; işleyen iş haberin PostgreSQL'deki güncel halini okur ve kararını ona göre verir: haber duruyorsa ve gizli değilse belgesi yazılır, aksi halde belgesi silinir. `operation` kaydın neden oluştuğunu gösterir; silinmiş veya gizlenmiş bir habere ait `INDEX` kaydı belgeyi yazmaz, görünür bir habere ait eski bir `DELETE` kaydı belgeyi silmez (ADR-0017, 11. bölüm).
 - Haber gizlendiğinde `DELETE`, gizleme geri alındığında `INDEX` kaydı oluşturulur.
-- Kayıtlardan vazgeçilmez; başarısız aktarımlar artan aralıklarla yeniden denenir. İşlenmiş kayıtlar belirli bir süre sonra (öneri: 7 gün) silinir.
+- Kayıtlardan vazgeçilmez. Elasticsearch'in reddettiği kayıt 1, 5 ve 15 dakika sonra, ardından 15 dakikada bir yeniden denenir (`attempts`, `last_error`, `next_attempt_at`); Elasticsearch'e ulaşılamadığında kayıtlara dokunulmaz ve bir sonraki turda yeniden denenir. İşlenmiş kayıtlar belirli bir süre sonra (öneri: 7 gün) silinir.
 
 ### 3.11 `saved_articles` (modül: library)
 
@@ -340,7 +340,10 @@ Başlangıç verisi:
 
 - Haberler, yayın tarihinin ayına göre aylık indekslerde tutulur. İndeks adı ayın ilk gününü içerir: `articles-g1-2026.11.01`. `g1`, indeks neslini gösterir (bkz. 5.4).
 - İndekslerde `index.lifecycle.parse_origination_date` ayarı açıktır; indeksin yaşı, adındaki tarihten hesaplanır. Böylece geçmiş tarihli haberlerin yüklendiği indeksler de doğru yaşta kabul edilir.
-- Aramalar bütün aylık indeksleri kapsayan `articles` takma adı (alias) üzerinden yapılır.
+- Aramalar etkin neslin bütün aylık indekslerini kapsayan `articles` takma adı (alias) üzerinden yapılır.
+- Aylık indeksler elle açılmaz. Her neslin bir indeks şablonu vardır (`articles-g1`, kapsamı `articles-g1-*`): alanları, analizörleri, ayarları (tek parça, kopya sayısı 0, yaşam döngüsü politikası) ve takma adı tanımlar; bir aya ait ilk haber yazıldığında Elasticsearch indeksi bu şablonla açar. Şablonu işçi kurar. Takma adı yalnızca etkin neslin şablonu taşır; etkin nesil, takma adı taşıyan şablonun neslidir.
+- Aylık indeks, haberin yayın tarihinin UTC'deki ayına göre seçilir.
+- Şablon tanımlı olmayan alanları reddeder (`dynamic: strict`).
 
 ### 5.2 Belge alanları
 
@@ -353,10 +356,13 @@ Başlangıç verisi:
 | `categories` | `keyword` (çok değerli) | Kategori kodları |
 | `published_at` | `date` | |
 | `group_id` | `keyword` | Gruplanmış haberlerin tek sonuç olarak gösterilmesi için |
-| `title_tr`, `summary_tr`, `content_tr` | `text`, Türkçe analiz | Yalnızca Türkçe haberlerde dolar |
-| `title_en`, `summary_en`, `content_en` | `text`, İngilizce analiz | Yalnızca İngilizce haberlerde dolar |
+| `title_tr`, `summary_tr`, `content_tr` | `text`, Türkçe analiz | Yalnızca Türkçe haberlerde dolar. İçerik düz metin olarak yazılır (HTML etiketleri çıkarılır) |
+| `title_tr.folded`, `summary_tr.folded`, `content_tr.folded` | `text`, `turkish_folded` analizörü | Alt alan; belgeye ayrıca yazılmaz, Elasticsearch aynı metni ikinci bir biçimde indeksler |
+| `title_en`, `summary_en`, `content_en` | `text`, İngilizce analiz | Yalnızca İngilizce haberlerde dolar. İçerik düz metin olarak yazılır |
 
-- Türkçe ve İngilizce alanlarda Elasticsearch'ün yerleşik `turkish` ve `english` dil analizörleri kullanılır. Türkçe analizörün sonuçları kurulum sırasında örnek haberlerle doğrulanacaktır.
+- Türkçe ve İngilizce alanlarda Elasticsearch'ün yerleşik `turkish` ve `english` dil analizörleri kullanılır.
+- Türkçe analizör gerçek haberlerle denendi (ADR-0017, 11. bölüm): Türkçe karaktersiz yazımı (`cumhurbaskani`), noktasız büyük I'yı (`ISTANBUL`) ve bazı kelimelerde tekil ile çoğulu (`seçim` / `seçimler`) eşleştirmiyor. Bunun için Türkçe alanların `folded` alt alanı vardır; analizörü kesme işaretinden sonrasını atar, Türkçe kurallarıyla küçük harfe çevirir, harfleri ASCII karşılığına çevirir ve kelimenin ilk beş harfini alır. Kaba eşleşmeler üretebildiğinden aramada asıl alandan düşük ağırlık alır.
+- Değeri olmayan alan belgeye konmaz.
 - Arama, iki dilin alanlarında birlikte yapılır. Alan ağırlıkları başlık, özet ve tam metin sırasıyla azalır (FG-AR-01); kesin değerler arama geliştirilirken belirlenecektir.
 - Gizlenen haberler indekste bulunmaz.
 - Görseller, kaynak adı ve atıf bilgisi indekste tutulmaz; arama sonuçlarındaki haberler için PostgreSQL'den tek bir toplu sorguyla alınır.
@@ -376,6 +382,11 @@ Başlangıç verisi:
 ### 5.4 Yeniden indeksleme
 
 Tam yeniden indeksleme (ADR-0012), yeni bir nesil numarasıyla (`g2`) yeni indekslere yapılır. İşlem tamamlandığında `articles` takma adı yeni indekslere taşınır ve eski nesil silinir. Böylece yeniden indeksleme sırasında aramalar kesintisiz devam eder.
+
+- İndeks yapısı değiştiğinde (şablon yalnızca yeni açılan indekse uygulanır) veya tutarsızlık şüphesinde elle çalıştırılır: `scripts/dev/reindex.sh`.
+- Yeni neslin şablonu önce takma ad olmadan kurulur; indeksler dolarken aramaya girmez. Takma ad taşınmadan önce yeni nesildeki belge sayısı yazılan haber sayısıyla karşılaştırılır; hata olursa etkin nesil değişmez.
+- İşlem sırasında işçi durdurulur; haber toplama bekler, o sırada oluşan outbox kayıtları işçi açıldığında yeni nesle işlenir.
+- Adımlar ve gerekçeleri: ADR-0017, 11. bölüm.
 
 ## 6. MinIO
 
@@ -424,5 +435,6 @@ PostgreSQL (uygulama ve Keycloak veritabanları) ve MinIO yedeklenir. Elasticsea
 ## 8. Bilinen Sınırlamalar ve Açık Konular
 
 - Sonradan eklenen kategori eşlemeleri yalnızca yeni haberlere uygulanır; önceden `OTHER` kategorisine atanmış haberler yeniden kategorilenmez. Gerekirse ileride bir yeniden kategorileme işi eklenebilir.
+- Türkçe aramada ses düşmesi olan kelimeler (şehir / şehri, burun / burnu) birbirini her zaman bulmaz; `folded` alt alanı kaba eşleşmeler üretebilir (türkiye / türkistan). Ayrıntı: ADR-0017, 11. bölüm.
 - Kaynaklar arası gruplama (FG-VT-11) yöntemi henüz seçilmemiştir; seçilen yöntem `articles` tablosuna ek bir sütun gerektirebilir.
 - `ingestion_runs`, işlenmiş `outbox_events` kayıtları ve `audit_events` için saklama süreleri veri büyümesi analizinde belirlenecektir.
