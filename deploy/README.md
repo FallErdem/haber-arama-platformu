@@ -153,6 +153,24 @@ Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, ta
 | `HTTP_TIMEOUT_SECONDS` | `10` | Bir isteğin her aşaması için süre sınırı |
 | `HTTP_TOTAL_TIMEOUT_SECONDS` | `30` | Bir indirmenin toplam süre sınırı |
 | `SCHEDULER_INTERVAL_SECONDS` | `30` | Zamanlayıcının iki turu arasındaki süre |
+| `OUTBOX_INTERVAL_SECONDS` | `5` | Outbox aktarımının iki turu arasındaki süre |
+| `OUTBOX_BATCH_SIZE` | `200` | Bir turda Elasticsearch'e aktarılan en fazla outbox notu |
+| `ES_TIMEOUT_SECONDS` | `30` | Elasticsearch'e giden bir isteğin süre sınırı |
+
+### 10. Arama indeksini yeniden oluştur (yalnızca gerektiğinde)
+
+İlk kurulumda gerekmez; işçi haberleri topladıkça arama indeksine kendisi yazar. İndeks yapısı değiştiğinde (yeni bir alan, başka bir analizör) veya PostgreSQL ile Elasticsearch arasında tutarsızlık şüphesi olduğunda çalıştırılır:
+
+```bash
+./scripts/dev/reindex.sh
+```
+
+Betik işçiyi durdurur, bütün haberleri yeni bir nesle (`articles-g2-...`) yazar, `articles` takma adını oraya taşır, eski neslin indekslerini siler ve işçiyi yeniden başlatır. Arama bu sırada kesilmez; yalnızca haber toplama bekler. İş başarısız olursa etkin nesil değişmez; betik yeniden çalıştırılabilir. Etkin nesil şu komutla görülür (takma adı taşıyan şablon):
+
+```bash
+export ES_PW=$(grep '^password=' deploy/k8s/overlays/dev/secrets/elasticsearch-news-worker.env | cut -d= -f2)
+kubectl exec -n haber elasticsearch-0 -- curl -s -u "news_worker:$ES_PW" 'localhost:9200/_index_template/articles*?filter_path=index_templates.name'
+```
 
 ## Doğrulama
 
@@ -165,6 +183,7 @@ Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, ta
 | API | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/api/v1/me` | `401` (token olmadan) |
 | Frontend | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/` | `200` |
 | İşçi | `kubectl logs -n haber deploy/worker --tail=5` | "Okuma zamanı gelmiş besleme sayısı: ..." ve "Besleme toplandı: ... (yeni: ..., tekrar: ..., atlanan: ...)" satırları |
+| Outbox aktarımı | `kubectl logs -n haber deploy/worker --tail=200 \| grep Outbox` | "Outbox aktarıldı (not: ..., yazılan haber: ..., silinen haber: ..., hata: 0)" satırları; Elasticsearch kapalıyken "Elasticsearch'e ulaşılamadı; outbox notları bekliyor" |
 | API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{content_type}\n" http://haber.localhost/actuator/health` | `text/html` (yanıtı API değil frontend verir; API'nin yanıtı `application/...json` olurdu) |
 
 Keycloak'ın yönetim paneli: `http://haber.localhost/auth/admin/`. Kullanıcı adı ve şifre `deploy/k8s/overlays/dev/secrets/keycloak-admin.env` dosyasındadır.

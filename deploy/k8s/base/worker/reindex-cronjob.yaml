@@ -1,0 +1,61 @@
+# Tam yeniden indeksleme (ADR-0012): arama indeksini PostgreSQL'den baştan üretir.
+#
+# Bu CronJob kendiliğinden hiç çalışmaz (suspend: true); yalnızca elle başlatılan işin kalıbıdır.
+# İşçiyle aynı imajı ve aynı şifreleri kullandığı için ayrı bir tanım yazmak yerine buradan Job üretilir:
+#
+#   ./scripts/dev/reindex.sh
+#
+# Betik önce işçiyi durdurur: yeniden indeksleme sürerken işçi çalışırsa, o sırada topladığı haberler
+# eski nesle yazılır ve yeni nesilde eksik kalır.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: worker-reindex
+spec:
+  # Zamanlama alanı zorunludur; suspend açık olduğu için bu saatte de çalışmaz.
+  schedule: "0 0 1 1 *"
+  suspend: true
+  jobTemplate:
+    spec:
+      # Başarısız olursa kendiliğinden yeniden denenmez; nedenine bakılıp elle yeniden başlatılır.
+      # Yarıda kalan deneme aramayı etkilemez: etkin nesil değişmemiştir.
+      backoffLimit: 0
+      # Biten Job ve logu bir gün sonra kendiliğinden silinir.
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: worker-reindex
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+          containers:
+            - name: reindex
+              # İşçinin imajı; etiketi overlay'de işçiyle birlikte güncellenir.
+              image: haber-registry.localhost:5000/newssearch-worker
+              # İmajın varsayılan komutu (news-worker) yerine yeniden indeksleme komutu çalışır.
+              command: ["news-worker-reindex"]
+              env:
+                - name: DB_HOST
+                  value: postgres-rw
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-news-worker
+                      key: password
+                - name: ES_URL
+                  value: http://elasticsearch:9200
+                - name: ES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: elasticsearch-news-worker
+                      key: password
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 96Mi
+                limits:
+                  memory: 256Mi
