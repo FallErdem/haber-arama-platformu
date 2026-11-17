@@ -12,7 +12,8 @@ public interface ArticleCatalog {
 
     /**
      * Verilen kimliklerdeki haberlerin özet bilgilerini, kimliğe göre döner. Kayıtlı olmayan
-     * veya gizlenmiş haberler sonuçta yer almaz (FG-AR-09).
+     * veya gizlenmiş haberler sonuçta yer almaz (FG-AR-09). Ana görselin adresi imzalıdır ve
+     * doğrudan arayüze verilebilir.
      */
     Map<UUID, ArticleSummary> findSummaries(Collection<UUID> articleIds);
 }

@@ -28,6 +28,8 @@
 	</scm>
 	<properties>
 		<java.version>25</java.version>
+		<!-- 30 Ekim 2026; https://repo1.maven.org/maven2/software/amazon/awssdk/bom/ -->
+		<awssdk.version>2.57.8</awssdk.version>
 		<spring-modulith.version>2.1.1</spring-modulith.version>
 	</properties>
 	<dependencies>
@@ -39,6 +41,18 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-elasticsearch</artifactId>
+		</dependency>
+		<!-- S3 istemcisi: görseller MinIO'dan okunur (MinIO S3 arayüzü sunar). Sürüm aşağıdaki BOM'dan gelir. -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<exclusions>
+				<!-- Asenkron istemci kullanılmıyor; Netty'ye dayanan HTTP katmanı imaja girmesin. -->
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>netty-nio-client</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -104,6 +118,14 @@
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
+			<!-- AWS SDK for Java'nın sürümlerini tek yerden belirler; Spring Boot bu kütüphaneyi yönetmez. -->
+			<dependency>
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>bom</artifactId>
+				<version>${awssdk.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
 			<dependency>
 				<groupId>org.springframework.modulith</groupId>
 				<artifactId>spring-modulith-bom</artifactId>

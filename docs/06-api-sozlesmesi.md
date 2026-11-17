@@ -91,6 +91,7 @@ Hatalar RFC 9457 Problem Details biçiminde (`application/problem+json`) döner.
 | 409 | `ALREADY_EXISTS` | Benzersiz olması gereken bir değer zaten var |
 | 409 | `SOURCE_MUST_BE_DISABLED` | Kaynak içeriğinin silinmesi için kaynağın önce devre dışı bırakılması gerekiyor |
 | 429 | `RATE_LIMITED` | İstek sınırı aşıldı (FOG-21) |
+| 503 | `MEDIA_UNAVAILABLE` | Görselin bulunduğu nesne depolamaya (MinIO) ulaşılamıyor |
 | 503 | `SEARCH_UNAVAILABLE` | Arama indeksine (Elasticsearch) ulaşılamıyor; aramayla ilgisi olmayan uç noktalar çalışmaya devam eder (FOG-09) |
 | 500 | `INTERNAL_ERROR` | Beklenmeyen hata |
 
@@ -164,7 +165,7 @@ Yanıttaki her öğe:
 
 - `highlights`: Eşleşen kelimeler `<mark>` etiketiyle işaretlenir (FG-AR-05). Metnin geri kalanı backend'de HTML kaçış karakterleriyle güvenli hale getirilir; arayüz `<mark>` dışındaki hiçbir etiketi işlemez. `q` boşsa bu alan bulunmaz.
 - Vurgular yalnızca başlık ve özet için döner; alanın tamamı döner, parçalara bölünmez. Eşleşme yalnızca tam metindeyse `highlights` boş bir nesnedir.
-- `image`: Haberin ana görseli; görsel yoksa veya henüz indirilmemişse `null`, arayüz yer tutucu gösterir (FG-AR-08).
+- `image`: Haberin ana görseli: indirilmiş görsellerinden sırası en küçük olanı (ana görsel indirilemediyse sıradaki). `url` imzalı görsel adresidir (bkz. 4.4). Görsel yoksa veya henüz indirilmemişse `null`, arayüz yer tutucu gösterir (FG-AR-08).
 - `otherSourcesCount`: Aynı gruptaki diğer kaynakların sayısı.
 - Yanıtın sayfalama alanlarına ek olarak `totalRelation` alanı bulunur (bkz. 2.4).
 - Gösterilen bilgiler (başlık, özet, kaynak, adres) arama indeksinden değil asıl kayıttan okunur. Gizlenmiş veya silinmiş bir haber, arama indeksindeki kopyası henüz kaldırılmamış olsa da sonuçta yer almaz (FG-AR-09); bu durumda bir sayfa `size` değerinden az öğe taşıyabilir.
@@ -201,10 +202,12 @@ Yanıttaki her öğe:
 ```
 
 - `content`: Tam metin; işçi tarafından temizlenmiş HTML (FOG-16). Kaynak tam metin vermiyorsa `null`, arayüz özeti gösterir (FG-AR-06).
-- `media`: Yalnızca indirilmiş görseller listelenir.
-- `saved`: Haberin bu kullanıcı tarafından kaydedilip kaydedilmediği.
+- `media`: Yalnızca indirilmiş görseller, haberdeki sırasıyla listelenir; `url` imzalı görsel adresidir (bkz. 4.4). Görseli olmayan haberde boş listedir; arayüz yer tutucu gösterir (FG-AR-08). Mevcut kaynaklar altyazı ve fotoğrafçı bilgisi vermediğinden `caption` ve `credit` şimdilik `null`'dır.
+- `categories`: Arama sonuçlarındaki kuralla aynıdır; süresi dolan haberde `BREAKING` yer almaz (bkz. 4.1).
+- `otherSources`: Kaynaklar arası gruplama (FG-AR-10) gelene kadar boş listedir.
+- `saved`: Haberin bu kullanıcı tarafından kaydedilip kaydedilmediği. Kaydedilen haberler işleviyle (FG-KO-01) birlikte doldurulur; o zamana kadar `false`'tur.
 - Arayüz, kaynağın koduna göre gerekli atıfı ve logoyu gösterir (FG-AR-07, ADR-0009).
-- Gizlenmiş bir haber için `404 NOT_FOUND` döner.
+- Gizlenmiş veya kayıtlı olmayan bir haber için `404 NOT_FOUND`, kimlik geçerli bir UUID değilse `400 VALIDATION_FAILED` döner.
 
 ### 4.3 `GET /api/v1/sources` ve `GET /api/v1/categories`
 
@@ -229,8 +232,12 @@ Görselin kendisini döner. HTML'deki `<img>` etiketi istek başlığı ekleyeme
 
 - **Adres biçimi:** `/api/v1/media/{id}?exp={son geçerlilik zamanı}&sig={imza}`. Adresler yalnızca API yanıtlarında üretilir.
 - **İmza:** `id` ve `exp` değerlerinin, API'nin yapılandırmasındaki gizli bir anahtarla hesaplanan HMAC-SHA256 değeri. Anahtar bütün API kopyalarında aynıdır ve bir gizli bilgi olarak yönetilir (R-16).
+  - İmzalanan metin `{id}.{exp}`'dir; `exp`, Unix zamanı (saniye) olarak yazılır. Sonuç adreste kullanılabilen, dolgusuz Base64 biçimindedir (RFC 4648, 5. bölüm).
+  - Anahtar en az 32 karakterdir (`MEDIA_SIGNING_KEY`); eksik veya kısaysa API açılmaz.
+  - İmzalar sabit sürede karşılaştırılır; yanıt süresinden imzanın ne kadarının doğru olduğu çıkarılamaz.
 - **Geçerlilik süresi:** `exp`, üretildiği saatin başlangıcından 2 saat sonradır. Böylece adres 1 ile 2 saat arasında geçerli kalır ve aynı saat içinde üretilen bütün yanıtlarda bir görselin adresi aynı olur; tarayıcı görseli önbellekten kullanabilir.
-- **Kontroller:** İmza geçersizse veya süre dolmuşsa `403 MEDIA_URL_INVALID` döner. Görsel indirilmemişse veya ait olduğu haber gizlenmişse `404 NOT_FOUND` döner.
+- **Kontroller:** İmza geçersizse, süre dolmuşsa veya `exp`/`sig` eksikse `403 MEDIA_URL_INVALID` döner. İmza veritabanına bakılmadan önce denetlenir; imzasız bir istek görselin var olup olmadığını öğrenemez. Görsel indirilmemişse, dosyası bulunamıyorsa veya ait olduğu haber gizlenmişse `404 NOT_FOUND`, nesne depolamaya ulaşılamıyorsa `503 MEDIA_UNAVAILABLE` döner.
+- Uç nokta yalnızca `GET` ile açıktır; aynı adres yapısındaki başka istekler token ister.
 - **Yanıt başlıkları:** Görselin doğrulanmış `Content-Type` değeri, `X-Content-Type-Options: nosniff` ve adresin kalan geçerlilik süresini aşmayan `Cache-Control: private, max-age=...` değeri.
 - **Sınırlama:** İmza kullanıcıya bağlı değildir; geçerlilik süresi içinde adresi bilen biri görseli görebilir. Görseller kaynakların herkese açık sayfalarında zaten yayımlanmış olduğundan bu kabul edilmiştir.
 

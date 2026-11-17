@@ -9,6 +9,7 @@ import com.erdemgural.newssearch.TestDatabaseConfiguration;
 import com.erdemgural.newssearch.TestElasticsearchConfiguration;
 import com.erdemgural.newssearch.TestKeycloakConfiguration;
 import com.erdemgural.newssearch.TestSearchIndex;
+import com.erdemgural.newssearch.TestStorageConfiguration;
 import java.io.IOException;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +27,12 @@ import org.springframework.context.annotation.Import;
 @SpringBootTest
 // Diğer API testleriyle aynı yapılandırma: Spring aynı uygulamayı ve aynı konteynerleri yeniden kullanır.
 @AutoConfigureMockMvc
-@Import({TestDatabaseConfiguration.class, TestKeycloakConfiguration.class, TestElasticsearchConfiguration.class})
+@Import({
+    TestDatabaseConfiguration.class,
+    TestKeycloakConfiguration.class,
+    TestElasticsearchConfiguration.class,
+    TestStorageConfiguration.class
+})
 class SearchIndexAccessTests {
 
     private static final String NOVEMBER_INDEX = "articles-g1-2026.11.01";

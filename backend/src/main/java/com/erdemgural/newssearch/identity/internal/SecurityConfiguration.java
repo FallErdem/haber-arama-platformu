@@ -3,6 +3,7 @@ package com.erdemgural.newssearch.identity.internal;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -24,6 +25,10 @@ class SecurityConfiguration {
                 .authorizeHttpRequests(requests -> requests
                         // Sağlık kontrolünü Kubernetes yapar ve token'ı yoktur.
                         .requestMatchers("/actuator/health", "/actuator/health/**")
+                        .permitAll()
+                        // Görseller <img> etiketiyle istenir ve etiket token ekleyemez; bu adres token yerine
+                        // imzalı ve süreli adres ister (API sözleşmesi 4.4). İmzayı MediaController denetler.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/media/*")
                         .permitAll()
                         // Onay bekleyen, pasif veya reddedilmiş kullanıcı da kendi durumunu görebilmeli.
                         .requestMatchers("/api/v1/me")

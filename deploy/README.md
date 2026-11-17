@@ -85,7 +85,7 @@ helm upgrade --install cnpg cnpg/cloudnative-pg --version 0.29.1 \
 ./scripts/dev/generate-secrets.sh
 ```
 
-Şifreler `deploy/k8s/overlays/dev/secrets/` klasörüne yazılır. Bu klasör depoya girmez.
+Şifreler ve görsel adreslerini imzalayan anahtar (`api-media-signing.env`) `deploy/k8s/overlays/dev/secrets/` klasörüne yazılır. Bu klasör depoya girmez. Betik var olan dosyalara dokunmaz; daha önce kurulmuş bir ortamda yeni bir gizli bilgi eklendiğinde yeniden çalıştırılır ve yalnızca eksik olanları üretir.
 
 Aynı klasöre, ilk yöneticinin e-posta adresini içeren `api-settings.env` dosyası elle eklenir (ADR-0014). Bu adresle kaydolan ve e-postasını doğrulayan kullanıcı ilk girişinde yönetici olur:
 

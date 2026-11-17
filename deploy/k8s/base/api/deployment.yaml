@@ -51,6 +51,20 @@ spec:
                 secretKeyRef:
                   name: elasticsearch-news-api
                   key: password
+            # Görseller: nesne depolama (MinIO). API yalnızca okur (news-api); kullanıcı adı uygulamadaki sabit değerdir.
+            - name: MINIO_URL
+              value: http://minio:9000
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-news-api
+                  key: password
+            # Görsel adreslerini imzalayan anahtar (API sözleşmesi 4.4); bütün API kopyalarında aynıdır.
+            - name: MEDIA_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-media-signing
+                  key: key
             # Token imzalarını doğrulayan açık anahtarlar Keycloak'ın küme içindeki adresinden alınır.
             # Token'daki "iss" ise her zaman dış adrestir; uygulamadaki varsayılan değer kullanılır.
             - name: KEYCLOAK_JWKS_URL

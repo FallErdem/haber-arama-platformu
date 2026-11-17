@@ -6,7 +6,9 @@ import com.erdemgural.newssearch.TestArticles;
 import com.erdemgural.newssearch.TestArticles.Article;
 import com.erdemgural.newssearch.TestDatabaseConfiguration;
 import com.erdemgural.newssearch.TestElasticsearchConfiguration;
+import com.erdemgural.newssearch.TestImages;
 import com.erdemgural.newssearch.TestKeycloakConfiguration;
+import com.erdemgural.newssearch.TestStorageConfiguration;
 import com.erdemgural.newssearch.TestUsers;
 import com.erdemgural.newssearch.TestUsers.TestUser;
 import com.erdemgural.newssearch.identity.UserRole;
@@ -37,7 +39,12 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestDatabaseConfiguration.class, TestKeycloakConfiguration.class, TestElasticsearchConfiguration.class})
+@Import({
+    TestDatabaseConfiguration.class,
+    TestKeycloakConfiguration.class,
+    TestElasticsearchConfiguration.class,
+    TestStorageConfiguration.class
+})
 class ArticleSearchTests {
 
     private static final String PATH = "/api/v1/articles";
@@ -45,14 +52,16 @@ class ArticleSearchTests {
     private final MockMvcTester mvc;
     private final TestUsers users;
     private final TestArticles articles;
+    private final TestImages images;
 
     private TestUser user;
 
     @Autowired
-    ArticleSearchTests(MockMvcTester mvc, TestUsers users, TestArticles articles) {
+    ArticleSearchTests(MockMvcTester mvc, TestUsers users, TestArticles articles, TestImages images) {
         this.mvc = mvc;
         this.users = users;
         this.articles = articles;
+        this.images = images;
     }
 
     @BeforeEach
@@ -396,7 +405,7 @@ class ArticleSearchTests {
                 .containsEntry("language", "tr")
                 .containsEntry("itemType", "ARTICLE")
                 .containsEntry("publishedAt", "2026-11-05T08:12:00Z")
-                // Görsel uç noktası (İ-18) ve kaynaklar arası gruplama (İ-28) henüz yok.
+                // Görseli yok; kaynaklar arası gruplama (İ-28) henüz yok.
                 .containsEntry("image", null)
                 .containsEntry("otherSourcesCount", 0);
         assertThat(result)
@@ -415,6 +424,45 @@ class ArticleSearchTests {
                 .extractingPath("$.items[0].url")
                 .asString()
                 .startsWith("https://example.test/haber/");
+    }
+
+    @Test
+    @DisplayName("haberin ana görseli imzalı adresi ve ölçüleriyle döner; indirilmemişse sıradaki indirilmiş görsel")
+    void mainImageIsReturnedWithSignedUrl() {
+        UUID withImage = articles.add(Article.turkish("Deprem haberi bir"));
+        UUID fallback = articles.add(Article.turkish("Deprem haberi iki"));
+        UUID withoutImage = articles.add(Article.turkish("Deprem haberi üç"));
+        UUID main = images.addDownloaded(withImage, 0, TestImages.png(30, 20), "image/png", 30, 20);
+        images.addNotDownloaded(fallback, 0, "FAILED");
+        UUID second = images.addDownloaded(fallback, 1, TestImages.png(20, 10), "image/png", 20, 10);
+        images.addNotDownloaded(withoutImage, 0, "PENDING");
+
+        MvcTestResult result = search("q=deprem&sort=newest");
+
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.items[?(@.id == '" + withImage + "')].image.url")
+                .asArray()
+                .singleElement()
+                .asString()
+                .startsWith("/api/v1/media/" + main + "?exp=");
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.items[?(@.id == '" + withImage + "')].image.width")
+                .asArray()
+                .containsExactly(30);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.items[?(@.id == '" + fallback + "')].image.url")
+                .asArray()
+                .singleElement()
+                .asString()
+                .startsWith("/api/v1/media/" + second + "?exp=");
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.items[?(@.id == '" + withoutImage + "')].image")
+                .asArray()
+                .containsExactly((Object) null);
     }
 
     // --- Sayfalama (FG-AR-03) ---------------------------------------------------------------------
