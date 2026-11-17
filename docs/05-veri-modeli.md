@@ -363,7 +363,7 @@ Başlangıç verisi:
 - Türkçe ve İngilizce alanlarda Elasticsearch'ün yerleşik `turkish` ve `english` dil analizörleri kullanılır.
 - Türkçe analizör gerçek haberlerle denendi (ADR-0017, 11. bölüm): Türkçe karaktersiz yazımı (`cumhurbaskani`), noktasız büyük I'yı (`ISTANBUL`) ve bazı kelimelerde tekil ile çoğulu (`seçim` / `seçimler`) eşleştirmiyor. Bunun için Türkçe alanların `folded` alt alanı vardır; analizörü kesme işaretinden sonrasını atar, Türkçe kurallarıyla küçük harfe çevirir, harfleri ASCII karşılığına çevirir ve kelimenin ilk beş harfini alır. Kaba eşleşmeler üretebildiğinden aramada asıl alandan düşük ağırlık alır.
 - Değeri olmayan alan belgeye konmaz.
-- Arama, iki dilin alanlarında birlikte yapılır. Alan ağırlıkları başlık, özet ve tam metin sırasıyla azalır (FG-AR-01); kesin değerler arama geliştirilirken belirlenecektir.
+- Arama, iki dilin alanlarında birlikte yapılır. Alan ağırlıkları başlık, özet ve tam metin sırasıyla azalır (FG-AR-01); değerler ve sorgunun diğer kuralları 5.5'tedir.
 - Gizlenen haberler indekste bulunmaz.
 - Görseller, kaynak adı ve atıf bilgisi indekste tutulmaz; arama sonuçlarındaki haberler için PostgreSQL'den tek bir toplu sorguyla alınır.
 
@@ -377,7 +377,7 @@ Başlangıç verisi:
 
 - İndeks yaşı ayın ilk gününden hesaplandığından, aşama süreleri bir aylık indeksteki **bütün** haberlerin ilgili yaşa ulaştığı ana göre seçilmiştir: 60 günlük bir indeksteki en yeni haber 30 günlük, 395 günlük bir indeksteki en yeni haber 1 yıllıktır. Böylece Elasticsearch'teki aşamalar, PostgreSQL'deki durumlardan önce değişmez.
 - İndeksler hiçbir aşamada salt okunur yapılmaz (ADR-0015).
-- Soğuk haberlerin sıralamada geriye düşmesi, arama sorgusunda yayın tarihi 1 yıldan eski haberlere düşük ağırlık verilerek sağlanır.
+- Soğuk haberlerin sıralamada geriye düşmesi, arama sorgusunda yayın tarihi 1 yıldan eski haberlere düşük ağırlık verilerek sağlanır (bkz. 5.5).
 
 ### 5.4 Yeniden indeksleme
 
@@ -387,6 +387,26 @@ Tam yeniden indeksleme (ADR-0012), yeni bir nesil numarasıyla (`g2`) yeni indek
 - Yeni neslin şablonu önce takma ad olmadan kurulur; indeksler dolarken aramaya girmez. Takma ad taşınmadan önce yeni nesildeki belge sayısı yazılan haber sayısıyla karşılaştırılır; hata olursa etkin nesil değişmez.
 - İşlem sırasında işçi durdurulur; haber toplama bekler, o sırada oluşan outbox kayıtları işçi açıldığında yeni nesle işlenir.
 - Adımlar ve gerekçeleri: ADR-0017, 11. bölüm.
+
+### 5.5 Arama sorgusu
+
+Sorguyu API kurar (`search` modülü, `ArticleSearchQuery`); API indeksi yalnızca okur (`news_api`). Kurallar 16 Kasım 2026'da kümedeki 2.028 gerçek haberle denenerek seçildi.
+
+| Kural | Değer | Gerekçe |
+|---|---|---|
+| Alan ağırlıkları | Başlık 3, özet 2, tam metin 1 | FG-AR-01 |
+| Alanların birlikte değerlendirilmesi | `cross_fields` | Kelimelerin hepsinin aynı alanda olması gerekmez: "galatasaray" başlıkta, "fenerbahçe" tam metinde geçen haber de eşleşir |
+| Kaç kelime geçmeli | 1–2 kelimede hepsi; 3 ve üzeri kelimede dörtte üçü (`2<75%`) | "Hepsi" uzun ifadede tek kelime tutmayınca sonuçsuz bırakıyor (`istanbul trafik kazası`: 0); "biri yeter" ilgisiz sonuç getiriyor (`merkez bankası faiz kararı`: 254, "hepsi" ile 6, seçilen kuralla 10) |
+| Katlanmış alt alanlar (`*.folded`) | Aynı kuralla, 0,2 ağırlıkla; asıl alanlar veya katlanmış alanlardan birinde eşleşme yeterli | Türkçe karaktersiz ve noktasız büyük I'lı ifadeleri yakalar (`cumhurbaskani erdogan`: 0 → 56; `ISTANBUL`: 0 → 113). Kaba eşleşir (cumhurbaşkanı / cumhuriyet: 69 → 143 sonuç); düşük ağırlık sayesinde asıl alanda eşleşen haberler üstte kalır (ilk dört sonuç aynı) |
+| Soğuk haberler | Yayın tarihi 1 yıldan eski haberin ilgililik puanı 0,5 ile çarpılır | ADR-0011: soğuk haber sonuçtan çıkmaz, geriye düşer |
+| Sıralama | `relevance`: puan, eşitlikte yeni olan önce; `newest`: yayın tarihi | FG-AR-04 |
+| Süreli kategori | Seçilen kategori süreliyse (`window_hours` dolu) yalnızca o süre içinde yayımlanan haberlerde sayılır | FG-AR-12 |
+| Vurgulama | Başlık ve özet; `<mark>` etiketi; metnin geri kalanı HTML kaçış kodlarına çevrilir (`encoder: html`); eşleşme yalnızca katlanmış alt alandaysa onun vurgusu kullanılır | FG-AR-05; kaynak metinden etiket sızamaz |
+| Sonuç sayısı | En fazla 10.000'e kadar sayılır | Elasticsearch ilk 10.000 sonucun ötesine sayfalamaz (API sözleşmesi 2.4) |
+
+- **Bulanık eşleşme (`fuzziness`) kullanılmaz.** Denendiğinde tutarsız çıktı: `depram` için 36 doğru sonuç getirdi, `erdoagn` için hiç getirmedi, doğru yazılmış `seçimler` ifadesine 5 ilgisiz sonuç ekledi. Türkçe alanlarda kelimeler köke indirildiği için bulanık eşleşme güvenilir çalışmıyor. Katlanmış alt alan bazı yazım hatalarını zaten yakalar (`galatasray`: ilk beş harf aynı).
+- Elasticsearch yalnızca eşleşen haberlerin kimliklerini, sırasını ve vurgularını verir; gösterilecek bilgiler PostgreSQL'den tek sorguyla okunur. Asıl kayıtta bulunmayan veya gizlenmiş haber sonuçtan çıkarılır.
+- Bilinen sınırlama: aynı haber birden fazla kaynaktan geldiyse sonuçlarda ayrı ayrı görünür; kaynaklar arası gruplama (FG-AR-10) ayrıca ele alınacaktır.
 
 ## 6. MinIO
 
