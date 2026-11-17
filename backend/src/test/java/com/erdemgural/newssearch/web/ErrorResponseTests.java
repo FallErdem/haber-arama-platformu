@@ -3,6 +3,7 @@ package com.erdemgural.newssearch.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.erdemgural.newssearch.TestDatabaseConfiguration;
+import com.erdemgural.newssearch.TestElasticsearchConfiguration;
 import com.erdemgural.newssearch.TestKeycloakConfiguration;
 import com.erdemgural.newssearch.TestUsers;
 import com.erdemgural.newssearch.TestUsers.TestUser;
@@ -26,7 +27,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestDatabaseConfiguration.class, TestKeycloakConfiguration.class, ErrorResponseTests.FailingController.class})
+@Import({
+    TestDatabaseConfiguration.class,
+    TestKeycloakConfiguration.class,
+    TestElasticsearchConfiguration.class,
+    ErrorResponseTests.FailingController.class
+})
 @ExtendWith(OutputCaptureExtension.class)
 class ErrorResponseTests {
 

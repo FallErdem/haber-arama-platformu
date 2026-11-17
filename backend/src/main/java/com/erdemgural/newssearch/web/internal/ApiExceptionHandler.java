@@ -1,7 +1,9 @@
 package com.erdemgural.newssearch.web.internal;
 
+import com.erdemgural.newssearch.web.ApiException;
 import com.erdemgural.newssearch.web.ApiProblem;
 import com.erdemgural.newssearch.web.ErrorCode;
+import com.erdemgural.newssearch.web.InvalidRequestException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +40,24 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             }
         }
         return response;
+    }
+
+    /** Girdi doğrulama hatası: hangi alanın neden reddedildiği {@code errors} listesinde döner. */
+    @ExceptionHandler(InvalidRequestException.class)
+    ProblemDetail handleInvalidRequest(InvalidRequestException exception, HttpServletRequest request) {
+        ProblemDetail problem = ApiProblem.create(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED, request);
+        problem.setProperty(ApiProblem.ERRORS_PROPERTY, exception.errors());
+        return problem;
+    }
+
+    /** Beklenen hatalar (sayfa sınırı, aramanın kullanılamaması): kendi durum ve hata koduyla döner. */
+    @ExceptionHandler(ApiException.class)
+    ProblemDetail handleApiException(ApiException exception, HttpServletRequest request) {
+        if (exception.status().is5xxServerError()) {
+            // Ayrıntı (nedeni) yalnızca loga yazılır; istemci yalnızca kodu görür.
+            log.warn("İstek karşılanamadı: {}", exception.code(), exception.getCause());
+        }
+        return ApiProblem.create(exception.status(), exception.code(), request);
     }
 
     /**

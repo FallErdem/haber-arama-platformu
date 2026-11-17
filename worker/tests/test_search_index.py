@@ -4,7 +4,9 @@ Elasticsearch gerçektir (kümedekiyle aynı sürüm, geçici konteyner) ve test
 kullanıcısıyla, onun yetkileriyle çalışır.
 """
 
+import json
 from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 from elasticsearch import AsyncElasticsearch, BadRequestError
@@ -16,10 +18,26 @@ from news_worker.search_index import (
     WARM_AFTER_DAYS,
     SearchIndex,
     index_name_for,
+    search_structure,
     template_name_for,
 )
 
 NOVEMBER_INDEX = "articles-g1-2026.11.01"
+
+# API'nin testlerinde kullanılan indeks yapısı; depo kökünden bakılır.
+API_TEST_STRUCTURE = (
+    Path(__file__).resolve().parents[2] / "backend/src/test/resources/search/articles-index-structure.json"
+)
+
+
+def test_api_tests_use_the_same_index_structure() -> None:
+    """API'nin testlerindeki indeks yapısı (alanlar, analizörler) işçinin kurduğuyla birebir aynıdır (R-36).
+
+    Bu test kırılırsa şablon değişmiştir; dosya şu komutla yeniden üretilir ve API testleri yeni yapıyla çalışır:
+    `uv run python -c "import json; from news_worker.search_index import search_structure;
+    print(json.dumps(search_structure(), indent=2, ensure_ascii=False))"`
+    """
+    assert json.loads(API_TEST_STRUCTURE.read_text(encoding="utf-8")) == search_structure()
 
 
 def test_index_name_is_first_day_of_publication_month() -> None:

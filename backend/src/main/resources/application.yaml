@@ -12,6 +12,15 @@ spring:
     user: news_owner
     password: ${DB_OWNER_PASSWORD}
     locations: classpath:db/migration
+  # Arama indeksi (ADR-0011, ADR-0012). API yalnızca okur: news_api kullanıcısının yazma yetkisi yoktur;
+  # indeksi ve şablonu Python işçisi yönetir.
+  elasticsearch:
+    uris: ${ES_URL:http://localhost:9200}
+    username: news_api
+    password: ${ES_PASSWORD}
+    # Elasticsearch yanıt vermiyorsa arama isteği 30 saniye (varsayılan) asılı kalmaz.
+    connection-timeout: 2s
+    socket-timeout: 5s
   # Token doğrulaması (ADR-0014): imza Keycloak'ın açık anahtarlarıyla,
   # ayrıca yayıncı (iss) ve hedef kitle (aud) kontrol edilir.
   security:

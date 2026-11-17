@@ -5,7 +5,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 @SpringBootTest
-@Import(TestDatabaseConfiguration.class)
+@Import({TestDatabaseConfiguration.class, TestElasticsearchConfiguration.class})
 class NewsSearchApplicationTests {
 
     @Test

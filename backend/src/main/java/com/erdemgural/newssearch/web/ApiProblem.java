@@ -13,6 +13,9 @@ public final class ApiProblem {
     /** Hata kodunun yanıt gövdesindeki alan adı. */
     public static final String CODE_PROPERTY = "code";
 
+    /** Girdi doğrulama hatalarının yanıt gövdesindeki alan adı. */
+    public static final String ERRORS_PROPERTY = "errors";
+
     private ApiProblem() {}
 
     public static ProblemDetail create(HttpStatus status, ErrorCode code, HttpServletRequest request) {
