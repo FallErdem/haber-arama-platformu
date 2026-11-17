@@ -5,7 +5,9 @@ from news_worker.config import ConfigurationError, Settings
 
 def test_defaults_are_used_when_only_password_is_given() -> None:
     """Yalnızca şifre verildiğinde varsayılan değerler kullanılır."""
-    settings = Settings.from_environment({"DB_PASSWORD": "gizli", "ES_PASSWORD": "arama-gizli"})
+    settings = Settings.from_environment(
+        {"DB_PASSWORD": "gizli", "ES_PASSWORD": "arama-gizli", "MINIO_SECRET_KEY": "depo-gizli"}
+    )
 
     assert settings.db_host == "localhost"
     assert settings.db_port == 5432
@@ -23,6 +25,12 @@ def test_defaults_are_used_when_only_password_is_given() -> None:
     assert settings.es_timeout_seconds == 30.0
     assert settings.outbox_interval_seconds == 5.0
     assert settings.outbox_batch_size == 200
+    assert settings.minio_url == "http://localhost:9000"
+    assert settings.minio_access_key == "news-worker"
+    assert settings.minio_secret_key == "depo-gizli"
+    assert settings.media_bucket == "media"
+    assert settings.media_interval_seconds == 10.0
+    assert settings.media_batch_size == 100
 
 
 def test_environment_variables_override_defaults() -> None:
@@ -31,11 +39,17 @@ def test_environment_variables_override_defaults() -> None:
         {
             "DB_PASSWORD": "gizli",
             "ES_PASSWORD": "arama-gizli",
+            "MINIO_SECRET_KEY": "depo-gizli",
             "ES_URL": "http://elasticsearch:9200",
             "ES_USER": "baska_kullanici",
             "ES_TIMEOUT_SECONDS": "7",
             "OUTBOX_INTERVAL_SECONDS": "1.5",
             "OUTBOX_BATCH_SIZE": "50",
+            "MINIO_URL": "http://minio:9000",
+            "MINIO_ACCESS_KEY": "baska-kullanici",
+            "MEDIA_BUCKET": "gorseller",
+            "MEDIA_INTERVAL_SECONDS": "3",
+            "MEDIA_BATCH_SIZE": "20",
             "DB_HOST": "postgres-rw",
             "DB_PORT": "6432",
             "DB_NAME": "haberler",
@@ -60,15 +74,22 @@ def test_environment_variables_override_defaults() -> None:
     assert settings.es_timeout_seconds == 7.0
     assert settings.outbox_interval_seconds == 1.5
     assert settings.outbox_batch_size == 50
+    assert settings.minio_url == "http://minio:9000"
+    assert settings.minio_access_key == "baska-kullanici"
+    assert settings.media_bucket == "gorseller"
+    assert settings.media_interval_seconds == 3.0
+    assert settings.media_batch_size == 20
 
 
 @pytest.mark.parametrize(
     ("environment", "missing"),
     [
-        ({"ES_PASSWORD": "arama-gizli"}, "DB_PASSWORD"),
-        ({"DB_PASSWORD": "", "ES_PASSWORD": "arama-gizli"}, "DB_PASSWORD"),
+        ({"ES_PASSWORD": "arama-gizli", "MINIO_SECRET_KEY": "depo-gizli"}, "DB_PASSWORD"),
+        ({"DB_PASSWORD": "", "ES_PASSWORD": "arama-gizli", "MINIO_SECRET_KEY": "depo-gizli"}, "DB_PASSWORD"),
         ({"DB_PASSWORD": "gizli"}, "ES_PASSWORD"),
         ({"DB_PASSWORD": "gizli", "ES_PASSWORD": ""}, "ES_PASSWORD"),
+        ({"DB_PASSWORD": "gizli", "ES_PASSWORD": "arama-gizli"}, "MINIO_SECRET_KEY"),
+        ({"DB_PASSWORD": "gizli", "ES_PASSWORD": "arama-gizli", "MINIO_SECRET_KEY": ""}, "MINIO_SECRET_KEY"),
     ],
 )
 def test_missing_password_raises_a_clear_error(environment: dict[str, str], missing: str) -> None:
@@ -91,17 +112,24 @@ def test_missing_password_raises_a_clear_error(environment: dict[str, str], miss
         ("OUTBOX_INTERVAL_SECONDS", "sik"),
         ("OUTBOX_BATCH_SIZE", "0"),
         ("OUTBOX_BATCH_SIZE", "2.5"),
+        ("MEDIA_INTERVAL_SECONDS", "0"),
+        ("MEDIA_BATCH_SIZE", "yuz"),
     ],
 )
 def test_invalid_numeric_setting_is_rejected(name: str, value: str) -> None:
     """Sayı olmayan veya sıfırdan büyük olmayan sayısal ayar reddedilir."""
     with pytest.raises(ConfigurationError, match=name):
-        Settings.from_environment({"DB_PASSWORD": "gizli", "ES_PASSWORD": "arama-gizli", name: value})
+        Settings.from_environment(
+            {"DB_PASSWORD": "gizli", "ES_PASSWORD": "arama-gizli", "MINIO_SECRET_KEY": "depo-gizli", name: value}
+        )
 
 
 def test_password_is_hidden_in_repr() -> None:
     """Şifreler, ayarların yazdırılan halinde görünmez."""
-    settings = Settings.from_environment({"DB_PASSWORD": "cok-gizli-sifre", "ES_PASSWORD": "arama-sifresi"})
+    settings = Settings.from_environment(
+        {"DB_PASSWORD": "cok-gizli-sifre", "ES_PASSWORD": "arama-sifresi", "MINIO_SECRET_KEY": "depo-gizli"}
+    )
 
     assert "cok-gizli-sifre" not in repr(settings)
     assert "arama-sifresi" not in repr(settings)
+    assert "depo-gizli" not in repr(settings)

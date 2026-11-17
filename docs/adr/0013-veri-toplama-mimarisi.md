@@ -55,7 +55,7 @@ Bir beslemenin toplanması şu adımlardan oluşur:
 
 - Görseller, haberin kaydedilmesinden ayrı olarak, PostgreSQL'de tutulan bir görsel kuyruğu üzerinden indirilir. Böylece yavaş yanıt veren bir görsel sunucusu haberlerin toplanmasını yavaşlatmaz.
 - Görsel kuyruğunu işleyen iş toplayıcı rolünde çalışır; görsel indirmeleri de istekler arası bekleme süresine tabidir.
-- İndirilemeyen görseller belirli sayıda yeniden denenir; yine indirilemezse haberde yer tutucu gösterilir (FG-AR-08).
+- İndirilemeyen görseller belirli sayıda yeniden denenir; yine indirilemezse haberde yer tutucu gösterilir (FG-AR-08). Uygulama ayrıntıları: ADR-0017, 12. bölüm.
 
 ## Sonuçlar
 

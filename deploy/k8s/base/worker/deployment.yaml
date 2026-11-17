@@ -52,12 +52,22 @@ spec:
                 secretKeyRef:
                   name: elasticsearch-news-worker
                   key: password
+            # Görseller: nesne depolama (MinIO). İşçi yalnızca kendi kullanıcısıyla bağlanır (news-worker);
+            # kullanıcı adı uygulamadaki varsayılandır.
+            - name: MINIO_URL
+              value: http://minio:9000
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-news-worker
+                  key: password
           resources:
             requests:
               cpu: 50m
               memory: 96Mi
+            # 256Mi: en fazla 20 MB'lık bir görsel bellekte tutulup doğrulanırken pay kalır.
             limits:
-              memory: 192Mi
+              memory: 256Mi
           startupProbe:
             httpGet:
               path: /healthz/live

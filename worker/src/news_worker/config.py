@@ -20,6 +20,9 @@ class Settings:
     es_url: str
     es_user: str
     es_password: str = field(repr=False)
+    minio_url: str
+    minio_access_key: str
+    minio_secret_key: str = field(repr=False)
     scheduler_interval_seconds: float
     health_port: int
     # Kaynak sitelere işçinin kendini tanıttığı ad (FG-VT-05).
@@ -33,6 +36,11 @@ class Settings:
     # Outbox aktarımının iki turu arasındaki süre ve bir turda işlenen en fazla not sayısı (ADR-0012).
     outbox_interval_seconds: float = 5.0
     outbox_batch_size: int = 200
+    # Görsellerin yüklendiği kova (05-veri-modeli.md, 6. bölüm).
+    media_bucket: str = "media"
+    # Görsel indirme döngüsünün iki turu arasındaki süre ve bir turda alınan en fazla görsel sayısı.
+    media_interval_seconds: float = 10.0
+    media_batch_size: int = 100
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str] | None = None) -> Settings:
@@ -44,6 +52,9 @@ class Settings:
         es_password = env.get("ES_PASSWORD", "")
         if not es_password:
             raise ConfigurationError("ES_PASSWORD ortam değişkeni tanımlı değil")
+        minio_secret_key = env.get("MINIO_SECRET_KEY", "")
+        if not minio_secret_key:
+            raise ConfigurationError("MINIO_SECRET_KEY ortam değişkeni tanımlı değil")
 
         return cls(
             db_host=env.get("DB_HOST", "localhost"),
@@ -56,6 +67,10 @@ class Settings:
             # Elasticsearch'te de yalnızca işçinin kendi kullanıcısı; rolü elasticsearch-setup Job'unda tanımlıdır.
             es_user=env.get("ES_USER", "news_worker"),
             es_password=es_password,
+            minio_url=env.get("MINIO_URL", "http://localhost:9000"),
+            # MinIO'da da yalnızca işçinin kendi kullanıcısı; yetkisi minio-setup Job'unda tanımlıdır.
+            minio_access_key=env.get("MINIO_ACCESS_KEY", "news-worker"),
+            minio_secret_key=minio_secret_key,
             scheduler_interval_seconds=_positive_float(env, "SCHEDULER_INTERVAL_SECONDS", 30.0),
             health_port=_positive_int(env, "HEALTH_PORT", 8080),
             http_user_agent=env.get("HTTP_USER_AGENT") or cls.http_user_agent,
@@ -66,6 +81,9 @@ class Settings:
             es_timeout_seconds=_positive_float(env, "ES_TIMEOUT_SECONDS", cls.es_timeout_seconds),
             outbox_interval_seconds=_positive_float(env, "OUTBOX_INTERVAL_SECONDS", cls.outbox_interval_seconds),
             outbox_batch_size=_positive_int(env, "OUTBOX_BATCH_SIZE", cls.outbox_batch_size),
+            media_bucket=env.get("MEDIA_BUCKET") or cls.media_bucket,
+            media_interval_seconds=_positive_float(env, "MEDIA_INTERVAL_SECONDS", cls.media_interval_seconds),
+            media_batch_size=_positive_int(env, "MEDIA_BATCH_SIZE", cls.media_batch_size),
         )
 
 

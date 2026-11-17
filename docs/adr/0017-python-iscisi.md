@@ -281,6 +281,41 @@ Yeniden indekslemeden sonra aynı sorguların sonuçları (2.028 haber; asıl al
 - İlk aktarımda biriken 2.043 not 200'erli gruplarla yaklaşık 2,5 saniyede işlendi.
 - 2.028 haber 55 aylık indekse dağılmıştır; eski tarihli haber veren beslemeler (TRT Haber `koronavirus`) 2018'e kadar giden ayların indekslerini açtırır ve bunların çoğunda birkaç belge vardır. Elasticsearch'in düğüm başına varsayılan sınırı 1.000 parçadır; aylık indeks kararı (ADR-0015) değiştirilmedi.
 
+### 12. Görsel indirme (İ-14)
+
+Bu iş kalemiyle haber görselleri MinIO'ya indirilmeye başladı (FG-VT-14). Eklenen kütüphaneler: `boto3` 1.43.123 (S3 istemcisi; MinIO S3 arayüzü sunar), `Pillow` 13.0.0 (görsel doğrulama) ve tür denetimi için test bağımlılığı `types-boto3-s3` 1.44.0. `boto3` ve `botocore` tür bilgisi yayımlamadığından mypy'de bu iki paket için eksik tür bilgisi hatası kapatıldı; S3 istemcisinin türü `types-boto3-s3`'ten alınır.
+
+**Akış (`MediaDownloader`)**
+
+1. `media` tablosundan `PENDING` ve deneme zamanı gelmiş görseller alınır (turda en fazla `MEDIA_BATCH_SIZE`, varsayılan 100; tur aralığı `MEDIA_INTERVAL_SECONDS`, varsayılan 10 saniye). Devre dışı kaynakların görselleri alınmaz.
+2. Aynı kaynağın görselleri sırayla, farklı kaynaklarınki aynı anda indirilir. İstek sırası besleme okumalarıyla **aynı** `SourceRateLimiter` nesnesinden alınır; kaynağa giden toplam istek sıklığı (besleme + görsel) kaynağın istek aralığını aşmaz. Sınırlayıcının kilidi sırayla işlediğinden bir besleme okuması en fazla bir görsel kadar bekler.
+3. Görsel indirilir ve Pillow ile doğrulanır (`image_downloader.py`), MinIO'ya `articles/{article_id}/{media_id}` anahtarıyla yüklenir (`object_storage.py`), satır `DOWNLOADED` olarak türü, boyutu, genişliği ve yüksekliğiyle güncellenir.
+
+**Doğrulama**
+
+- 20 MB'tan büyük dosya alınmaz. Sunucu boyutu baştan bildirirse dosya hiç indirilmez; bildirmezse okuma sınır aşıldığı anda kesilir, dosyanın tamamı belleğe alınmaz.
+- Dosya Pillow ile açılır ve yapısı baştan sona denetlenir (`verify`; piksel verisi belleğe açılmaz). Kabul edilen türler JPEG, PNG, WebP ve GIF'tir. İçerik türü sunucunun bildirdiğine göre değil dosyanın kendisine göre kaydedilir; API görseli bu türle sunar.
+- Açılınca belleği dolduracak kadar büyük boyut bildiren dosyalar ("decompression bomb") Pillow'un kendi sınırıyla reddedilir.
+- Adresinde Türkçe karakter bulunan görseller (NTV: `güllü-davası-374847.jpg`) için ek kod gerekmez: `httpx` adresi kendisi kodlar. 17 Kasım 2026'da gerçek bir NTV görseliyle doğrulandı; testte kodlanmış adresin istendiği gösterilir.
+
+**Hata yönetimi**
+
+| Durum | Görsel |
+|---|---|
+| 404, 410; görsel değil; kabul edilmeyen tür; 20 MB'tan büyük | Hemen `FAILED`: yeniden denemek sonucu değiştirmez |
+| Ağ hatası, zaman aşımı, 5xx, 403, 429 | `PENDING` kalır; 1., 2. ve 3. hatadan sonra 1, 5 ve 15 dakika, 4. hatadan sonra 15 dakika sonra yeniden denenir; 5. hatada `FAILED` (beslemelerdeki sürelerin aynısı) |
+| MinIO'ya yazılamadı | Satıra dokunulmaz, deneme hakkı harcanmaz; görsel bir sonraki turda yeniden denenir. Loga tek satır uyarı düşer |
+
+- `FAILED` görselin haberinde arayüz yer tutucu gösterir (FG-AR-08).
+- MinIO kesintisi görselin kusuru değildir; outbox aktarımında Elasticsearch'e ulaşılamaması gibi ele alınır (11. bölüm). Yükleme başarılı olup satır güncellenemezse görsel yeniden indirilir ve aynı anahtarın üzerine yazılır; sonuç değişmez.
+- `boto3` asyncio ile çalışmaz; yükleme ve Pillow doğrulaması ayrı bir iş parçacığında yapılır (`asyncio.to_thread`), diğer döngüler beklemez. İstemcinin kendi yeniden denemesi kapalıdır.
+- İşçinin bellek sınırı 192 Mi'den 256 Mi'ye çıkarıldı: en fazla 20 MB'lık bir görsel bellekte tutulup doğrulanırken pay kalır.
+
+**Gözlemler ve sonraya bırakılanlar**
+
+- 17 Kasım 2026'da kuyrukta yaklaşık 2.185 görsel vardı (TRT 1.151, CNN Türk 630, NTV 385, Global Voices 19); haber başına ortalama bir görsel. TRT'nin istek aralığı 5 saniye olduğundan TRT'nin birikimi yaklaşık 1,6 saatte iner; sonrasında yeni görseller birkaç dakika içinde indirilir.
+- `caption` ve `credit` sütunları boş kalır: mevcut beslemeler fotoğrafçı veya altyazı bilgisi vermiyor. NYT görsellerinin tek boyutunun seçilmesi NYT okuyucusuyla (İ-13) birlikte yapılacaktır.
+
 ## Sonuçlar
 
 - Spring Boot API'nin zamanlanmış işi olmadığından, kopya sayısı kısıtsız artırılabilir.

@@ -216,7 +216,8 @@ Başlangıç verisi:
 - Benzersiz: `(article_id, source_url)`.
 - Kısıt: `status` `DOWNLOADED` ise `storage_key` dolu olmalıdır.
 - İndeks: `(status, next_attempt_at)`.
-- Tablo aynı zamanda görsel indirme kuyruğudur (ADR-0013): `PENDING` durumundaki ve deneme zamanı gelmiş kayıtlar indirilir; belirli sayıda başarısız denemeden sonra `FAILED` olur.
+- Tablo aynı zamanda görsel indirme kuyruğudur (ADR-0013): `PENDING` durumundaki ve deneme zamanı gelmiş kayıtlar indirilir. Kalıcı hatada (404, 410, görsel değil, 20 MB'tan büyük) hemen, geçici hatada 5. denemede `FAILED` olur; geçici hatalar 1, 5, 15 ve 15 dakika sonra yeniden denenir (ADR-0017, 12. bölüm).
+- `content_type`, sunucunun bildirdiğine göre değil dosyanın kendisine göre yazılır: `image/jpeg`, `image/png`, `image/webp` veya `image/gif`. `attempts`, başarılı indirme dahil yapılan deneme sayısıdır.
 
 ### 3.9 `ingestion_runs` (modül: ingestion)
 
@@ -411,7 +412,8 @@ Sorguyu API kurar (`search` modülü, `ArticleSearchQuery`); API indeksi yalnız
 ## 6. MinIO
 
 - Görseller özel (herkese açık olmayan) bir kovada (bucket) tutulur.
-- Anahtar biçimi: `articles/{article_id}/{media_id}`. Bir haberin bütün dosyaları tek bir ön ek altında bulunduğundan, satırlara bakmadan silinebilir.
+- Kova: `media`. Anahtar biçimi: `articles/{article_id}/{media_id}` (dosya uzantısı yoktur; tür nesnenin içerik türü olarak saklanır). Bir haberin bütün dosyaları tek bir ön ek altında bulunduğundan, satırlara bakmadan silinebilir.
+- İşçi `news-worker` kullanıcısıyla yazar (okuma, yazma, silme, listeleme; yalnızca `media` kovası); API `news-api` kullanıcısıyla yalnızca okur.
 - Görseller tarayıcıya MinIO'dan doğrudan değil, Spring Boot API üzerinden ve imzalı adreslerle sunulur (`06-api-sozlesmesi.md`, 4.4).
 
 ## 7. Kullanıcılar ve Yetkiler
