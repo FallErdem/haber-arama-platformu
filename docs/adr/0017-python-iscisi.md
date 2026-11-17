@@ -307,6 +307,7 @@ Bu iş kalemiyle haber görselleri MinIO'ya indirilmeye başladı (FG-VT-14). Ek
 | MinIO'ya yazılamadı | Satıra dokunulmaz, deneme hakkı harcanmaz; görsel bir sonraki turda yeniden denenir. Loga tek satır uyarı düşer |
 
 - `FAILED` görselin haberinde arayüz yer tutucu gösterir (FG-AR-08).
+- Her turun sonucu tek log satırında özetlenir: `Görseller işlendi (indirilen: …, yeniden denenecek: …, başarısız: …)`. Kalıcı olarak başarısız olan her görsel ayrıca adresi ve nedeniyle uyarı olarak loglanır.
 - MinIO kesintisi görselin kusuru değildir; outbox aktarımında Elasticsearch'e ulaşılamaması gibi ele alınır (11. bölüm). Yükleme başarılı olup satır güncellenemezse görsel yeniden indirilir ve aynı anahtarın üzerine yazılır; sonuç değişmez.
 - `boto3` asyncio ile çalışmaz; yükleme ve Pillow doğrulaması ayrı bir iş parçacığında yapılır (`asyncio.to_thread`), diğer döngüler beklemez. İstemcinin kendi yeniden denemesi kapalıdır.
 - İşçinin bellek sınırı 192 Mi'den 256 Mi'ye çıkarıldı: en fazla 20 MB'lık bir görsel bellekte tutulup doğrulanırken pay kalır.
