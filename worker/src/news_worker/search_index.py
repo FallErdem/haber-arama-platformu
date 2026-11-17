@@ -124,6 +124,16 @@ _MAPPINGS: dict[str, Any] = {
 }
 
 
+def search_structure() -> dict[str, Any]:
+    """İndeksin aramayı belirleyen kısmı: alanlar ve analizörler.
+
+    API'nin testleri aramayı bu yapının bir kopyasıyla dener
+    (`backend/src/test/resources/search/articles-index-structure.json`); işçideki bir test, kopyanın
+    buradaki tanımla aynı olduğunu denetler. Böylece iki uygulama aynı indeksi farklı varsayamaz (R-36).
+    """
+    return {"settings": {"analysis": _ANALYSIS}, "mappings": _MAPPINGS}
+
+
 def create_search_client(url: str, username: str, password: str, request_timeout_seconds: float) -> AsyncElasticsearch:
     """Elasticsearch istemcisini kurar. Bağlantılar için projede zaten kullanılan httpx seçilir."""
     return AsyncElasticsearch(

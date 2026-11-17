@@ -3,6 +3,7 @@ package com.erdemgural.newssearch.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.erdemgural.newssearch.TestDatabaseConfiguration;
+import com.erdemgural.newssearch.TestElasticsearchConfiguration;
 import com.erdemgural.newssearch.TestKeycloakConfiguration;
 import com.erdemgural.newssearch.TestTokenIssuer;
 import java.time.Instant;
@@ -23,7 +24,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestDatabaseConfiguration.class, TestKeycloakConfiguration.class})
+@Import({TestDatabaseConfiguration.class, TestKeycloakConfiguration.class, TestElasticsearchConfiguration.class})
 class MeEndpointTests {
 
     private final MockMvcTester mvc;

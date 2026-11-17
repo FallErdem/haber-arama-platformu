@@ -1,0 +1,93 @@
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "turkish_lowercase": {
+          "type": "lowercase",
+          "language": "turkish"
+        },
+        "first_letters": {
+          "type": "truncate",
+          "length": 5
+        }
+      },
+      "analyzer": {
+        "turkish_folded": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "apostrophe",
+            "turkish_lowercase",
+            "asciifolding",
+            "first_letters"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "source_code": {
+        "type": "keyword"
+      },
+      "language": {
+        "type": "keyword"
+      },
+      "item_type": {
+        "type": "keyword"
+      },
+      "categories": {
+        "type": "keyword"
+      },
+      "published_at": {
+        "type": "date"
+      },
+      "group_id": {
+        "type": "keyword"
+      },
+      "title_tr": {
+        "type": "text",
+        "analyzer": "turkish",
+        "fields": {
+          "folded": {
+            "type": "text",
+            "analyzer": "turkish_folded"
+          }
+        }
+      },
+      "summary_tr": {
+        "type": "text",
+        "analyzer": "turkish",
+        "fields": {
+          "folded": {
+            "type": "text",
+            "analyzer": "turkish_folded"
+          }
+        }
+      },
+      "content_tr": {
+        "type": "text",
+        "analyzer": "turkish",
+        "fields": {
+          "folded": {
+            "type": "text",
+            "analyzer": "turkish_folded"
+          }
+        }
+      },
+      "title_en": {
+        "type": "text",
+        "analyzer": "english"
+      },
+      "summary_en": {
+        "type": "text",
+        "analyzer": "english"
+      },
+      "content_en": {
+        "type": "text",
+        "analyzer": "english"
+      }
+    }
+  }
+}

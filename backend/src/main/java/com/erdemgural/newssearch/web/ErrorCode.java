@@ -7,11 +7,13 @@ package com.erdemgural.newssearch.web;
  */
 public enum ErrorCode {
     VALIDATION_FAILED,
+    PAGE_LIMIT_EXCEEDED,
     UNAUTHENTICATED,
     USER_PENDING_APPROVAL,
     USER_REJECTED,
     USER_PASSIVE,
     FORBIDDEN,
     NOT_FOUND,
+    SEARCH_UNAVAILABLE,
     INTERNAL_ERROR
 }

@@ -42,6 +42,15 @@ spec:
                 secretKeyRef:
                   name: postgres-news-owner
                   key: password
+            # Arama indeksi. API yalnızca okur (news_api); kullanıcı adı uygulamadaki sabit değerdir.
+            # Küme içinde TLS yoktur (bkz. İ-32).
+            - name: ES_URL
+              value: http://elasticsearch:9200
+            - name: ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-news-api
+                  key: password
             # Token imzalarını doğrulayan açık anahtarlar Keycloak'ın küme içindeki adresinden alınır.
             # Token'daki "iss" ise her zaman dış adrestir; uygulamadaki varsayılan değer kullanılır.
             - name: KEYCLOAK_JWKS_URL
