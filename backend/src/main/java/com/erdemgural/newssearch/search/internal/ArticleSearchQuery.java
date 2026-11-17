@@ -54,6 +54,13 @@ final class ArticleSearchQuery {
      */
     static final String MINIMUM_SHOULD_MATCH = "2<75%";
 
+    /**
+     * Kelimeleri yan yana ve aynı sırada içeren habere eklenen puanın ağırlığı. "merkez bankası
+     * faiz" aramasında "Merkez Bankası faiz kararı" başlığı, kelimeleri dağınık geçen haberlerin
+     * önüne geçer. Kümedeki haberlerle denendi: 1 yetmedi, 3 fark yaratmadı (veri modeli 5.5).
+     */
+    static final float PHRASE_BOOST = 2f;
+
     /** 1 yıldan eski (soğuk) haberlerin ilgililik puanı bu oranla çarpılır (ADR-0011). */
     static final double COLD_BOOST = 0.5;
 
@@ -74,7 +81,11 @@ final class ArticleSearchQuery {
     static SearchRequest build(SearchCriteria criteria, Map<String, Duration> categoryWindows) {
         BoolQuery.Builder bool = new BoolQuery.Builder();
         if (criteria.hasQuery()) {
-            bool.must(textQuery(criteria.query()));
+            SearchText text = SearchText.parse(criteria.query());
+            // Yalnızca tırnak işaretinden oluşan bir ifadede aranacak kelime yoktur; bütün haberler döner.
+            if (!text.isEmpty()) {
+                bool.must(textQuery(text));
+            }
         }
         // filter: eşleşmeyi daraltır ama puanı etkilemez.
         bool.filter(filters(criteria, categoryWindows));
@@ -110,18 +121,44 @@ final class ArticleSearchQuery {
     }
 
     /**
-     * Arama ifadesi iki biçimde aranır: asıl alanlarda (dil analizörüyle) ve düşük ağırlıkla
-     * katlanmış alanlarda. Haberin ikisinden birinde eşleşmesi yeterlidir. Soğuk haberlerin
-     * puanı düşürülür ama sonuçtan çıkarılmazlar.
+     * Arama ifadesinin sorgusu. Soğuk haberlerin puanı düşürülür ama sonuçtan çıkarılmazlar.
+     *
+     * <ul>
+     *   <li>Tırnak dışındaki kelimeler iki biçimde aranır: asıl alanlarda (dil analizörüyle) ve düşük
+     *       ağırlıkla katlanmış alanlarda; haberin birinde eşleşmesi yeterlidir. Kelimeleri yan yana ve
+     *       aynı sırada içeren habere ayrıca puan eklenir; bu eşleşme zorunlu değildir.
+     *   <li>Tırnak içindeki her öbek zorunludur: haberde kelimeleri yan yana ve aynı sırada geçmelidir.
+     *       Türkçe karaktersiz yazılmış öbek de katlanmış alanlarda aranır.
+     * </ul>
      */
-    private static Query textQuery(String text) {
-        Query matches = Query.of(query -> query.bool(bool -> bool.should(multiMatch(text, MAIN_FIELDS, 1f))
-                .should(multiMatch(text, FOLDED_FIELDS, FOLDED_BOOST))
-                .minimumShouldMatch("1")));
-        return Query.of(query -> query.boosting(boosting -> boosting.positive(matches)
+    private static Query textQuery(SearchText text) {
+        BoolQuery.Builder matches = new BoolQuery.Builder();
+        if (!text.words().isEmpty()) {
+            matches.must(must -> must.bool(words -> words.should(multiMatch(text.words(), MAIN_FIELDS, 1f))
+                    .should(multiMatch(text.words(), FOLDED_FIELDS, FOLDED_BOOST))
+                    .minimumShouldMatch("1")));
+            matches.should(phrase(text.words(), MAIN_FIELDS, PHRASE_BOOST));
+        }
+        for (String phrase : text.phrases()) {
+            matches.must(must -> must.bool(exact -> exact.should(phrase(phrase, MAIN_FIELDS, PHRASE_BOOST))
+                    .should(phrase(phrase, FOLDED_FIELDS, FOLDED_BOOST))
+                    .minimumShouldMatch("1")));
+        }
+        Query positive = matches.build()._toQuery();
+        return Query.of(query -> query.boosting(boosting -> boosting.positive(positive)
                 .negative(negative -> negative.range(
                         range -> range.date(date -> date.field(PUBLISHED_AT).lt(COLD_BEFORE))))
                 .negativeBoost(COLD_BOOST)));
+    }
+
+    /**
+     * Kelime öbeği: kelimeler, dil analizöründen geçtikten sonra yan yana ve aynı sırada olmalıdır.
+     * Ekler kök bulucu tarafından atıldığı için "merkez bankası" öbeği "Merkez Bankası'nın" ile de
+     * eşleşir.
+     */
+    private static Query phrase(String text, List<String> fields, float boost) {
+        return Query.of(query -> query.multiMatch(match ->
+                match.query(text).fields(fields).type(TextQueryType.Phrase).boost(boost)));
     }
 
     /**

@@ -135,7 +135,7 @@ Kullanıcının ilk isteğinde kullanıcı kaydı oluşturulur (ADR-0014).
 | `sort` | `relevance` (ilgililik) veya `newest` (en yeni). `q` doluysa varsayılan `relevance`, boşsa `newest`; `q` boşken `relevance` yok sayılır. |
 | `page`, `size` | Bkz. 2.4 |
 
-- Arama ifadesi başlıkta, özette ve tam metinde aranır; başlıktaki eşleşme en yüksek, tam metindeki en düşük ağırlığı alır (FG-AR-01). Bir veya iki kelimelik ifadede kelimelerin hepsi, daha uzun ifadede dörtte üçü geçmelidir; kelimeler farklı alanlarda olabilir. Türkçe karaktersiz yazılan ifade de (örnek: `cumhurbaskani`) eşleşir. Sorgunun kuralları ve gerekçeleri: `05-veri-modeli.md`, 5.5.
+- Arama ifadesi başlıkta, özette ve tam metinde aranır; başlıktaki eşleşme en yüksek, tam metindeki en düşük ağırlığı alır (FG-AR-01). Bir veya iki kelimelik ifadede kelimelerin hepsi, daha uzun ifadede dörtte üçü geçmelidir; kelimeler farklı alanlarda olabilir. Türkçe karaktersiz yazılan ifade de (örnek: `cumhurbaskani`) eşleşir. Kelimeleri yan yana ve aynı sırada içeren haber üstte çıkar. Tırnak içinde yazılan öbek (örnek: `"merkez bankası" faiz`) zorunludur: yalnızca öbeği kelimeleri yan yana ve aynı sırada içeren haberler döner. Sorgunun kuralları ve gerekçeleri: `05-veri-modeli.md`, 5.5.
 - Birden fazla kaynak veya kategori verildiğinde, herhangi birini taşıyan haberler döner; farklı filtreler birlikte uygulanır.
 - Kategori filtresinde `BREAKING` (Son Dakika) seçiliyse, yalnızca son 6 saatte yayımlanan haberler döner (FG-AR-12). Süresi dolan haber konu kategorilerinde görünmeye devam eder; yanıttaki `categories` alanında `BREAKING` yer almaz. Süre `categories.window_hours` sütunundan okunur.
 - İlgililik sıralamasında 1 yıldan eski haberler geriye düşer (ADR-0011).
