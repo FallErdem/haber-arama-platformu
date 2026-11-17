@@ -289,7 +289,7 @@ Bu iş kalemiyle haber görselleri MinIO'ya indirilmeye başladı (FG-VT-14). Ek
 
 1. `media` tablosundan `PENDING` ve deneme zamanı gelmiş görseller alınır (turda en fazla `MEDIA_BATCH_SIZE`, varsayılan 100; tur aralığı `MEDIA_INTERVAL_SECONDS`, varsayılan 10 saniye). Devre dışı kaynakların görselleri alınmaz.
 2. Aynı kaynağın görselleri sırayla, farklı kaynaklarınki aynı anda indirilir. İstek sırası besleme okumalarıyla **aynı** `SourceRateLimiter` nesnesinden alınır; kaynağa giden toplam istek sıklığı (besleme + görsel) kaynağın istek aralığını aşmaz. Sınırlayıcının kilidi sırayla işlediğinden bir besleme okuması en fazla bir görsel kadar bekler.
-3. Görsel indirilir ve Pillow ile doğrulanır (`image_downloader.py`), MinIO'ya `articles/{article_id}/{media_id}` anahtarıyla yüklenir (`object_storage.py`), satır `DOWNLOADED` olarak türü, boyutu, genişliği ve yüksekliğiyle güncellenir.
+3. Görsel indirilir ve Pillow ile doğrulanır (`image_downloader.py`), ortak biçime çevrilir (`image_converter.py`), MinIO'ya `articles/{article_id}/{media_id}` anahtarıyla yüklenir (`object_storage.py`), satır `DOWNLOADED` olarak türü, boyutu, genişliği ve yüksekliğiyle güncellenir.
 
 **Doğrulama**
 
@@ -298,11 +298,23 @@ Bu iş kalemiyle haber görselleri MinIO'ya indirilmeye başladı (FG-VT-14). Ek
 - Açılınca belleği dolduracak kadar büyük boyut bildiren dosyalar ("decompression bomb") Pillow'un kendi sınırıyla reddedilir.
 - Adresinde Türkçe karakter bulunan görseller (NTV: `güllü-davası-374847.jpg`) için ek kod gerekmez: `httpx` adresi kendisi kodlar. 17 Kasım 2026'da gerçek bir NTV görseliyle doğrulandı; testte kodlanmış adresin istendiği gösterilir.
 
+**Ortak biçim (17 Kasım 2026, şirketin revize isteği)**
+
+Bütün görseller tek bir biçimde saklanır: **WebP, kalite 80, en uzun kenar en fazla 1600 piksel**. Orijinal saklanmaz.
+
+- Neden: Kaynaklardan JPEG, PNG ve WebP geliyor; boyutları 59 KB ile 5,3 MB, ölçüleri 8256 × 5504'e kadar çıkıyordu. Arayüzde bir görsel en fazla ekran genişliğinde gösterilir. WebP bütün güncel tarayıcılarda açılır, aynı görünüşte JPEG'den küçük ve PNG'den çok küçüktür; saydamlığı da destekler.
+- Değerlendirilen diğer biçimler: AVIF daha küçük dosya üretir ama sıkıştırması çok daha yavaştır (tek kopya çalışan işçide birikimi yavaşlatır) ve eski tarayıcı desteği daha zayıftır; JPEG her yerde açılır ama saydamlık desteklemez ve WebP'den büyüktür.
+- JPEG'ler baştan küçültülerek açılır (Pillow'un taslak kipi): 45 megapiksellik bir fotoğraf belleğe tam boyutta açılmaz (işçinin bellek sınırı 256 Mi).
+- Fotoğrafın yön bilgisi (EXIF) uygulanır, ardından EXIF ve diğer üst veriler (konum, cihaz bilgisi) atılır. Saydam görsellerin saydamlığı korunur; hareketli görselin ilk karesi alınır (17 Kasım'da kümedeki görseller arasında hareketli görsel yoktu; 45 PNG ve 1 WebP saydamdı).
+- `media` satırındaki tür (`image/webp`), boyut ve ölçüler dönüştürülmüş dosyanındır.
+- Dönüştürülemeyen dosya kalıcı hata sayılır (`FAILED`).
+- Bu kuraldan önce indirilmiş görseller, işçiye eklenen tek seferlik `news-worker-convert-media` komutuyla çevrilir: görseller kaynaktan yeniden indirilmez, MinIO'dan okunup aynı anahtarın üzerine yazılır. Komut çalışan işçinin içinde çalıştırılır (`kubectl exec -n haber deploy/worker -- news-worker-convert-media`); tekrar çalıştırılabilir ve zaten çevrilmiş görsellere dokunmaz. İndirme döngüsüyle çakışmaz: döngü yalnızca bekleyen, komut yalnızca indirilmiş görsellere dokunur.
+
 **Hata yönetimi**
 
 | Durum | Görsel |
 |---|---|
-| 404, 410; görsel değil; kabul edilmeyen tür; 20 MB'tan büyük | Hemen `FAILED`: yeniden denemek sonucu değiştirmez |
+| 404, 410; görsel değil; kabul edilmeyen tür; 20 MB'tan büyük; dönüştürülemiyor | Hemen `FAILED`: yeniden denemek sonucu değiştirmez |
 | Ağ hatası, zaman aşımı, 5xx, 403, 429 | `PENDING` kalır; 1., 2. ve 3. hatadan sonra 1, 5 ve 15 dakika, 4. hatadan sonra 15 dakika sonra yeniden denenir; 5. hatada `FAILED` (beslemelerdeki sürelerin aynısı) |
 | MinIO'ya yazılamadı | Satıra dokunulmaz, deneme hakkı harcanmaz; görsel bir sonraki turda yeniden denenir. Loga tek satır uyarı düşer |
 
@@ -310,7 +322,7 @@ Bu iş kalemiyle haber görselleri MinIO'ya indirilmeye başladı (FG-VT-14). Ek
 - Her turun sonucu tek log satırında özetlenir: `Görseller işlendi (indirilen: …, yeniden denenecek: …, başarısız: …)`. Kalıcı olarak başarısız olan her görsel ayrıca adresi ve nedeniyle uyarı olarak loglanır.
 - MinIO kesintisi görselin kusuru değildir; outbox aktarımında Elasticsearch'e ulaşılamaması gibi ele alınır (11. bölüm). Yükleme başarılı olup satır güncellenemezse görsel yeniden indirilir ve aynı anahtarın üzerine yazılır; sonuç değişmez.
 - `boto3` asyncio ile çalışmaz; yükleme ve Pillow doğrulaması ayrı bir iş parçacığında yapılır (`asyncio.to_thread`), diğer döngüler beklemez. İstemcinin kendi yeniden denemesi kapalıdır.
-- İşçinin bellek sınırı 192 Mi'den 256 Mi'ye çıkarıldı: en fazla 20 MB'lık bir görsel bellekte tutulup doğrulanırken pay kalır.
+- İşçinin bellek sınırı 192 Mi'den 256 Mi'ye çıkarıldı: en fazla 20 MB'lık bir görsel bellekte tutulup doğrulanırken ve dönüştürülürken pay kalır.
 
 **Gözlemler ve sonraya bırakılanlar**
 

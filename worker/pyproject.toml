@@ -18,6 +18,8 @@ dependencies = [
 news-worker = "news_worker.app:main"
 # Tam yeniden indeksleme; elle çalıştırılır (bkz. news_worker/reindex.py).
 news-worker-reindex = "news_worker.reindex:main"
+# Daha önce indirilmiş görsellerin WebP'ye çevrilmesi; bir kez, elle çalıştırılır (bkz. news_worker/convert_media.py).
+news-worker-convert-media = "news_worker.convert_media:main"
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]

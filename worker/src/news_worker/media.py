@@ -84,6 +84,33 @@ _RECORD_FAILED_QUERY = """
 """
 
 
+@dataclass(frozen=True)
+class StoredMedia:
+    """Nesne depolamada duran, indirilmiş bir görsel."""
+
+    id: UUID
+    storage_key: str
+
+
+# Ortak biçimde olmayan indirilmiş görseller: WebP olmayanlar veya bir kenarı sınırı aşanlar.
+# Kimlik sırasıyla ve "şu kimlikten sonrakiler" diye sayfalanır.
+_FIND_UNCONVERTED_QUERY = """
+    SELECT id, storage_key
+    FROM media
+    WHERE status = 'DOWNLOADED'
+      AND (content_type <> %(content_type)s OR width > %(max_dimension)s OR height > %(max_dimension)s)
+      AND (%(after_id)s::uuid IS NULL OR id > %(after_id)s::uuid)
+    ORDER BY id
+    LIMIT %(limit)s
+"""
+
+_RECORD_CONVERTED_QUERY = """
+    UPDATE media
+    SET content_type = %(content_type)s, size_bytes = %(size_bytes)s, width = %(width)s, height = %(height)s
+    WHERE id = %(media_id)s
+"""
+
+
 class MediaRepository:
     async def find_due(self, connection: psycopg.AsyncConnection[TupleRow], limit: int) -> list[PendingMedia]:
         """İndirilmeyi bekleyen ve deneme zamanı gelmiş görseller, en fazla `limit` kadar."""
@@ -115,3 +142,39 @@ class MediaRepository:
 
     async def record_failed(self, connection: psycopg.AsyncConnection[TupleRow], media_id: UUID, error: str) -> None:
         await connection.execute(_RECORD_FAILED_QUERY, {"media_id": media_id, "error": error})
+
+    async def find_unconverted(
+        self,
+        connection: psycopg.AsyncConnection[TupleRow],
+        content_type: str,
+        max_dimension: int,
+        after_id: UUID | None,
+        limit: int,
+    ) -> list[StoredMedia]:
+        """Ortak biçimde olmayan indirilmiş görsellerin bir sayfası; `after_id` önceki sayfanın son kimliğidir."""
+        async with connection.cursor(row_factory=class_row(StoredMedia)) as cursor:
+            await cursor.execute(
+                _FIND_UNCONVERTED_QUERY,
+                {"content_type": content_type, "max_dimension": max_dimension, "after_id": after_id, "limit": limit},
+            )
+            return await cursor.fetchall()
+
+    async def record_converted(
+        self,
+        connection: psycopg.AsyncConnection[TupleRow],
+        media_id: UUID,
+        content_type: str,
+        size_bytes: int,
+        width: int,
+        height: int,
+    ) -> None:
+        await connection.execute(
+            _RECORD_CONVERTED_QUERY,
+            {
+                "media_id": media_id,
+                "content_type": content_type,
+                "size_bytes": size_bytes,
+                "width": width,
+                "height": height,
+            },
+        )

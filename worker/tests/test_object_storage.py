@@ -66,3 +66,17 @@ async def test_unreachable_storage_is_reported() -> None:
 
     with pytest.raises(StorageUnavailableError, match="EndpointConnectionError"):
         await ObjectStorage(client, MEDIA_BUCKET).put("dosya", b"x", "image/jpeg")
+
+
+async def test_uploaded_file_can_be_read_back(storage: ObjectStorage) -> None:
+    """Yüklenen dosya okunabilir (mevcut görsellerin ortak biçime çevrilmesi için)."""
+    key = storage_key_for(ARTICLE_ID, MEDIA_ID)
+    await storage.put(key, b"icerik", "image/jpeg")
+
+    assert await storage.get(key) == b"icerik"
+
+
+async def test_reading_a_missing_file_is_reported(storage: ObjectStorage) -> None:
+    """Olmayan dosya okunmak istenirse anlaşılır bir hata fırlatılır."""
+    with pytest.raises(StorageUnavailableError, match="NoSuchKey"):
+        await storage.get("articles/olmayan/dosya")
