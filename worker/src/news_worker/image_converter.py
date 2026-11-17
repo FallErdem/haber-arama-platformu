@@ -40,20 +40,37 @@ def convert_to_webp(body: bytes) -> ConvertedImage:
     3. Oran korunarak en uzun kenar 1600 piksele indirilir; küçük görseller büyütülmez.
     4. WebP olarak kaydedilir. EXIF ve diğer üst veriler (konum, cihaz bilgisi) yeni dosyaya geçmez.
        Saydam görsellerin saydamlığı korunur; hareketli görselin ilk karesi alınır.
+
+    Bellekte görüntünün tek bir kopyası tutulur: yön düzeltme yerinde yapılır, renk kipi yalnızca
+    farklıysa çevrilir. İşçinin bellek sınırı içinde büyük fotoğraflar da güvenle çevrilir.
     """
     try:
-        with Image.open(io.BytesIO(body)) as original:
+        with Image.open(io.BytesIO(body)) as image:
             # Yalnızca JPEG'de etkilidir; diğer türlerde bir şey değiştirmez.
-            original.draft(None, (MAX_DIMENSION, MAX_DIMENSION))
-            image = ImageOps.exif_transpose(original)
-            image = image.convert("RGBA" if _has_alpha(image) else "RGB")
-            image.thumbnail((MAX_DIMENSION, MAX_DIMENSION), Image.Resampling.LANCZOS)
+            image.draft(None, _target_size(image.size))
+            image.load()
+            ImageOps.exif_transpose(image, in_place=True)
+            target_mode = "RGBA" if _has_alpha(image) else "RGB"
+            # convert() aynı kipte de yeni bir kopya üretir; yalnızca gerektiğinde çağrılır.
+            prepared: Image.Image = image if image.mode == target_mode else image.convert(target_mode)
+            prepared.thumbnail((MAX_DIMENSION, MAX_DIMENSION), Image.Resampling.LANCZOS)
             output = io.BytesIO()
-            image.save(output, format="WEBP", quality=WEBP_QUALITY, method=WEBP_METHOD)
+            prepared.save(output, format="WEBP", quality=WEBP_QUALITY, method=WEBP_METHOD)
+            width, height = prepared.size
     except (Image.DecompressionBombError, OSError, SyntaxError, ValueError) as error:
         raise NotAnImageError(f"Görsel dönüştürülemedi: {type(error).__name__}") from None
-    width, height = image.size
     return ConvertedImage(body=output.getvalue(), width=width, height=height)
+
+
+def _target_size(size: tuple[int, int]) -> tuple[int, int]:
+    """Görselin, en uzun kenarı 1600 piksel olacak şekilde oranı korunmuş boyutu (8256 × 5504 → 1600 × 1067).
+
+    Taslak kipine kare bir hedef (1600 × 1600) verilirse Pillow iki kenarı da bu karenin altına düşmeyecek
+    kadar küçültür; yatay fotoğrafta kısa kenar belirleyici olur ve görüntü gereğinden büyük çözülür.
+    """
+    width, height = size
+    ratio = min(1.0, MAX_DIMENSION / max(width, height))
+    return max(1, round(width * ratio)), max(1, round(height * ratio))
 
 
 def _has_alpha(image: Image.Image) -> bool:

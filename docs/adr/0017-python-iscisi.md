@@ -304,7 +304,8 @@ Bütün görseller tek bir biçimde saklanır: **WebP, kalite 80, en uzun kenar 
 
 - Neden: Kaynaklardan JPEG, PNG ve WebP geliyor; boyutları 59 KB ile 5,3 MB, ölçüleri 8256 × 5504'e kadar çıkıyordu. Arayüzde bir görsel en fazla ekran genişliğinde gösterilir. WebP bütün güncel tarayıcılarda açılır, aynı görünüşte JPEG'den küçük ve PNG'den çok küçüktür; saydamlığı da destekler.
 - Değerlendirilen diğer biçimler: AVIF daha küçük dosya üretir ama sıkıştırması çok daha yavaştır (tek kopya çalışan işçide birikimi yavaşlatır) ve eski tarayıcı desteği daha zayıftır; JPEG her yerde açılır ama saydamlık desteklemez ve WebP'den büyüktür.
-- JPEG'ler baştan küçültülerek açılır (Pillow'un taslak kipi): 45 megapiksellik bir fotoğraf belleğe tam boyutta açılmaz (işçinin bellek sınırı 256 Mi).
+- JPEG'ler belleğe tam boyutta açılmaz, baştan küçültülerek açılır (Pillow'un `draft` özelliği; JPEG'i 1/2, 1/4 veya 1/8 boyutta çözebilir). 8256 × 5504 piksellik bir fotoğraf 2064 × 1376 olarak açılır. Pillow'a hedef olarak görselin oranıyla hesaplanmış boyut (1600 × 1067) verilir; kare bir hedef (1600 × 1600) verildiğinde yatay fotoğrafta kısa kenar belirleyici olur ve fotoğraf gereğinden büyük (4128 × 2752) açılır. Fotoğrafın bellekte tek kopyası tutulur: yön düzeltme kopya oluşturmadan yapılır, renk biçimi yalnızca farklıysa çevrilir.
+- Ölçülen en yüksek bellek kullanımı (dönüştürme komutunun süreci, kütüphaneler dahil): 8256 × 5504 JPEG için yaklaşık 105 MB (düzeltmeden önce 209 MB), 1920 × 1280 saydam PNG için yaklaşık 150 MB.
 - Fotoğrafın yön bilgisi (EXIF) uygulanır, ardından EXIF ve diğer üst veriler (konum, cihaz bilgisi) atılır. Saydam görsellerin saydamlığı korunur; hareketli görselin ilk karesi alınır (17 Kasım'da kümedeki görseller arasında hareketli görsel yoktu; 45 PNG ve 1 WebP saydamdı).
 - `media` satırındaki tür (`image/webp`), boyut ve ölçüler dönüştürülmüş dosyanındır.
 - Dönüştürülemeyen dosya kalıcı hata sayılır (`FAILED`).
@@ -322,7 +323,7 @@ Bütün görseller tek bir biçimde saklanır: **WebP, kalite 80, en uzun kenar 
 - Her turun sonucu tek log satırında özetlenir: `Görseller işlendi (indirilen: …, yeniden denenecek: …, başarısız: …)`. Kalıcı olarak başarısız olan her görsel ayrıca adresi ve nedeniyle uyarı olarak loglanır.
 - MinIO kesintisi görselin kusuru değildir; outbox aktarımında Elasticsearch'e ulaşılamaması gibi ele alınır (11. bölüm). Yükleme başarılı olup satır güncellenemezse görsel yeniden indirilir ve aynı anahtarın üzerine yazılır; sonuç değişmez.
 - `boto3` asyncio ile çalışmaz; yükleme ve Pillow doğrulaması ayrı bir iş parçacığında yapılır (`asyncio.to_thread`), diğer döngüler beklemez. İstemcinin kendi yeniden denemesi kapalıdır.
-- İşçinin bellek sınırı 192 Mi'den 256 Mi'ye çıkarıldı: en fazla 20 MB'lık bir görsel bellekte tutulup doğrulanırken ve dönüştürülürken pay kalır.
+- İşçinin bellek sınırı önce 192 Mi'den 256 Mi'ye, ardından 384 Mi'ye çıkarıldı. 17 Kasım 2026'da dönüştürme komutu işçiyle aynı kapsayıcıda çalışırken 256 Mi aşıldı ve kapsayıcı yeniden başlatıldı (`OOMKilled`; veri bozulmadı, komut kaldığı yerden devam eder). Nedenleri yukarıdaki taslak kipi hatası ve gereksiz kopyalardı. İşçinin kendisi yaklaşık 80 MB kullanır; komut en kötü durumda yaklaşık 150 MB ekler.
 
 **Gözlemler ve sonraya bırakılanlar**
 

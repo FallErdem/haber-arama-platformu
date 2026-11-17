@@ -159,6 +159,70 @@ class ArticleSearchTests {
         assertThat(ids(search("q=merkez bankası faiz kararı"))).containsExactly(three);
     }
 
+    // --- Kelime öbeği -----------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("kelimeleri yan yana ve aynı sırada içeren haber, kelimeleri dağınık geçen haberin önüne geçer")
+    void adjacentWordsRankAboveScatteredWords() {
+        // İki haberde de üç kelime başlıkta geçiyor; yalnızca birinde yan yana ve aynı sırada.
+        UUID scattered =
+                articles.add(Article.turkish("Faiz beklentisi yükseldi, merkez açıklama yaptı, bankası belli"));
+        UUID adjacent = articles.add(Article.turkish("Merkez Bankası faiz kararını açıkladı"));
+
+        assertThat(ids(search("q=merkez bankası faiz"))).containsExactly(adjacent, scattered);
+    }
+
+    @Test
+    @DisplayName("tırnak içindeki öbek zorunludur: kelimeleri ayrı ayrı geçen haber dönmez")
+    void quotedPhraseIsRequired() {
+        UUID adjacent = articles.add(Article.turkish("Beyaz Saray açıklama yaptı"));
+        articles.add(Article.turkish("Saray yakınında beyaz bayrak açıldı"));
+
+        assertThat(ids(search("q=\"beyaz saray\""))).containsExactly(adjacent);
+        // Tırnaksız aramada ikisi de döner.
+        assertThat(ids(search("q=beyaz saray"))).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("tırnak içindeki öbek ekli halleriyle ve Türkçe karaktersiz yazılışıyla da eşleşir")
+    void quotedPhraseMatchesInflectedAndAsciiForms() {
+        UUID id = articles.add(Article.turkish("Merkez Bankası'nın yeni kararı açıklandı"));
+
+        assertThat(ids(search("q=\"merkez bankası\""))).containsExactly(id);
+        assertThat(ids(search("q=\"merkez bankasi\""))).containsExactly(id);
+    }
+
+    @Test
+    @DisplayName("öbek ile birlikte yazılan kelimeler normal kurallarla aranır")
+    void phraseAndWordsAreCombined() {
+        UUID both = articles.add(Article.turkish("Merkez Bankası faiz kararını açıkladı"));
+        articles.add(Article.turkish("Merkez Bankası rezervleri arttı"));
+        articles.add(Article.turkish("Faiz oranları merkezde tartışıldı"));
+
+        assertThat(ids(search("q=\"merkez bankası\" faiz"))).containsExactly(both);
+    }
+
+    @Test
+    @DisplayName("tırnak içindeki öbek vurgulanır")
+    void quotedPhraseIsHighlighted() {
+        articles.add(Article.turkish("Beyaz Saray açıklama yaptı"));
+
+        assertThat(search("q=\"beyaz saray\""))
+                .bodyJson()
+                .extractingPath("$.items[0].highlights.title[0]")
+                .asString()
+                // Öbek tek parça olarak işaretlenir.
+                .isEqualTo("<mark>Beyaz Saray</mark> açıklama yaptı");
+    }
+
+    @Test
+    @DisplayName("yalnızca tırnak işaretinden oluşan ifade hata vermez; haberler listelenir")
+    void queryOfOnlyQuotesListsArticles() {
+        UUID id = articles.add(Article.turkish("Herhangi bir haber"));
+
+        assertThat(ids(search("q=\"\""))).containsExactly(id);
+    }
+
     // --- Filtreler (FG-AR-02) -------------------------------------------------------------------
 
     @Test
