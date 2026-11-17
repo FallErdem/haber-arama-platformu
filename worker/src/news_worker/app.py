@@ -11,8 +11,12 @@ from news_worker.feed_fetcher import FeedFetcher, create_http_client
 from news_worker.feed_reader import FeedReader
 from news_worker.feeds import FeedRepository
 from news_worker.health import HealthServer
+from news_worker.image_downloader import ImageDownloader
 from news_worker.ingestion_service import IngestionService
 from news_worker.logging_config import configure_logging
+from news_worker.media import MediaRepository
+from news_worker.media_downloader import MediaDownloader
+from news_worker.object_storage import ObjectStorage, create_storage_client
 from news_worker.outbox import OutboxRepository
 from news_worker.outbox_relay import OutboxRelay
 from news_worker.rate_limiter import SourceRateLimiter
@@ -25,7 +29,8 @@ log = logging.getLogger(__name__)
 async def run(settings: Settings, stop: asyncio.Event) -> None:
     """Sağlık adresini açar, tabloları bekler ve durdurma istenene kadar işleri çalıştırır.
 
-    İki iş yan yana çalışır: zamanlayıcı (haber toplama) ve outbox aktarımı (Elasticsearch).
+    Üç iş yan yana çalışır: zamanlayıcı (haber toplama), outbox aktarımı (Elasticsearch) ve görsel
+    indirme (MinIO).
     """
     database = Database(settings)
     # Bütün indirmeler tek bir HTTP istemcisini paylaşır; blok bitince istemci ve açık bağlantıları kapanır.
@@ -36,12 +41,14 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             settings.es_url, settings.es_user, settings.es_password, settings.es_timeout_seconds
         ) as search_client,
     ):
+        # Tek sınırlayıcı: bir kaynağa giden bütün istekler (besleme ve görsel) aynı sırayı ve aynı
+        # bekleme süresini paylaşır.
+        rate_limiter = SourceRateLimiter()
         ingestion_service = IngestionService(
             database,
             FeedFetcher(http_client, settings.http_total_timeout_seconds),
             FeedReader(),
-            # Tek sınırlayıcı: bir kaynağa giden bütün istekler aynı sırayı ve aynı bekleme süresini paylaşır.
-            SourceRateLimiter(),
+            rate_limiter,
         )
         scheduler = Scheduler(database, FeedRepository(), ingestion_service.ingest, settings.scheduler_interval_seconds)
         outbox_relay = OutboxRelay(
@@ -53,8 +60,25 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             settings.outbox_interval_seconds,
             settings.outbox_batch_size,
         )
-        # Hazır olma yalnızca zamanlayıcıya bakar: Elasticsearch kapalıyken de haber toplama sürer
-        # ve notlar PostgreSQL'de birikir (FOG-09); işçi bu yüzden sağlıksız sayılmaz.
+        media_downloader = MediaDownloader(
+            database,
+            MediaRepository(),
+            ImageDownloader(http_client, settings.http_total_timeout_seconds),
+            ObjectStorage(
+                create_storage_client(
+                    settings.minio_url,
+                    settings.minio_access_key,
+                    settings.minio_secret_key,
+                    settings.http_timeout_seconds,
+                ),
+                settings.media_bucket,
+            ),
+            rate_limiter,
+            settings.media_interval_seconds,
+            settings.media_batch_size,
+        )
+        # Hazır olma yalnızca zamanlayıcıya bakar: Elasticsearch veya MinIO kapalıyken de haber toplama
+        # sürer; notlar ve görseller PostgreSQL'de bekler (FOG-09). İşçi bu yüzden sağlıksız sayılmaz.
         health_server = HealthServer(settings.health_port, is_ready=scheduler.is_healthy)
 
         # Sağlık adresi beklemeden önce açılır: tablolar beklenirken işçi "ayakta ama
@@ -65,8 +89,8 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             await database.wait_until_ready(stop)
             if not stop.is_set():
                 log.info("Tablolar hazır; zamanlayıcı başlıyor")
-                # gather: iki döngü aynı anda çalışır; durdurma istenince ikisi de elindeki turu bitirip döner.
-                await asyncio.gather(scheduler.run(stop), outbox_relay.run(stop))
+                # gather: döngüler aynı anda çalışır; durdurma istenince hepsi elindeki işi bitirip döner.
+                await asyncio.gather(scheduler.run(stop), outbox_relay.run(stop), media_downloader.run(stop))
         finally:
             await health_server.stop()
             log.info("İşçi durdu")

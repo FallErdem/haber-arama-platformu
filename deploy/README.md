@@ -156,6 +156,8 @@ Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, ta
 | `OUTBOX_INTERVAL_SECONDS` | `5` | Outbox aktarımının iki turu arasındaki süre |
 | `OUTBOX_BATCH_SIZE` | `200` | Bir turda Elasticsearch'e aktarılan en fazla outbox notu |
 | `ES_TIMEOUT_SECONDS` | `30` | Elasticsearch'e giden bir isteğin süre sınırı |
+| `MEDIA_INTERVAL_SECONDS` | `10` | Görsel indirme döngüsünün iki turu arasındaki süre |
+| `MEDIA_BATCH_SIZE` | `100` | Bir turda alınan en fazla görsel |
 
 ### 10. Arama indeksini yeniden oluştur (yalnızca gerektiğinde)
 

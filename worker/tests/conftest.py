@@ -6,22 +6,30 @@ db/migrations/ altındaki betikler sırayla uygulanır. Böylece testler, işçi
 gerçekte göreceği tablolar ve yetkilerle çalışır.
 """
 
+import io
+import json
 import re
 import time
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 import httpx
 import psycopg
 import pytest
 from elasticsearch import AsyncElasticsearch
+from PIL import Image
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.core.container import DockerContainer
 
 from news_worker.config import Settings
 from news_worker.database import Database
+from news_worker.object_storage import ObjectStorage, create_storage_client
 from news_worker.search_index import INDEX_PATTERN, create_search_client
+
+if TYPE_CHECKING:
+    from types_boto3_s3 import S3Client
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "db" / "migrations"
 
@@ -130,6 +138,10 @@ def settings(postgres: PostgresContainer) -> Settings:
         es_url="http://127.0.0.1:9",
         es_user=SEARCH_WORKER_USER,
         es_password=SEARCH_WORKER_PASSWORD,
+        # Kimsenin dinlemediği bir adres: MinIO gerektiren testler gerçek adresi kendileri verir.
+        minio_url="http://127.0.0.1:9",
+        minio_access_key=STORAGE_WORKER_USER,
+        minio_secret_key=STORAGE_WORKER_PASSWORD,
         scheduler_interval_seconds=0.05,
         health_port=8080,
     )
@@ -248,3 +260,95 @@ async def search_client(elasticsearch_url: str) -> AsyncIterator[AsyncElasticsea
         for template in templates.get("index_templates", []):
             await client.indices.delete_index_template(name=template["name"])
         await client.close()
+
+
+def make_image(image_format: str = "JPEG", size: tuple[int, int] = (40, 30)) -> bytes:
+    """Testlerde kullanılan küçük bir görsel: verilen türde ve boyutlarda, tek renkli."""
+    buffer = io.BytesIO()
+    Image.new("RGB", size, color=(200, 30, 30)).save(buffer, format=image_format)
+    return buffer.getvalue()
+
+
+# --- MinIO -------------------------------------------------------------------------------------
+
+# Kümedeki MinIO ile aynı sürüm (deploy/k8s/base/minio). Kümede sunucu "-distroless" imajla çalışır;
+# testte kurulum adımları için kabuk ve mc istemcisi gerektiğinden aynı sürümün standart imajı kullanılır.
+MINIO_IMAGE = "docker.io/pgsty/silo:RELEASE.2026-10-26T00-00-00Z"
+MINIO_ROOT_USER = "test-root"
+MINIO_ROOT_PASSWORD = "test-root-password"
+STORAGE_WORKER_USER = "news-worker"
+STORAGE_WORKER_PASSWORD = "test-storage-worker"
+MEDIA_BUCKET = "media"
+
+# İşçinin MinIO politikası. Kümede bunu minio-setup Job'u oluşturur
+# (deploy/k8s/base/minio/setup-job.yaml); burada aynısı elle oluşturulur.
+STORAGE_WORKER_POLICY = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+            "Resource": ["arn:aws:s3:::media/*"],
+        },
+        {"Effect": "Allow", "Action": ["s3:ListBucket"], "Resource": ["arn:aws:s3:::media"]},
+    ],
+}
+
+
+def _wait_until_minio_is_up(url: str, timeout_seconds: float = 120) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        try:
+            if httpx.get(f"{url}/minio/health/live", timeout=5).status_code == httpx.codes.OK:
+                return
+        except httpx.HTTPError:
+            pass
+        if time.monotonic() > deadline:
+            raise TimeoutError("MinIO konteyneri zamanında hazır olmadı")
+        time.sleep(1)
+
+
+@pytest.fixture(scope="session")
+def minio_url() -> Iterator[str]:
+    """Bütün test oturumu için bir kez açılan geçici MinIO: kova, işçinin politikası ve kullanıcısı hazır."""
+    container = (
+        DockerContainer(MINIO_IMAGE)
+        .with_command("server /data")
+        .with_exposed_ports(9000)
+        .with_env("MINIO_ROOT_USER", MINIO_ROOT_USER)
+        .with_env("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
+    )
+    with container:
+        url = f"http://{container.get_container_host_ip()}:{container.get_exposed_port(9000)}"
+        _wait_until_minio_is_up(url)
+        # Kurulum, kümedeki Job gibi mc ile ve konteynerin içinden yapılır.
+        policy = json.dumps(STORAGE_WORKER_POLICY)
+        script = f"""
+            set -e
+            mc alias set local http://127.0.0.1:9000 {MINIO_ROOT_USER} {MINIO_ROOT_PASSWORD}
+            mc mb --ignore-existing local/{MEDIA_BUCKET}
+            echo '{policy}' > /tmp/news-worker.json
+            mc admin policy create local news-worker /tmp/news-worker.json
+            mc admin user add local {STORAGE_WORKER_USER} {STORAGE_WORKER_PASSWORD}
+            mc admin policy attach local news-worker --user {STORAGE_WORKER_USER}
+        """
+        result = container.exec(["sh", "-c", script])
+        assert result.exit_code == 0, result.output.decode()
+        yield url
+
+
+@pytest.fixture
+def storage_client(minio_url: str) -> Iterator[S3Client]:
+    """İşçinin kendi kullanıcısıyla bağlanan S3 istemcisi. Test bitince testin yüklediği dosyalar silinir."""
+    client = create_storage_client(minio_url, STORAGE_WORKER_USER, STORAGE_WORKER_PASSWORD, timeout_seconds=10)
+    try:
+        yield client
+    finally:
+        listed = client.list_objects_v2(Bucket=MEDIA_BUCKET, Prefix="articles/")
+        for item in listed.get("Contents", []):
+            client.delete_object(Bucket=MEDIA_BUCKET, Key=item["Key"])
+
+
+@pytest.fixture
+def storage(storage_client: S3Client) -> ObjectStorage:
+    return ObjectStorage(storage_client, MEDIA_BUCKET)
