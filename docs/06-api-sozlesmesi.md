@@ -42,6 +42,7 @@ Bu doküman, Spring Boot API'nin frontend'e sunduğu uç noktaları ve bütün u
 }
 ```
 
+- Sayfalanmayan listeler de öğelerini doğrudan bir dizi olarak değil, `items` alanında döndürür (`{ "items": [] }`); arayüz bütün listeleri aynı biçimde okur ve yanıta sonradan alan eklenebilir.
 - **Arama sınırı:** Aramada `(page + 1) × size` değeri 10.000'i aşamaz; aşan istekler `400 PAGE_LIMIT_EXCEEDED` ile reddedilir. Arama yanıtlarında `totalElements` en fazla 10.000 olarak sayılır; gerçek sayının daha büyük olabildiği durumlarda yanıttaki `totalRelation` alanı `gte` (en az), tam sayıysa `eq` değerini alır.
 
 ### 2.5 Güncelleme kuralları
@@ -69,7 +70,7 @@ Hatalar RFC 9457 Problem Details biçiminde (`application/problem+json`) döner.
 ```
 
 - `type` alanı, değeri `about:blank` olduğunda yanıtta gönderilmez; RFC 9457'ye göre alanın bulunmaması aynı anlama gelir.
-- `errors` alanı yalnızca girdi doğrulama hatalarında bulunur.
+- `errors` alanı yalnızca girdi doğrulama hatalarında bulunur. Geçersiz alanların hepsi birlikte bildirilir. Alan kodları: `INVALID_VALUE` (biçim yanlış veya izin verilen değerlerden biri değil), `MIN_VALUE`, `MAX_VALUE`, `MAX_LENGTH`, `INVALID_RANGE` (aralığın başlangıcı bitişinden sonra).
 - Yanıtlar iç ayrıntı içermez: Yığın izi (stack trace), SQL hataları veya iç sınıf adları istemciye gönderilmez.
 
 | Durum | Kod | Ne zaman |
@@ -90,6 +91,7 @@ Hatalar RFC 9457 Problem Details biçiminde (`application/problem+json`) döner.
 | 409 | `ALREADY_EXISTS` | Benzersiz olması gereken bir değer zaten var |
 | 409 | `SOURCE_MUST_BE_DISABLED` | Kaynak içeriğinin silinmesi için kaynağın önce devre dışı bırakılması gerekiyor |
 | 429 | `RATE_LIMITED` | İstek sınırı aşıldı (FOG-21) |
+| 503 | `SEARCH_UNAVAILABLE` | Arama indeksine (Elasticsearch) ulaşılamıyor; aramayla ilgisi olmayan uç noktalar çalışmaya devam eder (FOG-09) |
 | 500 | `INTERNAL_ERROR` | Beklenmeyen hata |
 
 ### 2.7 İstek kimliği
@@ -128,11 +130,13 @@ Kullanıcının ilk isteğinde kullanıcı kaydı oluşturulur (ADR-0014).
 | `sources` | Kaynak kodları, virgülle ayrılmış (örnek: `TRT,NYT`) |
 | `language` | `tr` veya `en` |
 | `categories` | Kategori kodları, virgülle ayrılmış |
-| `from`, `to` | Yayın tarihi aralığı; `from`, `to`'dan sonra olamaz |
+| `from`, `to` | Yayın tarihi aralığı, sınırlar dahil; ISO 8601 ve UTC (örnek: `2026-11-05T00:00:00Z`). `from`, `to`'dan sonra olamaz |
 | `sort` | `relevance` (ilgililik) veya `newest` (en yeni). `q` doluysa varsayılan `relevance`, boşsa `newest`; `q` boşken `relevance` yok sayılır. |
 | `page`, `size` | Bkz. 2.4 |
 
-- Kategori filtresinde `BREAKING` (Son Dakika) seçiliyse, yalnızca son 6 saatte yayımlanan haberler döner (FG-AR-12).
+- Arama ifadesi başlıkta, özette ve tam metinde aranır; başlıktaki eşleşme en yüksek, tam metindeki en düşük ağırlığı alır (FG-AR-01). Bir veya iki kelimelik ifadede kelimelerin hepsi, daha uzun ifadede dörtte üçü geçmelidir; kelimeler farklı alanlarda olabilir. Türkçe karaktersiz yazılan ifade de (örnek: `cumhurbaskani`) eşleşir. Sorgunun kuralları ve gerekçeleri: `05-veri-modeli.md`, 5.5.
+- Birden fazla kaynak veya kategori verildiğinde, herhangi birini taşıyan haberler döner; farklı filtreler birlikte uygulanır.
+- Kategori filtresinde `BREAKING` (Son Dakika) seçiliyse, yalnızca son 6 saatte yayımlanan haberler döner (FG-AR-12). Süresi dolan haber konu kategorilerinde görünmeye devam eder; yanıttaki `categories` alanında `BREAKING` yer almaz. Süre `categories.window_hours` sütunundan okunur.
 - İlgililik sıralamasında 1 yıldan eski haberler geriye düşer (ADR-0011).
 - Gruplanmış haberler tek sonuç olarak döner (FG-AR-10).
 
@@ -159,9 +163,12 @@ Yanıttaki her öğe:
 ```
 
 - `highlights`: Eşleşen kelimeler `<mark>` etiketiyle işaretlenir (FG-AR-05). Metnin geri kalanı backend'de HTML kaçış karakterleriyle güvenli hale getirilir; arayüz `<mark>` dışındaki hiçbir etiketi işlemez. `q` boşsa bu alan bulunmaz.
+- Vurgular yalnızca başlık ve özet için döner; alanın tamamı döner, parçalara bölünmez. Eşleşme yalnızca tam metindeyse `highlights` boş bir nesnedir.
 - `image`: Haberin ana görseli; görsel yoksa veya henüz indirilmemişse `null`, arayüz yer tutucu gösterir (FG-AR-08).
 - `otherSourcesCount`: Aynı gruptaki diğer kaynakların sayısı.
 - Yanıtın sayfalama alanlarına ek olarak `totalRelation` alanı bulunur (bkz. 2.4).
+- Gösterilen bilgiler (başlık, özet, kaynak, adres) arama indeksinden değil asıl kayıttan okunur. Gizlenmiş veya silinmiş bir haber, arama indeksindeki kopyası henüz kaldırılmamış olsa da sonuçta yer almaz (FG-AR-09); bu durumda bir sayfa `size` değerinden az öğe taşıyabilir.
+- Arama indeksine ulaşılamıyorsa `503 SEARCH_UNAVAILABLE` döner.
 
 ### 4.2 `GET /api/v1/articles/{id}` — Haber detayı
 
@@ -202,6 +209,19 @@ Yanıttaki her öğe:
 ### 4.3 `GET /api/v1/sources` ve `GET /api/v1/categories`
 
 Arama filtreleri için etkin kaynakların (`code`, `name`, `language`) ve kategorilerin (`code`, `kind`, `sortOrder`) listesini döner.
+
+- Kaynaklar ada göre, kategoriler arayüzde gösterilecekleri sıraya (`sortOrder`) göre sıralıdır. Devre dışı bırakılan kaynak listede yer almaz.
+- Kategorinin görünen adı yanıtta yoktur; arayüz adı kendi dil dosyalarından koda göre bulur (FOG-31). `kind`: `TOPIC` (konu) veya `TEMPORAL` (Son Dakika).
+- Listeler sayfalanmaz; yanıt, sayfalı listelerde olduğu gibi öğeleri `items` alanında taşır (bkz. 2.4):
+
+```json
+{
+  "items": [
+    { "code": "CNNTURK", "name": "CNN Türk", "language": "tr" },
+    { "code": "GLOBALVOICES", "name": "Global Voices", "language": "en" }
+  ]
+}
+```
 
 ### 4.4 `GET /api/v1/media/{id}` — Görsel
 
