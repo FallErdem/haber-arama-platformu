@@ -3,6 +3,7 @@ package com.erdemgural.newssearch.search.internal;
 import com.erdemgural.newssearch.ingestion.ArticleCatalog;
 import com.erdemgural.newssearch.ingestion.ArticleSummary;
 import com.erdemgural.newssearch.ingestion.CategoryCatalog;
+import com.erdemgural.newssearch.ingestion.CategoryWindows;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -75,25 +76,16 @@ class ArticleSearchService {
                 new ArticleSearchItem.Source(summary.sourceCode(), summary.sourceName()),
                 summary.language(),
                 summary.itemType(),
-                currentCategories(summary, categoryWindows, now),
+                CategoryWindows.current(summary.categories(), summary.publishedAt(), categoryWindows, now),
                 summary.publishedAt(),
                 summary.url(),
-                null,
+                summary.image() == null
+                        ? null
+                        : new ArticleSearchItem.Image(
+                                summary.image().url(),
+                                summary.image().width(),
+                                summary.image().height()),
                 0);
-    }
-
-    /**
-     * Süreli bir kategori (Son Dakika), süresi dolmuş haberde gösterilmez (FG-AR-12); haber konu
-     * kategorileriyle görünmeye devam eder.
-     */
-    private static List<String> currentCategories(
-            ArticleSummary summary, Map<String, Duration> categoryWindows, Instant now) {
-        return summary.categories().stream()
-                .filter(code -> {
-                    Duration window = categoryWindows.get(code);
-                    return window == null || summary.publishedAt().isAfter(now.minus(window));
-                })
-                .toList();
     }
 
     /**

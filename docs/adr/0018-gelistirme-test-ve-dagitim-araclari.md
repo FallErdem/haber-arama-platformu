@@ -180,6 +180,12 @@ Alternatifler:
 - **Spring Data JPA (Hibernate):** Temel kayıt işlemlerini kendisi üretir ve geliştiricinin tanıdığı araçtır; ancak yukarıdaki sorgular için yine SQL yazılması gerekir ve hangi SQL'in ne zaman çalıştığı koddan doğrudan okunamaz.
 - **Spring Data JDBC:** ORM'den basittir ve temel kayıt işlemlerini üretir; ancak kayıtları bütün olarak yeniden yazma gibi kendi kuralları vardır ve bu projedeki tablo sayısı için kazancı sınırlıdır.
 
+**API'nin Elasticsearch ve nesne depolama istemcileri (İ-17, İ-18)**
+
+- Elasticsearch'e Spring Boot'un `spring-boot-starter-elasticsearch` bağımlılığıyla (Elasticsearch'in resmi Java istemcisi; sürümü Spring Boot'tan) bağlanılır. Spring Data Elasticsearch kullanılmaz: indeksi ve şablonu işçi yönetir, arama sorgusu elle yazılır (`05-veri-modeli.md`, 5.5); veritabanında ORM kullanılmamasıyla aynı gerekçe.
+- MinIO'ya AWS SDK for Java'nın S3 istemcisiyle (`software.amazon.awssdk:s3` 2.57.8; Spring Boot bu kütüphaneyi yönetmez, sürüm `pom.xml`'de sabitlenir) bağlanılır. İşçideki `boto3` ile aynı arayüzdür; ileride başka bir S3 uyumlu depolamaya geçilirse kod değişmez (R-35). MinIO'nun kendi Java istemcisi daha küçüktür ancak ürüne bağlıdır. Asenkron istemci kullanılmadığından Netty'ye dayanan HTTP katmanı bağımlılıktan çıkarılmıştır.
+- API iki depoya da yalnızca okuma yetkisi olan kullanıcılarla bağlanır (`news_api`, `news-api`); bu yetki uygulamada değil depoların kendisinde tanımlıdır (7. bölüm).
+
 ### 10. Spring Boot API'nin imajı ve dağıtımı
 
 - İmaj `backend/Dockerfile` ile iki aşamada derlenir: ilk aşama JDK ile jar dosyasını üretir, ikinci aşama yalnızca JRE'yi ve jar dosyasını içerir. Derleme araçları ve kaynak kod son imaja girmez. Uygulama imajda root olmayan bir kullanıcıyla çalışır.

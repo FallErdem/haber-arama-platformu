@@ -51,6 +51,14 @@ management:
         enabled: true
 
 newssearch:
+  media:
+    # Görsel adreslerini imzalayan anahtar (API sözleşmesi 4.4); en az 32 karakter, bütün API kopyalarında aynı.
+    signing-key: ${MEDIA_SIGNING_KEY}
+    # Nesne depolama (MinIO). API yalnızca okur: news-api kullanıcısının yazma yetkisi yoktur.
+    storage-url: ${MINIO_URL:http://localhost:9000}
+    access-key: news-api
+    secret-key: ${MINIO_SECRET_KEY}
+    bucket: media
   identity:
     # Bu e-postayla gelen ve e-postası doğrulanmış kullanıcı ilk girişinde aktif
     # yönetici olur (ADR-0014). Boşsa kimse kendiliğinden yönetici olmaz.

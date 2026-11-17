@@ -12,7 +12,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 @SpringBootTest
-@Import({TestDatabaseConfiguration.class, TestElasticsearchConfiguration.class})
+@Import({TestDatabaseConfiguration.class, TestElasticsearchConfiguration.class, TestStorageConfiguration.class})
 class DatabaseMigrationTests {
 
     private final JdbcClient jdbcClient;

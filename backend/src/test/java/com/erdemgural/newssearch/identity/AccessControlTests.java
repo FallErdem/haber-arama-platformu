@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.erdemgural.newssearch.TestDatabaseConfiguration;
 import com.erdemgural.newssearch.TestElasticsearchConfiguration;
 import com.erdemgural.newssearch.TestKeycloakConfiguration;
+import com.erdemgural.newssearch.TestStorageConfiguration;
 import com.erdemgural.newssearch.TestUsers;
 import com.erdemgural.newssearch.TestUsers.TestUser;
 import org.junit.jupiter.api.DisplayName;
@@ -20,7 +21,12 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestDatabaseConfiguration.class, TestKeycloakConfiguration.class, TestElasticsearchConfiguration.class})
+@Import({
+    TestDatabaseConfiguration.class,
+    TestKeycloakConfiguration.class,
+    TestElasticsearchConfiguration.class,
+    TestStorageConfiguration.class
+})
 class AccessControlTests {
 
     /** Var olmayan bir adres: aktif kullanıcı 404, yetkisiz kullanıcı 403 alır. */

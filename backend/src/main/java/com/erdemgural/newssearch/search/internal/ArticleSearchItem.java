@@ -11,8 +11,8 @@ import java.util.UUID;
  *
  * @param highlights eşleşen kelimeleri {@code <mark>} ile işaretlenmiş başlık ve özet; arama
  *     ifadesi yoksa yanıtta bulunmaz
- * @param image haberin ana görseli; görsel uç noktası gelene kadar (İ-18) her zaman {@code null},
- *     arayüz yer tutucu gösterir
+ * @param image haberin ana görseli (imzalı adres ve ölçüler); görseli olmayan veya henüz indirilmemiş
+ *     haberde {@code null}, arayüz yer tutucu gösterir (FG-AR-08)
  * @param otherSourcesCount aynı haberi yayımlayan diğer kaynakların sayısı; kaynaklar arası
  *     gruplama gelene kadar (İ-28) her zaman 0
  */
