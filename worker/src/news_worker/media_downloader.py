@@ -1,4 +1,4 @@
-"""Görsel indirme döngüsü: kuyruktaki görselleri indirir, doğrular ve nesne depolamaya yükler
+"""Görsel indirme döngüsü: kuyruktaki görselleri indirir, doğrular, WebP'ye çevirir ve nesne depolamaya yükler
 (ADR-0013, 5. bölüm; FG-VT-14).
 
 Aynı kaynağın görselleri sırayla, farklı kaynaklarınki aynı anda indirilir. Görsel istekleri besleme
@@ -11,7 +11,8 @@ from collections import Counter
 from enum import StrEnum
 
 from news_worker.database import Database, wait_for_stop
-from news_worker.image_downloader import DownloadFailed, ImageDownloader
+from news_worker.image_converter import convert_to_webp
+from news_worker.image_downloader import DownloadFailed, ImageDownloader, NotAnImageError
 from news_worker.media import MediaRepository, PendingMedia, StoredImage
 from news_worker.object_storage import ObjectStorage, StorageUnavailableError, storage_key_for
 from news_worker.rate_limiter import SourceRateLimiter
@@ -111,17 +112,22 @@ class MediaDownloader:
 
         if isinstance(result, DownloadFailed):
             return await self._record_failure(media, result)
+        try:
+            # Ortak biçime çevirme işlemciyi kullanır; ayrı bir iş parçacığında yapılır ki diğer işler beklemesin.
+            image = await asyncio.to_thread(convert_to_webp, result.body)
+        except NotAnImageError as error:
+            return await self._record_failure(media, DownloadFailed(str(error), permanent=True))
 
         key = storage_key_for(media.article_id, media.id)
         # Yükleme başarılı olup satır güncellenemezse görsel bir sonraki turda yeniden indirilir ve
         # aynı anahtarın üzerine yazılır; sonuç değişmez.
-        await self._storage.put(key, result.body, result.content_type)
+        await self._storage.put(key, image.body, image.content_type)
         stored = StoredImage(
             storage_key=key,
-            content_type=result.content_type,
-            size_bytes=len(result.body),
-            width=result.width,
-            height=result.height,
+            content_type=image.content_type,
+            size_bytes=len(image.body),
+            width=image.width,
+            height=image.height,
         )
         async with await self._database.connect() as connection:
             await self._media_repository.record_downloaded(connection, media.id, stored)

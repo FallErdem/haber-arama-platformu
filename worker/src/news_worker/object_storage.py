@@ -55,6 +55,19 @@ class ObjectStorage:
         self._client = client
         self._bucket = bucket
 
+    async def get(self, key: str) -> bytes:
+        """Dosyayı okur (görsellerin ortak biçime çevrilmesi için)."""
+
+        def read() -> bytes:
+            # Gövdenin türünü botocore bildirmez; okunan değer bayt dizisidir.
+            content: bytes = self._client.get_object(Bucket=self._bucket, Key=key)["Body"].read()
+            return content
+
+        try:
+            return await asyncio.to_thread(read)
+        except (BotoCoreError, ClientError) as error:
+            raise StorageUnavailableError(f"Nesne depolamadan okunamadı: {type(error).__name__}") from error
+
     async def put(self, key: str, body: bytes, content_type: str) -> None:
         """Dosyayı yükler; aynı anahtar varsa üzerine yazar (yeniden deneme güvenlidir).
 

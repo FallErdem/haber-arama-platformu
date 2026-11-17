@@ -147,3 +147,53 @@ async def test_failed_image_leaves_the_queue(
     assert admin.execute("SELECT status, attempts, last_error, next_attempt_at FROM media").fetchall() == [
         ("FAILED", 1, "HTTP 404", None)
     ]
+
+
+async def test_unconverted_images_are_paged_by_id(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Ortak biçimde olmayan indirilmiş görseller: WebP olmayanlar veya bir kenarı 1600'ü aşanlar."""
+    await add_article(database, trt_feed, images=5)
+    rows = admin.execute("SELECT id FROM media ORDER BY id").fetchall()
+    ids = [row[0] for row in rows]
+    values = [
+        ("image/jpeg", 800, 600),  # türü farklı
+        ("image/webp", 1600, 900),  # zaten ortak biçimde
+        ("image/webp", 2560, 1922),  # WebP ama büyük
+        ("image/png", 100, 100),  # türü farklı
+    ]
+    for media_id, (content_type, width, height) in zip(ids, values, strict=False):
+        admin.execute(
+            "UPDATE media SET status = 'DOWNLOADED', storage_key = 'k/' || id, content_type = %s, "
+            "width = %s, height = %s, size_bytes = 1 WHERE id = %s",
+            (content_type, width, height, media_id),
+        )
+    # Beşincisi PENDING kalır; indirilmemiş görsel çevrilmez.
+
+    async with await database.connect() as connection:
+        repository = MediaRepository()
+        first = await repository.find_unconverted(connection, "image/webp", 1600, None, 2)
+        rest = await repository.find_unconverted(connection, "image/webp", 1600, first[-1].id, 2)
+
+    assert [item.id for item in first] == [ids[0], ids[2]]
+    assert [item.id for item in rest] == [ids[3]]
+    assert first[0].storage_key == f"k/{ids[0]}"
+
+
+async def test_converted_image_is_recorded(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Çevrilen görselin türü, boyutu ve ölçüleri güncellenir; anahtarı ve durumu değişmez."""
+    await add_article(database, trt_feed, images=1)
+    admin.execute(
+        "UPDATE media SET status = 'DOWNLOADED', storage_key = 'k/1', content_type = 'image/jpeg', "
+        "width = 3000, height = 2000, size_bytes = 900000"
+    )
+    (media_id,) = admin.execute("SELECT id FROM media").fetchone() or (None,)
+
+    async with await database.connect() as connection:
+        await MediaRepository().record_converted(connection, media_id, "image/webp", 120000, 1600, 1067)
+
+    assert admin.execute(
+        "SELECT status, storage_key, content_type, size_bytes, width, height FROM media"
+    ).fetchall() == [("DOWNLOADED", "k/1", "image/webp", 120000, 1600, 1067)]

@@ -217,7 +217,7 @@ Başlangıç verisi:
 - Kısıt: `status` `DOWNLOADED` ise `storage_key` dolu olmalıdır.
 - İndeks: `(status, next_attempt_at)`.
 - Tablo aynı zamanda görsel indirme kuyruğudur (ADR-0013): `PENDING` durumundaki ve deneme zamanı gelmiş kayıtlar indirilir. Kalıcı hatada (404, 410, görsel değil, 20 MB'tan büyük) hemen, geçici hatada 5. denemede `FAILED` olur; geçici hatalar 1, 5, 15 ve 15 dakika sonra yeniden denenir (ADR-0017, 12. bölüm).
-- `content_type`, sunucunun bildirdiğine göre değil dosyanın kendisine göre yazılır: `image/jpeg`, `image/png`, `image/webp` veya `image/gif`. `attempts`, başarılı indirme dahil yapılan deneme sayısıdır.
+- Görseller MinIO'ya ortak biçimde yazılır: WebP, en uzun kenar en fazla 1600 piksel (ADR-0017, 12. bölüm). `content_type` bu yüzden `image/webp`'dir; `size_bytes`, `width` ve `height` dönüştürülmüş dosyanındır. `attempts`, başarılı indirme dahil yapılan deneme sayısıdır.
 
 ### 3.9 `ingestion_runs` (modül: ingestion)
 

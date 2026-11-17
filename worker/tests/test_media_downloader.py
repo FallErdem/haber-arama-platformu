@@ -1,6 +1,7 @@
 """Görsel indirme döngüsünün testleri: gerçek PostgreSQL ve gerçek MinIO; görsel siteleri `respx` ile taklit edilir."""
 
 import asyncio
+import io
 import logging
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -10,6 +11,7 @@ import psycopg
 import pytest
 import respx
 from conftest import MEDIA_BUCKET, make_image
+from PIL import Image
 from test_media import add_article
 
 from news_worker.database import Database
@@ -63,22 +65,24 @@ async def test_image_is_downloaded_stored_and_recorded(
     storage_client: S3Client,
     respx_mock: respx.MockRouter,
 ) -> None:
-    """Bekleyen görsel indirilir, MinIO'ya yüklenir ve satırı türü ile ölçüleriyle güncellenir."""
+    """Bekleyen görsel indirilir, WebP'ye çevrilip küçültülür, MinIO'ya yüklenir ve satırı güncellenir."""
     await add_article(database, trt_feed, images=1)
-    body = make_image("WEBP", size=(120, 80))
-    respx_mock.get("https://images.example.test/1-0.jpg").respond(200, content=body)
+    respx_mock.get("https://images.example.test/1-0.jpg").respond(200, content=make_image("JPEG", size=(3200, 2000)))
 
     count = await build_downloader(database, storage).download_batch()
 
     assert count == 1
+    # Ölçüler ve tür, MinIO'ya yazılan dönüştürülmüş görselin ölçüleri ve türüdür.
     assert media_rows(admin) == [
-        ("https://images.example.test/1-0.jpg", "DOWNLOADED", 1, "image/webp", 120, 80, True, True)
+        ("https://images.example.test/1-0.jpg", "DOWNLOADED", 1, "image/webp", 1600, 1000, True, True)
     ]
-    key = admin.execute("SELECT storage_key FROM media").fetchone()
-    assert key is not None
-    stored = storage_client.get_object(Bucket=MEDIA_BUCKET, Key=key[0])
-    assert stored["Body"].read() == body
+    row = admin.execute("SELECT storage_key, size_bytes FROM media").fetchone()
+    assert row is not None
+    stored = storage_client.get_object(Bucket=MEDIA_BUCKET, Key=row[0])
+    body = stored["Body"].read()
     assert stored["ContentType"] == "image/webp"
+    assert len(body) == row[1]
+    assert Image.open(io.BytesIO(body)).size == (1600, 1000)
 
 
 async def test_missing_image_fails_at_once(
