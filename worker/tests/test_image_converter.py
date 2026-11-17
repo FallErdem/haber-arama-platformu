@@ -4,7 +4,7 @@ import io
 
 import pytest
 from conftest import make_image
-from PIL import Image
+from PIL import Image, JpegImagePlugin
 
 from news_worker.image_converter import MAX_DIMENSION, convert_to_webp
 from news_worker.image_downloader import NotAnImageError
@@ -35,6 +35,30 @@ def test_large_photo_is_scaled_down_keeping_its_proportions() -> None:
 
     assert (result.width, result.height) == (1600, 1067)
     assert open_result(result.body).size == (1600, 1067)
+
+
+def test_large_photo_is_decoded_at_reduced_size(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Büyük JPEG belleğe tam boyutta açılmaz: 8256 × 5504'lük fotoğraf 2064 × 1376 olarak çözülür.
+
+    Pillow JPEG'i 1/2, 1/4 veya 1/8 ölçekte çözebilir (taslak kipi). Hedef kare (1600 × 1600) verilirse
+    yatay fotoğrafta kısa kenar belirleyici olur ve fotoğraf 4128 × 2752 çözülür: bellekte dört kat yer.
+    """
+    decoded_sizes: list[tuple[int, int]] = []
+    original_draft = JpegImagePlugin.JpegImageFile.draft
+
+    def recording_draft(
+        self: JpegImagePlugin.JpegImageFile, mode: str | None, size: tuple[int, int] | None
+    ) -> tuple[str, tuple[int, int, float, float]] | None:
+        result = original_draft(self, mode, size)
+        decoded_sizes.append(self.size)
+        return result
+
+    monkeypatch.setattr(JpegImagePlugin.JpegImageFile, "draft", recording_draft)
+
+    convert_to_webp(make_image("JPEG", size=(8256, 5504)))
+
+    # thumbnail() da taslak kipini çağırır; görüntü zaten çözüldüğü için o çağrı boyutu değiştirmez.
+    assert set(decoded_sizes) == {(2064, 1376)}
 
 
 def test_tall_image_is_limited_by_its_height() -> None:
