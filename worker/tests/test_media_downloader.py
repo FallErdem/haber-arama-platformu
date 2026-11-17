@@ -326,3 +326,27 @@ async def test_loop_continues_without_waiting_while_batches_are_full(
     await asyncio.wait_for(task, timeout=5)
 
     assert [status for (_, status, *_) in media_rows(admin)] == ["DOWNLOADED"] * 5
+
+
+async def test_each_round_is_summarized_in_one_log_line(
+    database: Database,
+    admin: psycopg.Connection,
+    trt_feed: tuple[UUID, UUID],
+    storage: ObjectStorage,
+    respx_mock: respx.MockRouter,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Her turun sonucu tek satırda loglanır: kaç görsel indi, kaçı yeniden denenecek, kaçı başarısız."""
+    await add_article(database, trt_feed, images=3)
+    respx_mock.get("https://images.example.test/1-0.jpg").respond(200, content=make_image())
+    respx_mock.get("https://images.example.test/1-1.jpg").respond(503)
+    respx_mock.get("https://images.example.test/1-2.jpg").respond(404)
+    downloader = build_downloader(database, storage)
+
+    with caplog.at_level(logging.INFO, logger="news_worker.media_downloader"):
+        await downloader.download_batch()
+        # İkinci turda bekleyen görsel yok (yeniden denenecek olanın zamanı gelmedi); satır yazılmaz.
+        await downloader.download_batch()
+
+    summaries = [record.getMessage() for record in caplog.records if record.getMessage().startswith("Görseller")]
+    assert summaries == ["Görseller işlendi (indirilen: 1, yeniden denenecek: 1, başarısız: 1)"]

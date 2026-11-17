@@ -7,6 +7,8 @@ okumalarıyla aynı istek sınırlayıcısını kullanır; kaynağa giden toplam
 
 import asyncio
 import logging
+from collections import Counter
+from enum import StrEnum
 
 from news_worker.database import Database, wait_for_stop
 from news_worker.image_downloader import DownloadFailed, ImageDownloader
@@ -22,6 +24,14 @@ MAX_ATTEMPTS = 5
 RETRY_DELAYS_MINUTES = (1, 5, 15)
 
 _MAX_ERROR_LENGTH = 500
+
+
+class Outcome(StrEnum):
+    """Bir görselin bu turdaki sonucu; turun özet log satırında sayılır."""
+
+    DOWNLOADED = "DOWNLOADED"
+    RETRY = "RETRY"
+    FAILED = "FAILED"
 
 
 def retry_delay_minutes(attempts: int) -> int:
@@ -56,10 +66,20 @@ class MediaDownloader:
         """
         async with await self._database.connect() as connection:
             due = await self._media_repository.find_due(connection, self._batch_size)
+        if not due:
+            return 0
         by_source: dict[str, list[PendingMedia]] = {}
         for media in due:
             by_source.setdefault(media.source_code, []).append(media)
-        await asyncio.gather(*(self._download_source(items, stop) for items in by_source.values()))
+        results = await asyncio.gather(*(self._download_source(items, stop) for items in by_source.values()))
+
+        outcomes = Counter(outcome for source_outcomes in results for outcome in source_outcomes)
+        log.info(
+            "Görseller işlendi (indirilen: %d, yeniden denenecek: %d, başarısız: %d)",
+            outcomes[Outcome.DOWNLOADED],
+            outcomes[Outcome.RETRY],
+            outcomes[Outcome.FAILED],
+        )
         return len(due)
 
     async def run(self, stop: asyncio.Event) -> None:
@@ -77,19 +97,20 @@ class MediaDownloader:
             if count < self._batch_size:
                 await wait_for_stop(stop, self._interval_seconds)
 
-    async def _download_source(self, items: list[PendingMedia], stop: asyncio.Event | None) -> None:
+    async def _download_source(self, items: list[PendingMedia], stop: asyncio.Event | None) -> list[Outcome]:
+        outcomes: list[Outcome] = []
         for media in items:
             if stop is not None and stop.is_set():
-                return
-            await self._download(media)
+                break
+            outcomes.append(await self._download(media))
+        return outcomes
 
-    async def _download(self, media: PendingMedia) -> None:
+    async def _download(self, media: PendingMedia) -> Outcome:
         async with self._rate_limiter.request_slot(media.source_code, media.request_interval_seconds):
             result = await self._image_downloader.download(media.source_url)
 
         if isinstance(result, DownloadFailed):
-            await self._record_failure(media, result)
-            return
+            return await self._record_failure(media, result)
 
         key = storage_key_for(media.article_id, media.id)
         # Yükleme başarılı olup satır güncellenemezse görsel bir sonraki turda yeniden indirilir ve
@@ -104,15 +125,15 @@ class MediaDownloader:
         )
         async with await self._database.connect() as connection:
             await self._media_repository.record_downloaded(connection, media.id, stored)
+        return Outcome.DOWNLOADED
 
-    async def _record_failure(self, media: PendingMedia, failure: DownloadFailed) -> None:
+    async def _record_failure(self, media: PendingMedia, failure: DownloadFailed) -> Outcome:
         error = failure.message[:_MAX_ERROR_LENGTH]
         attempts = media.attempts + 1
         async with await self._database.connect() as connection:
             if failure.permanent or attempts >= MAX_ATTEMPTS:
                 log.warning("Görsel indirilemedi, bir daha denenmeyecek: %s (%s)", media.source_url, error)
                 await self._media_repository.record_failed(connection, media.id, error)
-            else:
-                await self._media_repository.record_retry(
-                    connection, media.id, error, retry_delay_minutes(media.attempts)
-                )
+                return Outcome.FAILED
+            await self._media_repository.record_retry(connection, media.id, error, retry_delay_minutes(media.attempts))
+            return Outcome.RETRY
