@@ -17,13 +17,13 @@ import org.springframework.stereotype.Repository;
 @Repository
 class ArticleRepository {
 
-    /** Haber detayı için okunan bilgiler: haber, kaynağı ve kategori kodları. */
+    /**
+     * Haber detayı için PostgreSQL'den okunan meta veri: haber, kaynağı ve kategori kodları. Özet, tam
+     * metin ve yazar burada yoktur; tek kayıtları Elasticsearch'tir (ADR-0019).
+     */
     record ArticleDetailRow(
             UUID id,
             String title,
-            String summary,
-            String content,
-            String author,
             String url,
             String sourceCode,
             String sourceName,
@@ -51,7 +51,7 @@ class ArticleRepository {
             return Map.of();
         }
         return jdbcClient.sql("""
-				SELECT a.id, a.title, a.summary, a.language, a.item_type, a.published_at, a.url,
+				SELECT a.id, a.title, a.language, a.item_type, a.published_at, a.url,
 				       s.code AS source_code, s.name AS source_name,
 				       COALESCE(
 				           array_agg(c.code ORDER BY c.sort_order) FILTER (WHERE c.code IS NOT NULL),
@@ -71,8 +71,7 @@ class ArticleRepository {
     Optional<ArticleDetailRow> findDetail(UUID articleId) {
         return jdbcClient
                 .sql("""
-				SELECT a.id, a.title, a.summary, a.content, a.author, a.url, a.language, a.item_type,
-				       a.published_at,
+				SELECT a.id, a.title, a.url, a.language, a.item_type, a.published_at,
 				       s.code AS source_code, s.name AS source_name, s.homepage_url, s.attribution_text,
 				       COALESCE(
 				           array_agg(c.code ORDER BY c.sort_order) FILTER (WHERE c.code IS NOT NULL),
@@ -94,7 +93,6 @@ class ArticleRepository {
         return new ArticleSummary(
                 row.getObject("id", UUID.class),
                 row.getString("title"),
-                row.getString("summary"),
                 row.getString("source_code"),
                 row.getString("source_name"),
                 row.getString("language"),
@@ -109,9 +107,6 @@ class ArticleRepository {
         return new ArticleDetailRow(
                 row.getObject("id", UUID.class),
                 row.getString("title"),
-                row.getString("summary"),
-                row.getString("content"),
-                row.getString("author"),
                 row.getString("url"),
                 row.getString("source_code"),
                 row.getString("source_name"),

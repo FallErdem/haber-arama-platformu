@@ -1,17 +1,19 @@
 """Elasticsearch arama indeksi: kurulum, yazma ve nesil değiştirme (`05-veri-modeli.md` 5. bölüm;
 ADR-0011, ADR-0012).
 
-Elasticsearch, PostgreSQL'deki haberlerin aranabilir bir kopyasını tutar. Haberler yayın tarihinin
-ayına göre aylık indekslere yazılır (`articles-g1-2026.11.01`); aramalar etkin neslin bütün aylık
-indekslerini kapsayan `articles` takma adı üzerinden yapılır.
+Elasticsearch, haberlerin aranabilir halini ve metinlerinin (özet, tam metin, yazar) tek kaydını tutar
+(ADR-0019). Haberler yayın tarihinin ayına göre aylık indekslere yazılır (`articles-g1-2026.11.01`);
+aramalar etkin neslin bütün aylık indekslerini kapsayan `articles` takma adı üzerinden yapılır.
 
-Nesil: tam yeniden indeksleme var olan indeksleri değiştirmez; haberleri yeni bir nesle (`g2`)
-baştan yazar ve bitince takma adı oraya taşır. Her neslin kendi şablonu vardır (`articles-g2`);
+Nesil: tam yeniden indeksleme var olan indeksleri değiştirmez; belgeleri yeni bir nesle (`g2`)
+kopyalar ve bitince takma adı oraya taşır. Her neslin kendi şablonu vardır (`articles-g2`);
 takma adı yalnızca etkin neslin şablonu taşır. "Hangi nesil etkin?" sorusunun cevabı bir ayarda
 değil Elasticsearch'tedir: takma adı taşıyan şablonun nesli.
 """
 
 import re
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -19,7 +21,7 @@ from uuid import UUID
 from elastic_transport import HttpxAsyncHttpNode
 from elasticsearch import AsyncElasticsearch, NotFoundError
 
-from news_worker.search_document import IndexableArticle, build_document, document_id
+from news_worker.search_document import ArticleMetadata, ArticleTexts, build_document, document_id, metadata_fields
 
 # Aramaların yapıldığı takma ad; etkin neslin bütün aylık indekslerini kapsar.
 ALIAS = "articles"
@@ -149,6 +151,9 @@ _MAPPINGS: dict[str, Any] = {
         "categories": {"type": "keyword"},
         "published_at": {"type": "date"},
         "group_id": {"type": "keyword"},
+        # Gizlenen haber indekste kalır ama aramada görünmez (ADR-0019): metninin tek kaydı burası olduğu
+        # için silinmez; gizleme geri alınınca haber metniyle birlikte geri gelir.
+        "hidden": {"type": "boolean"},
         # Yazar yalnızca gösterilir; aranmaz ve sıralanmaz. Belgede saklanır ama indekslenmez.
         "author": {"type": "keyword", "index": False, "doc_values": False},
         "title_tr": _turkish_text(),
@@ -184,6 +189,18 @@ def create_search_client(url: str, username: str, password: str, request_timeout
         max_retries=0,
         request_timeout=request_timeout_seconds,
     )
+
+
+@dataclass(frozen=True)
+class DocumentWrite:
+    """Bir haberin belgesine yapılacak yazma.
+
+    Metinler verilmişse belge baştan yazılır (haber ilk kez aktarılırken). Verilmemişse belgede yalnızca
+    meta veri alanları güncellenir; metinler olduğu gibi kalır. Belge yoksa meta veriyle oluşturulur.
+    """
+
+    metadata: ArticleMetadata
+    texts: ArticleTexts | None = None
 
 
 def template_name_for(generation: int) -> str:
@@ -250,25 +267,67 @@ class SearchIndex:
             },
         )
 
-    async def write(self, articles: list[IndexableArticle], generation: int) -> dict[UUID, str]:
-        """Belgeleri tek bir toplu istekle yazar; Elasticsearch'in reddettiklerini hatasıyla döner."""
-        if not articles:
-            return {}
-        # Toplu istek (bulk) satır çiftlerinden oluşur: önce "hangi indekse, hangi kimlikle", sonra belge.
-        operations: list[dict[str, Any]] = []
-        for article in articles:
-            index = index_name_for(article.published_at, generation)
-            operations.append({"index": {"_index": index, "_id": document_id(article)}})
-            operations.append(build_document(article))
-        response = await self._client.bulk(operations=operations)
+    async def write(self, writes: Sequence[DocumentWrite], generation: int) -> dict[UUID, str]:
+        """Belgeleri tek bir toplu istekle yazar; Elasticsearch'in reddettiklerini hatasıyla döner.
 
-        # İstek başarılı dönse de içindeki belgeler tek tek reddedilmiş olabilir; her birinin sonucuna bakılır.
-        errors: dict[UUID, str] = {}
-        for item in response["items"]:
-            result = item["index"]
-            if "error" in result:
-                errors[UUID(result["_id"])] = f"{result['error']['type']}: {result['error']['reason']}"
-        return errors
+        Toplu istek (bulk) satır çiftlerinden oluşur: önce işlem ve hedef ("hangi indekse, hangi kimlikle"),
+        sonra içerik.
+        - `index`: belge baştan yazılır; aynı kimlikte belge varsa üzerine yazılır.
+        - `update` + `doc_as_upsert`: verilen alanlar var olan belgeye işlenir, diğer alanlar (metinler)
+          korunur; belge yoksa bu alanlarla oluşturulur.
+        """
+        if not writes:
+            return {}
+        operations: list[dict[str, Any]] = []
+        for write in writes:
+            target = {
+                "_index": index_name_for(write.metadata.published_at, generation),
+                "_id": document_id(write.metadata.id),
+            }
+            if write.texts is not None:
+                operations.append({"index": target})
+                operations.append(build_document(write.metadata, write.texts))
+            else:
+                operations.append({"update": target})
+                operations.append({"doc": metadata_fields(write.metadata), "doc_as_upsert": True})
+        response = await self._client.bulk(operations=operations)
+        return _bulk_errors(response.body)
+
+    async def copy_documents(self, from_generation: int, to_generation: int, article_ids: Sequence[UUID]) -> None:
+        """Verilen haberlerin belgelerini bir nesilden diğerine kopyalar (Elasticsearch'in `_reindex` işlemi).
+
+        Belgeler yeni neslin aynı aylık indeksine gider: indeks adındaki nesil, Elasticsearch'in betik
+        dilinde (painless) değiştirilir (`articles-g3-2026.11.01` → `articles-g4-2026.11.01`). Yeni neslin
+        indeksleri o neslin şablonuyla açılır; alanlar ve analizörler yeni tanıma göre işlenir. Eski
+        nesilde belgesi olmayan haberler kopyalanmaz.
+        """
+        if not article_ids:
+            return
+        response = await self._client.reindex(
+            source={
+                "index": index_pattern_for(from_generation),
+                "query": {"ids": {"values": [document_id(article_id) for article_id in article_ids]}},
+            },
+            # Belgenin gideceği indeksi aşağıdaki betik belirler; bu ad yalnızca isteğin zorunlu alanıdır.
+            dest={"index": f"articles-g{to_generation}-reindex"},
+            script={
+                "lang": "painless",
+                "source": "ctx._index = ctx._index.replace(params.from, params.to)",
+                "params": {"from": f"articles-g{from_generation}-", "to": f"articles-g{to_generation}-"},
+            },
+            refresh=True,
+            wait_for_completion=True,
+        )
+        if response["failures"]:
+            raise RuntimeError(f"Belgeler kopyalanamadı: {response['failures'][0]}")
+
+    async def refresh_generation(self, generation: int) -> None:
+        """Bir neslin yeni yazılmış belgelerini aramada görünür yapar (yenileme).
+
+        Elasticsearch yazılan belgeyi aramaya yaklaşık bir saniye sonra yansıtır. Kopyalama (`_reindex`)
+        da arama üzerinden çalıştığından, kopyalamadan önce yenilenmezse son yazılan belgeler atlanırdı.
+        """
+        await self._client.indices.refresh(index=index_pattern_for(generation), ignore_unavailable=True)
 
     async def count_documents(self, generation: int) -> int:
         """Bir neslin indekslerindeki belge sayısı. Az önce yazılanların da sayılması için önce yenilenir."""
@@ -332,6 +391,20 @@ class SearchIndex:
 
 
 _DELETE_BATCH_SIZE = 50
+
+
+def _bulk_errors(response: dict[str, Any]) -> dict[UUID, str]:
+    """Toplu isteğin içinde tek tek reddedilen belgeler, hatalarıyla.
+
+    İstek başarılı dönse de içindeki belgeler ayrı ayrı reddedilmiş olabilir; her birinin sonucuna bakılır.
+    Her sonuç, işlemin adıyla (`index` veya `update`) gelir.
+    """
+    errors: dict[UUID, str] = {}
+    for item in response["items"]:
+        result = next(iter(item.values()))
+        if "error" in result:
+            errors[UUID(result["_id"])] = f"{result['error']['type']}: {result['error']['reason']}"
+    return errors
 
 
 def _generation_of(template_name: str) -> int | None:

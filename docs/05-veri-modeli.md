@@ -159,9 +159,6 @@ Başlangıç verisi:
 | `url` | `text` | Zorunlu | Özgün habere bağlantı; değiştirilmez |
 | `normalized_url` | `text` | Zorunlu | Tekrar kontrolü için |
 | `title` | `text` | Zorunlu | |
-| `summary` | `text` | | |
-| `content` | `text` | | Temizlenmiş HTML; `<img>` etiketleri çıkarılmış |
-| `author` | `text` | | |
 | `language` | `text` | Zorunlu; `tr`, `en` | |
 | `item_type` | `text` | Zorunlu; `ARTICLE`, `VIDEO`, `GALLERY` | |
 | `published_at` | `timestamptz` | Zorunlu | Kaynak vermezse toplanma zamanı |
@@ -174,6 +171,7 @@ Başlangıç verisi:
 | `hidden_by` | `uuid` | `users` | |
 | `created_at`, `updated_at` | `timestamptz` | Zorunlu | |
 
+- Tablo haberin meta verisini tutar. Özet, tam metin (temizlenmiş HTML) ve yazar burada tutulmaz; tek kayıtları Elasticsearch belgesidir (5.2, ADR-0019). Bu sütunları `V14__article_texts_in_elasticsearch.sql` betiği kaldırdı; betik, silmeden önce Elasticsearch'e henüz aktarılmamış metinleri (işlenmemiş notların haberleri ve gizlenmiş haberler) outbox notlarına taşır.
 - Benzersiz: `(source_id, external_id)` ve `(source_id, normalized_url)` (FG-VT-04). Tekrar eden haber görmezden gelinir; yalnızca eksik kategorileri eklenir (ADR-0017, 10. bölüm).
 - Kısıt: `hidden` `true` ise `hidden_at` ve `hidden_by` dolu olmalıdır.
 - İndeksler: `(lifecycle_state, published_at)`, `(source_id, published_at)`, `fetched_at`.
@@ -254,12 +252,14 @@ Başlangıç verisi:
 | `next_attempt_at` | `timestamptz` | | |
 | `last_error` | `text` | | |
 | `processed_at` | `timestamptz` | | |
+| `payload` | `jsonb` | | Haber ilk kaydedilirken yazılan kayıtta özet, tam metin ve yazar (`summary`, `content`, `author`); kayıt işlenince boşaltılır. Diğer kayıtlarda boştur |
 | `created_at`, `updated_at` | `timestamptz` | Zorunlu | |
 
 - İndeks: `status = 'PENDING'` olan satırları kapsayan, `next_attempt_at` üzerinde kısmi indeks.
 - `article_id` yabancı anahtar değildir: Silinen bir haberin `DELETE` kaydının, haber silindikten sonra da var olabilmesi gerekir.
-- Kayıt haberin içeriğini taşımaz; işleyen iş haberin PostgreSQL'deki güncel halini okur ve kararını ona göre verir: haber duruyorsa ve gizli değilse belgesi yazılır, aksi halde belgesi silinir. `operation` kaydın neden oluştuğunu gösterir; silinmiş veya gizlenmiş bir habere ait `INDEX` kaydı belgeyi yazmaz, görünür bir habere ait eski bir `DELETE` kaydı belgeyi silmez (ADR-0017, 11. bölüm).
-- Haber gizlendiğinde `DELETE`, gizleme geri alındığında `INDEX` kaydı oluşturulur.
+- Haberin metinleri, haberle aynı işlemde yazılan kaydın `payload` alanıyla Elasticsearch'e taşınır; haber ve kayıt birlikte yazıldığından metin kaybolmaz. Kayıt işlenince metin silinir; PostgreSQL'de kopyası kalmaz (ADR-0019).
+- İşleyen iş meta veriyi haberin PostgreSQL'deki güncel halinden okur ve kararını ona göre verir: haber yoksa belgesi silinir; haber duruyorsa ve kayıt metin taşıyorsa belge baştan yazılır, taşımıyorsa belgede yalnızca meta veri alanları güncellenir. Gizlenmiş haberin belgesi silinmez, `hidden` alanı güncellenir (5.2). `operation` yalnızca kaydın neden oluştuğunu gösterir, kararı değiştirmez; bir kaydın geç veya iki kez işlenmesi yanlış sonuç üretmez (ADR-0017, 11. bölüm).
+- Haber gizlendiğinde ve gizleme geri alındığında `INDEX` kaydı oluşturulur. `DELETE` kaydı yalnızca haber silindiğinde (kaynak içeriğinin silinmesi) yazılır.
 - Kayıtlardan vazgeçilmez. Elasticsearch'in reddettiği kayıt 1, 5 ve 15 dakika sonra, ardından 15 dakikada bir yeniden denenir (`attempts`, `last_error`, `next_attempt_at`); Elasticsearch'e ulaşılamadığında kayıtlara dokunulmaz ve bir sonraki turda yeniden denenir. İşlenmiş kayıtlar belirli bir süre sonra (öneri: 7 gün) silinir.
 
 ### 3.11 `saved_articles` (modül: library)
@@ -357,6 +357,7 @@ Başlangıç verisi:
 | `categories` | `keyword` (çok değerli) | Kategori kodları |
 | `published_at` | `date` | |
 | `group_id` | `keyword` | Gruplanmış haberlerin tek sonuç olarak gösterilmesi için |
+| `hidden` | `boolean` | Haber gizlenmişse `true`; arama bu belgeleri dışarıda bırakır |
 | `title_tr`, `summary_tr`, `content_tr` | `text`, `turkish_article` analizörü | Yalnızca Türkçe haberlerde dolar. Tam metin HTML olarak yazılır (ADR-0019) |
 | `title_tr.folded`, `summary_tr.folded`, `content_tr.folded` | `text`, `turkish_folded` analizörü | Alt alan; belgeye ayrıca yazılmaz, Elasticsearch aynı metni ikinci bir biçimde indeksler |
 | `title_en`, `summary_en`, `content_en` | `text`, `english_article` analizörü | Yalnızca İngilizce haberlerde dolar. Tam metin HTML olarak yazılır |
@@ -368,7 +369,7 @@ Başlangıç verisi:
 - Türkçe analizör gerçek haberlerle denendi (ADR-0017, 11. bölüm): Türkçe karaktersiz yazımı (`cumhurbaskani`), noktasız büyük I'yı (`ISTANBUL`) ve bazı kelimelerde tekil ile çoğulu (`seçim` / `seçimler`) eşleştirmiyor. Bunun için Türkçe alanların `folded` alt alanı vardır; analizörü HTML etiketlerini atar, kesme işaretinden sonrasını atar, Türkçe kurallarıyla küçük harfe çevirir, harfleri ASCII karşılığına çevirir ve kelimenin ilk beş harfini alır. Kaba eşleşmeler üretebildiğinden aramada asıl alandan düşük ağırlık alır.
 - Değeri olmayan alan belgeye konmaz.
 - Arama, iki dilin alanlarında birlikte yapılır. Alan ağırlıkları başlık, özet ve tam metin sırasıyla azalır (FG-AR-01); değerler ve sorgunun diğer kuralları 5.5'tedir.
-- Gizlenen haberler indekste bulunmaz.
+- Gizlenen haberin belgesi indekste kalır ve `hidden: true` olarak işaretlenir; arama ve haber detayı bu haberi göstermez. Belge silinmez, çünkü metinlerin tek kaydıdır: gizleme geri alındığında haber metniyle birlikte aramaya döner (ADR-0019).
 - Görseller, kaynak adı ve atıf bilgisi indekste tutulmaz; arama sonuçlarındaki haberler için PostgreSQL'den tek bir toplu sorguyla alınır.
 
 ### 5.3 Yaşam döngüsü politikası
@@ -387,8 +388,9 @@ Başlangıç verisi:
 
 Tam yeniden indeksleme (ADR-0012), yeni bir nesil numarasıyla (`g2`) yeni indekslere yapılır. İşlem tamamlandığında `articles` takma adı yeni indekslere taşınır ve eski nesil silinir. Böylece yeniden indeksleme sırasında aramalar kesintisiz devam eder.
 
-- İndeks yapısı değiştiğinde (şablon yalnızca yeni açılan indekse uygulanır) veya tutarsızlık şüphesinde elle çalıştırılır: `scripts/dev/reindex.sh`.
-- Yeni neslin şablonu önce takma ad olmadan kurulur; indeksler dolarken aramaya girmez. Takma ad taşınmadan önce yeni nesildeki belge sayısı yazılan haber sayısıyla karşılaştırılır; hata olursa etkin nesil değişmez.
+- İndeks yapısı değiştiğinde (şablon yalnızca yeni açılan indekse uygulanır) veya meta veri tutarsızlığı şüphesinde elle çalıştırılır: `scripts/dev/reindex.sh`.
+- Metinlerin tek kaydı Elasticsearch olduğundan kaynak eski nesildir (ADR-0019). PostgreSQL'deki haberler sayfa sayfa okunur; her sayfanın belgeleri eski nesilden yeni nesle kopyalanır (Elasticsearch'in `_reindex` işlemi), ardından meta verisi (başlık, kategoriler, gizleme) PostgreSQL'den yazılır. PostgreSQL'de bulunmayan haberin belgesi kopyalanmaz; eski nesilde belgesi olmayan haberin belgesi yalnızca meta veriyle oluşturulur (metni geri getirilemez).
+- Yeni neslin şablonu önce takma ad olmadan kurulur; indeksler dolarken aramaya girmez. Takma ad taşınmadan önce yeni nesildeki belge sayısı yazılan haber sayısıyla karşılaştırılır; hata olursa etkin nesil değişmez ve eski nesil silinmez.
 - İşlem sırasında işçi durdurulur; haber toplama bekler, o sırada oluşan outbox kayıtları işçi açıldığında yeni nesle işlenir.
 - Adımlar ve gerekçeleri: ADR-0017, 11. bölüm.
 
@@ -405,13 +407,14 @@ Sorguyu API kurar (`search` modülü, `ArticleSearchQuery`); API indeksi yalnız
 | Kelime öbeği önceliği | Kelimeleri yan yana ve aynı sırada içeren habere 2 ağırlıkla ek puan (zorunlu değil; asıl alanlarda) | 17 Kasım 2026'da kümedeki haberlerle denendi: `merkez bankası faiz` aramasında "Merkez Bankası faiz kararı ne zaman?" haberi ilk beşin dışından birinci sıraya çıktı; `beyaz saray` aramasında öbeği içeren bir haber daha ilk beşe girdi; diğer denenen aramalarda sıra bozulmadı. 1 ağırlığı yetmedi, 3 fark yaratmadı |
 | Tırnak içindeki öbek | Zorunlu: kelimeler yan yana ve aynı sırada geçmeli; asıl alanlarda veya (0,2 ağırlıkla) katlanmış alanlarda. Tırnak dışındaki kelimeler yukarıdaki kurallarla aranır | Kullanıcı birebir öbek arayabilir (`"beyaz saray"`). Ekler kök bulucuyla atıldığı için öbek ekli halleriyle de eşleşir ("Merkez Bankası'nın"); Türkçe karaktersiz yazılan öbek katlanmış alanlarda eşleşir. Düz ve eğik tırnak (`" “ ”`) aynı sayılır; kapanmayan tırnak yok sayılır |
 | Soğuk haberler | Yayın tarihi 1 yıldan eski haberin ilgililik puanı 0,5 ile çarpılır | ADR-0011: soğuk haber sonuçtan çıkmaz, geriye düşer |
+| Gizlenen haberler | `hidden: true` belgeler sorguda dışarıda bırakılır (`must_not`) | FG-AR-09; sonuçlardan sonradan çıkarılsaydı toplam sayı ve sayfa sayısı yanlış olurdu |
 | Sıralama | `relevance`: puan, eşitlikte yeni olan önce; `newest`: yayın tarihi | FG-AR-04 |
 | Süreli kategori | Seçilen kategori süreliyse (`window_hours` dolu) yalnızca o süre içinde yayımlanan haberlerde sayılır | FG-AR-12 |
 | Vurgulama | Başlık ve özet; `<mark>` etiketi; metnin geri kalanı HTML kaçış kodlarına çevrilir (`encoder: html`); eşleşme yalnızca katlanmış alt alandaysa onun vurgusu kullanılır | FG-AR-05; kaynak metinden etiket sızamaz |
 | Sonuç sayısı | En fazla 10.000'e kadar sayılır | Elasticsearch ilk 10.000 sonucun ötesine sayfalamaz (API sözleşmesi 2.4) |
 
 - **Bulanık eşleşme (`fuzziness`) kullanılmaz.** Denendiğinde tutarsız çıktı: `depram` için 36 doğru sonuç getirdi, `erdoagn` için hiç getirmedi, doğru yazılmış `seçimler` ifadesine 5 ilgisiz sonuç ekledi. Türkçe alanlarda kelimeler köke indirildiği için bulanık eşleşme güvenilir çalışmıyor. Katlanmış alt alan bazı yazım hatalarını zaten yakalar (`galatasray`: ilk beş harf aynı).
-- Elasticsearch yalnızca eşleşen haberlerin kimliklerini, sırasını ve vurgularını verir; gösterilecek bilgiler PostgreSQL'den tek sorguyla okunur. Asıl kayıtta bulunmayan veya gizlenmiş haber sonuçtan çıkarılır.
+- Elasticsearch eşleşen haberlerin kimliklerini, sırasını, özetlerini ve vurgularını verir; diğer gösterilecek bilgiler (başlık, kaynak adı, adres, kategoriler, görsel) PostgreSQL'den tek sorguyla okunur. Asıl kayıtta bulunmayan haber ve PostgreSQL'de gizlenmiş ama belgesi henüz güncellenmemiş haber de sonuçtan çıkarılır.
 - Bilinen sınırlama: aynı haber birden fazla kaynaktan geldiyse sonuçlarda ayrı ayrı görünür; kaynaklar arası gruplama (FG-AR-10) ayrıca ele alınacaktır.
 
 ## 6. MinIO

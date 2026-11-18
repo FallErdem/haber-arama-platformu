@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Arama isteğini Elasticsearch sorgusuna çevirir (API sözleşmesi 4.1). Kurallar ve bunların
@@ -73,7 +74,33 @@ final class ArticleSearchQuery {
     static final String HIGHLIGHT_START = "<mark>";
     static final String HIGHLIGHT_END = "</mark>";
 
+    /** Arama sonuçlarında belgeden okunan alanlar: haberin dilindeki özet. */
+    static final List<String> SUMMARY_FIELDS = List.of("summary_tr", "summary_en");
+
+    /** Haber detayında belgeden okunan alanlar: özet, tam metin ve yazar. */
+    static final List<String> TEXT_FIELDS = List.of("summary_tr", "summary_en", "content_tr", "content_en", "author");
+
+    /** Gizlenmiş haberlerin belgeleri. */
+    private static final Query NOT_HIDDEN =
+            Query.of(query -> query.term(term -> term.field("hidden").value(true)));
+
     private ArticleSearchQuery() {}
+
+    /**
+     * Bir haberin metinlerini okuyan istek: belge, takma adın kapsadığı aylık indekslerde kimliğiyle
+     * aranır. Gizli haber de bulunur; gizlilik kontrolü PostgreSQL'den yapılır (haber detayı önce
+     * meta veriyi okur).
+     */
+    static SearchRequest texts(UUID articleId) {
+        return new SearchRequest.Builder()
+                .index(ALIAS)
+                .ignoreUnavailable(true)
+                .allowNoIndices(true)
+                .query(query -> query.ids(ids -> ids.values(articleId.toString())))
+                .size(1)
+                .source(source -> source.filter(filter -> filter.includes(TEXT_FIELDS)))
+                .build();
+    }
 
     /**
      * @param categoryWindows süreli kategoriler ve süreleri (Son Dakika: 6 saat)
@@ -89,6 +116,9 @@ final class ArticleSearchQuery {
         }
         // filter: eşleşmeyi daraltır ama puanı etkilemez.
         bool.filter(filters(criteria, categoryWindows));
+        // Gizlenen haberin belgesi indekste kalır (metninin tek kaydıdır; ADR-0019), aramada görünmez.
+        // Toplam sonuç sayısı ve sayfalar da gizli haberleri saymaz (FG-AR-09).
+        bool.mustNot(NOT_HIDDEN);
         Query query = bool.build()._toQuery();
 
         SearchRequest.Builder request = new SearchRequest.Builder()
@@ -99,8 +129,8 @@ final class ArticleSearchQuery {
                 .query(query)
                 .from(criteria.page() * criteria.size())
                 .size(criteria.size())
-                // Belgenin kendisi istenmez; gösterilecek bilgiler PostgreSQL'den okunur.
-                .source(source -> source.fetch(false))
+                // Belgeden yalnızca özet istenir (tek kaydı burasıdır); diğer bilgiler PostgreSQL'den okunur.
+                .source(source -> source.filter(filter -> filter.includes(SUMMARY_FIELDS)))
                 // Toplam sayı en fazla 10.000'e kadar sayılır (sözleşme 2.4).
                 .trackTotalHits(total -> total.count(SearchCriteria.MAX_RESULT_WINDOW))
                 .sort(sort(criteria.sort()));

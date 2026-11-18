@@ -1,4 +1,4 @@
-package com.erdemgural.newssearch.ingestion.internal;
+package com.erdemgural.newssearch.search.internal;
 
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;

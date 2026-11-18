@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Bir haberin listelerde gösterilen bilgileri. Arama indeksi yalnızca haberin kimliğini verir;
- * gösterilecek bilgiler asıl kayıttan (PostgreSQL) okunur.
+ * Bir haberin listelerde gösterilen meta verisi (PostgreSQL). Özet bu kayıtta yoktur; tek kaydı
+ * Elasticsearch'tir ve arama sonucuyla birlikte gelir (ADR-0019).
  *
  * @param categories kategori kodları, arayüzdeki sırayla
  * @param image haberin ana görseli (indirilmiş görsellerden sırası en küçük olan); yoksa {@code null}
@@ -14,7 +14,6 @@ import java.util.UUID;
 public record ArticleSummary(
         UUID id,
         String title,
-        String summary,
         String sourceCode,
         String sourceName,
         String language,
@@ -27,6 +26,6 @@ public record ArticleSummary(
     /** Aynı haberin, ana görseli eklenmiş kopyası (kayıt değişmez olduğu için yeni nesne). */
     public ArticleSummary withImage(ArticleImage image) {
         return new ArticleSummary(
-                id, title, summary, sourceCode, sourceName, language, itemType, categories, publishedAt, url, image);
+                id, title, sourceCode, sourceName, language, itemType, categories, publishedAt, url, image);
     }
 }

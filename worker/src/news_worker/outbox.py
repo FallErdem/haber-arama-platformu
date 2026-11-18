@@ -1,11 +1,13 @@
 """`outbox_events` tablosunun sorguları: Elasticsearch'e aktarılmayı bekleyen notlar (ADR-0012).
 
-Bir not "şu haber arama indeksinde güncellenecek" der; haberin içeriğini taşımaz. Notları
-`OutboxRelay` işler.
+Bir not "şu haber arama indeksinde güncellenecek" der. Haber ilk kaydedilirken yazılan not haberin
+metinlerini de taşır (`payload`; ADR-0019); metinlerin tek kaydı Elasticsearch olduğu için başka yerde
+bulunmazlar. Notları `OutboxRelay` işler.
 """
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 import psycopg
@@ -18,12 +20,14 @@ class OutboxEvent:
     article_id: UUID
     # Bu notun daha önce kaç kez denenip başarısız olduğu.
     attempts: int
+    # Haberin metinleri (özet, tam metin, yazar); yalnızca haber ilk kaydedilirken yazılan notta dolu.
+    payload: dict[str, Any] | None = None
 
 
 # Bekleyen ve deneme zamanı gelmiş notlar. ORDER BY id: kimlik uuidv7'dir, yani oluşturulma
 # sırasıyla artar; notlar yazıldıkları sırayla işlenir.
 _FIND_DUE_QUERY = """
-    SELECT id, article_id, attempts
+    SELECT id, article_id, attempts, payload
     FROM outbox_events
     WHERE status = 'PENDING'
       AND (next_attempt_at IS NULL OR next_attempt_at <= now())
@@ -31,9 +35,10 @@ _FIND_DUE_QUERY = """
     LIMIT %(limit)s
 """
 
+# İşlenen notun metinleri silinir: metin artık Elasticsearch'tedir ve PostgreSQL'de kopyası kalmamalıdır.
 _MARK_PROCESSED_QUERY = """
     UPDATE outbox_events
-    SET status = 'PROCESSED', processed_at = now(), last_error = NULL
+    SET status = 'PROCESSED', processed_at = now(), last_error = NULL, payload = NULL
     WHERE id = ANY(%(event_ids)s::uuid[])
 """
 

@@ -15,9 +15,9 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Arama akışı: eşleşen haberlerin kimlikleri ve sırası Elasticsearch'ten, gösterilecek bilgileri
- * PostgreSQL'den gelir (veri modeli 5.2). Arama indeksi türetilmiş bir kopyadır; başlık, kaynak adı
- * veya adres gibi bilgilerin tek doğru kaynağı asıl kayıttır.
+ * Arama akışı: eşleşen haberlerin kimlikleri, sırası, özetleri ve vurguları Elasticsearch'ten, meta
+ * verisi (başlık, kaynak adı, adres, kategoriler, görsel) PostgreSQL'den gelir (veri modeli 5.2;
+ * ADR-0019).
  */
 @Service
 class ArticleSearchService {
@@ -72,7 +72,7 @@ class ArticleSearchService {
                 summary.id(),
                 summary.title(),
                 criteria.hasQuery() ? highlights(hit.highlights(), summary.language()) : null,
-                summary.summary(),
+                hit.summary(),
                 new ArticleSearchItem.Source(summary.sourceCode(), summary.sourceName()),
                 summary.language(),
                 summary.itemType(),

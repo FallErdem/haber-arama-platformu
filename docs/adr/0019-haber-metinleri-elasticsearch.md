@@ -1,6 +1,6 @@
 # ADR-0019: Haber Metinlerinin Yalnızca Elasticsearch'te Tutulması
 
-- **Durum:** Kabul edildi; iki adımda uygulanıyor (1. adım: arama indeksinin tamamlanması; 2. adım: PostgreSQL'deki metin sütunlarının kaldırılması)
+- **Durum:** Kabul edildi; iki adımda uygulandı (1. adım, 17 Kasım: arama indeksinin tamamlanması; 2. adım, 18 Kasım: PostgreSQL'deki metin sütunlarının kaldırılması)
 - **Tarih:** 2026-11-17
 - **İlişki:** ADR-0011'deki "PostgreSQL haberlerin bütün bilgilerinin asıl kaydıdır" kararını ve ADR-0012'deki tam yeniden indekslemenin kaynağını değiştirir.
 
@@ -34,11 +34,19 @@ Geçiş, veri kaybı olmayacak şekilde iki adımda yapılır.
 
 **2. adım: Okuma ve yazmanın değişmesi, sütunların kaldırılması.**
 
-- Kaydetme: özet, tam metin ve yazar PostgreSQL'e yazılmaz; haberle aynı işlemde yazılan outbox notuna konur. Haber ve not tek işlemde yazıldığından hiçbir metin kaybolmaz (ADR-0012).
+- Kaydetme: özet, tam metin ve yazar PostgreSQL'e yazılmaz; haberle aynı işlemde yazılan outbox notuna (`outbox_events.payload`, `jsonb`) konur. Haber ve not tek işlemde yazıldığından hiçbir metin kaybolmaz (ADR-0012).
 - Outbox aktarımı: metinleri nottan, meta veriyi PostgreSQL'den alır. Not işlenince metin nottan da silinir; PostgreSQL'de metnin kopyası kalmaz. Sonradan gelen meta veri değişiklikleri (kategori eklenmesi, gizleme) belgenin yalnızca ilgili alanlarını günceller.
 - API: arama sonuçlarındaki özet ve haber detayındaki özet, tam metin ve yazar Elasticsearch'ten okunur. Elasticsearch kapalıyken haber detayı `503 SEARCH_UNAVAILABLE` döner: metni olmayan bir detay sayfası kullanıcıya bozuk görünür. Yalnızca başlık gereken ekranlar çalışmaya devam eder.
 - Tam yeniden indeksleme: kaynak artık eski Elasticsearch nesli olur (Elasticsearch'in `_reindex` işlemi); meta veri PostgreSQL'den tazelenir.
 - Yeni bir geçiş betiği (V14) özet, tam metin ve yazar sütunlarını kaldırır. Betik API açılırken çalıştığından, dağıtım sırasında işçi birkaç dakika durdurulur; eski işçinin kaldırılan sütunlara yazmaya çalışması önlenir.
+- V14, sütunları silmeden önce Elasticsearch'te karşılığı olmayan metinleri outbox notlarına taşır: işlenmemiş notlara (işçi durdurulduğu an son kaydettiği haberlerin notları henüz aktarılmamış olabilir) haberin metni konur; gizlenmiş her haber için metniyle yeni bir not yazılır (eski düzende belgeleri indeksten silinmişti). Böylece silme anında bekleyen bir not olsa da metin kaybolmaz; "bekleyen not kalmayana kadar bekle" kuralı, işçi beslemeleri sürekli okuduğu için güvenilir değildi. Kümede uygulama sırası `scripts/dev/apply-v14.sh` betiğindedir: işçiyi durdurur, görünür her haberin belgesi ya da bekleyen notu olduğunu sayılarla denetler, onay ister, önce API'yi (V14), sonra durdurulmuş işçiyi günceller ve yeniden indeksleme yapar (`hidden` alanı yalnızca yeni açılan indekslere girer).
+
+**2. adımda verilen ek kararlar**
+
+- **Gizlenen haberin belgesi indekste kalır.** Belgeye `hidden` alanı eklenir; haber gizlendiğinde belge `hidden: true` olarak güncellenir ve arama bu belgeleri sorguda dışarıda bırakır. Önceden gizlenen haberin belgesi siliniyor, gizleme geri alınınca PostgreSQL'deki metinlerle yeniden yazılıyordu. Metinlerin tek kaydı belge olduğundan silmek, gizlemeyi geri alınamaz hale getirirdi. Değerlendirilen diğer seçenek, gizlenen haberin metinlerinin PostgreSQL'de ayrı bir tabloya taşınmasıydı; metni yeniden iki depoya bölerdi ve gizleme ile geri alma birer veri taşıma işi olurdu.
+- **Haber gizlendiğinde de `INDEX` notu yazılır.** Not "belgeyi güncel haline getir" anlamındadır; `DELETE` notu yalnızca haber silindiğinde (kaynak içeriğinin silinmesi) yazılır.
+- **Haber detayı API'de `search` modülüne taşınır.** Detay artık Elasticsearch'e de ihtiyaç duyar; API'de Elasticsearch'e yalnızca `search` modülü erişir ve modüllerin yönü `search → ingestion`'dır. Detay `ingestion`'da kalsaydı `ingestion → search` bağımlılığı döngü oluştururdu. Meta veri ve görseller `ingestion` modülünün `ArticleCatalog` arayüzünden (`findDetails`) alınır.
+- **Belgesi henüz aktarılmamış haberin detayı metinsiz döner.** Haber kaydedildikten sonraki birkaç saniye içinde (outbox notu işlenene kadar) detay istenirse başlık, kaynak ve görseller döner; özet, tam metin ve yazar `null` olur.
 
 ## Sonuçlar
 

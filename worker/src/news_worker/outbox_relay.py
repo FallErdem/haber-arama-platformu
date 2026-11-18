@@ -1,8 +1,15 @@
-"""Outbox aktarımı: PostgreSQL'deki notları okuyup haberleri Elasticsearch'e yazar (ADR-0012).
+"""Outbox aktarımı: PostgreSQL'deki notları okuyup haberleri Elasticsearch'e yazar (ADR-0012, ADR-0019).
 
-Her not "bu haberi arama indeksinde güncel haline getir" diye işlenir: haber duruyorsa ve gizli
-değilse belgesi yazılır, aksi halde belgesi silinir. Karar, notun türüne göre değil haberin o anki
-durumuna göre verildiği için bir notun geç veya iki kez işlenmesi yanlış sonuç üretmez.
+Her not "bu haberi arama indeksinde güncel haline getir" diye işlenir. Karar notun türüne göre değil
+haberin o anki durumuna göre verilir; bir notun geç veya iki kez işlenmesi yanlış sonuç üretmez:
+
+- Haber PostgreSQL'de yoksa (silinmişse) belgesi silinir.
+- Haber duruyorsa ve not metinleri taşıyorsa (haber ilk kaydedilirken yazılan not) belge baştan yazılır.
+- Haber duruyorsa ve not metin taşımıyorsa (kategori eklenmesi, gizleme) belgede yalnızca meta veri
+  güncellenir; metinler olduğu gibi kalır.
+
+Gizlenen haberin belgesi silinmez, `hidden` alanıyla aramadan çıkarılır: metninin tek kaydı Elasticsearch
+olduğundan silinseydi gizleme geri alındığında metin kaybolmuş olurdu.
 """
 
 import asyncio
@@ -14,7 +21,8 @@ from elasticsearch import ApiError, AsyncElasticsearch, TransportError
 from news_worker.articles import ArticleRepository
 from news_worker.database import Database, wait_for_stop
 from news_worker.outbox import OutboxEvent, OutboxRepository
-from news_worker.search_index import ALIAS, SearchIndex
+from news_worker.search_document import ArticleTexts
+from news_worker.search_index import ALIAS, DocumentWrite, SearchIndex
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +37,12 @@ _MAX_ERROR_LENGTH = 500
 def retry_delay_minutes(attempts: int) -> int:
     """Daha önce `attempts` kez başarısız olmuş bir notun bir sonraki denemesine kaç dakika var."""
     return RETRY_DELAYS_MINUTES[min(attempts, len(RETRY_DELAYS_MINUTES) - 1)]
+
+
+def _texts_by_article(events: list[OutboxEvent]) -> dict[UUID, ArticleTexts]:
+    """Notların taşıdığı metinler, haber kimliğine göre. Metin, haber ilk kaydedilirken yazılan nottadır;
+    aynı haberin diğer notları metin taşımaz."""
+    return {event.article_id: ArticleTexts.from_payload(event.payload) for event in events if event.payload is not None}
 
 
 class OutboxRelay:
@@ -61,23 +75,26 @@ class OutboxRelay:
             if not events:
                 return 0
             # Aynı haber için birden fazla not olabilir; haber bir kez okunur ve bir kez gönderilir.
-            article_ids = list({event.article_id for event in events})
-            articles = await self._article_repository.find_indexable(connection, article_ids)
+            article_ids = list(dict.fromkeys(event.article_id for event in events))
+            metadata = await self._article_repository.find_metadata(connection, article_ids)
 
+        texts = _texts_by_article(events)
+        writes = [DocumentWrite(metadata[article_id], texts.get(article_id)) for article_id in metadata]
         errors: dict[UUID, str] = {}
         # Etkin nesil her turda Elasticsearch'e sorulur: yeniden indekslemeden sonra işçi kendiliğinden
         # yeni nesle yazar.
         generation = await self._search_index.active_generation()
-        errors.update(await self._search_index.write(list(articles.values()), generation))
-        # Okunamayan haber silinmiş ya da gizlenmiştir; indekste bulunmamalıdır.
-        errors.update(await self._delete([article_id for article_id in article_ids if article_id not in articles]))
+        errors.update(await self._search_index.write(writes, generation))
+        # PostgreSQL'de olmayan haber silinmiştir (kaynak içeriğinin silinmesi); belgesi de silinir.
+        errors.update(await self._delete([article_id for article_id in article_ids if article_id not in metadata]))
 
         await self._record_results(events, errors)
         log.info(
-            "Outbox aktarıldı (not: %d, yazılan haber: %d, silinen haber: %d, hata: %d)",
+            "Outbox aktarıldı (not: %d, yazılan haber: %d, metniyle yazılan: %d, silinen haber: %d, hata: %d)",
             len(events),
-            len(articles),
-            len(article_ids) - len(articles),
+            len(writes),
+            sum(1 for write in writes if write.texts is not None),
+            len(article_ids) - len(metadata),
             len(errors),
         )
         return len(events)

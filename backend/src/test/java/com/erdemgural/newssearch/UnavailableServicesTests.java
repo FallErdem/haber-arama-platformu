@@ -85,6 +85,22 @@ class UnavailableServicesTests {
     }
 
     @Test
+    @DisplayName("Elasticsearch kapalıyken haber detayı 503 ve SEARCH_UNAVAILABLE döner: metinler oradadır")
+    void detailReportsThatItIsUnavailable() {
+        TestUser user = users.create(UserRole.USER, UserStatus.ACTIVE);
+        UUID articleId = insertArticle();
+
+        MvcTestResult result = mvc.get()
+                .uri("/api/v1/articles/" + articleId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + user.token())
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("SEARCH_UNAVAILABLE");
+        assertThat(result).bodyText().doesNotContain("Connection", "127.0.0.1", "Exception");
+    }
+
+    @Test
     @DisplayName("MinIO kapalıyken görsel 503 ve MEDIA_UNAVAILABLE döner; iç ayrıntı vermez")
     void mediaReportsThatItIsUnavailable() {
         UUID mediaId = insertDownloadedMedia();
@@ -98,9 +114,9 @@ class UnavailableServicesTests {
         assertThat(result).bodyText().doesNotContain("127.0.0.1", "Exception", "articles/");
     }
 
-    /** İndirilmiş görünen bir görsel satırı (dosyanın kendisine ulaşılamayacak). */
-    private UUID insertDownloadedMedia() {
-        UUID articleId = jdbcClient
+    /** Yalnızca PostgreSQL'de bir haber satırı (Elasticsearch bu testte yok). */
+    private UUID insertArticle() {
+        return jdbcClient
                 .sql("""
 				INSERT INTO articles (source_id, external_id, url, normalized_url, title, language, item_type,
 				                      published_at, fetched_at, lifecycle_state)
@@ -112,6 +128,11 @@ class UnavailableServicesTests {
                 .param("url", "https://example.test/" + UUID.randomUUID())
                 .query(UUID.class)
                 .single();
+    }
+
+    /** İndirilmiş görünen bir görsel satırı (dosyanın kendisine ulaşılamayacak). */
+    private UUID insertDownloadedMedia() {
+        UUID articleId = insertArticle();
         return jdbcClient
                 .sql("""
 				INSERT INTO media (article_id, media_type, position, source_url, status, storage_key,

@@ -1,8 +1,11 @@
 """Haberlerin kaydedilmesi. Servisler SQL görmez; SQL yalnızca buradadır.
 
-Bir haber dört tabloya birlikte yazılır: haberin kendisi (`articles`), kategorileri
+Bir haber dört tabloya birlikte yazılır: haberin meta verisi (`articles`), kategorileri
 (`article_categories`), indirilecek görselleri (`media`) ve Elasticsearch'e aktarım notu
 (`outbox_events`, ADR-0012). Hepsi tek işlemdedir: ya hepsi yazılır ya hiçbiri.
+
+Haberin metinleri (özet, tam metin, yazar) PostgreSQL'e yazılmaz; tek kayıtları Elasticsearch'tir
+(ADR-0019). Metinler outbox notunda taşınır ve not aktarılınca nottan da silinir.
 """
 
 from collections.abc import Sequence
@@ -12,10 +15,11 @@ from uuid import UUID
 
 import psycopg
 from psycopg.rows import TupleRow
+from psycopg.types.json import Jsonb
 
 from news_worker.category_resolver import OTHER_CATEGORY_CODE, AssignedCategory
 from news_worker.parsed_article import ParsedArticle
-from news_worker.search_document import IndexableArticle
+from news_worker.search_document import ArticleMetadata, ArticleTexts
 
 
 @dataclass(frozen=True)
@@ -45,13 +49,12 @@ class UnknownCategoryError(Exception):
 # 1 yıla kadar WARM, daha eskisi COLD).
 _INSERT_ARTICLE_QUERY = """
     INSERT INTO articles (
-        source_id, feed_id, external_id, url, normalized_url, title, summary, content, author,
+        source_id, feed_id, external_id, url, normalized_url, title,
         language, item_type, published_at, fetched_at, lifecycle_state
     )
     VALUES (
         %(source_id)s, %(feed_id)s, %(external_id)s, %(url)s, %(normalized_url)s, %(title)s,
-        %(summary)s, %(content)s, %(author)s, %(language)s, %(item_type)s, %(published_at)s,
-        %(fetched_at)s,
+        %(language)s, %(item_type)s, %(published_at)s, %(fetched_at)s,
         CASE
             WHEN %(published_at)s::timestamptz > %(fetched_at)s::timestamptz - interval '30 days' THEN 'HOT'
             WHEN %(published_at)s::timestamptz > %(fetched_at)s::timestamptz - interval '1 year' THEN 'WARM'
@@ -98,17 +101,19 @@ _INSERT_MEDIA_QUERY = """
 """
 
 # Outbox notu: "bu haber Elasticsearch'e aktarılacak". Aktarım işi bekleyen notları işler (İ-15).
+# payload: haberin metinleri; yalnızca haber ilk kaydedilirken doludur (ADR-0019). Meta veri
+# değişikliklerinin notlarında boştur.
 _INSERT_OUTBOX_QUERY = """
-    INSERT INTO outbox_events (article_id, operation, status, next_attempt_at)
-    VALUES (%(article_id)s, 'INDEX', 'PENDING', now())
+    INSERT INTO outbox_events (article_id, operation, status, next_attempt_at, payload)
+    VALUES (%(article_id)s, 'INDEX', 'PENDING', now(), %(payload)s)
 """
 
-# Arama indeksine yazılacak haberler: kaynak kodu ve kategori kodlarıyla birlikte, tek sorguda.
-# Gizlenen haberler gelmez (indekste bulunmazlar). array_agg kategori kodlarını tek bir dizide
-# toplar; FILTER, kategorisi olmayan haberde dizinin [NULL] yerine boş olmasını sağlar.
-_INDEXABLE_SELECT = """
-    SELECT a.id, s.code, a.language, a.item_type, a.published_at, a.group_id, a.title, a.summary,
-           a.content, a.author,
+# Arama indeksine yazılacak meta veri: kaynak kodu ve kategori kodlarıyla birlikte, tek sorguda.
+# Gizlenen haberler de gelir: belgeleri indekste kalır, `hidden` alanıyla aramadan çıkarılır. array_agg
+# kategori kodlarını tek bir dizide toplar; FILTER, kategorisi olmayan haberde dizinin [NULL] yerine
+# boş olmasını sağlar.
+_METADATA_SELECT = """
+    SELECT a.id, s.code, a.language, a.item_type, a.published_at, a.group_id, a.title, a.hidden,
            COALESCE(array_agg(c.code ORDER BY c.code) FILTER (WHERE c.code IS NOT NULL), '{}'::text[])
     FROM articles a
     JOIN sources s ON s.id = a.source_id
@@ -116,23 +121,21 @@ _INDEXABLE_SELECT = """
     LEFT JOIN categories c ON c.id = ac.category_id
 """
 
-_FIND_INDEXABLE_QUERY = (
-    _INDEXABLE_SELECT
+_FIND_METADATA_QUERY = (
+    _METADATA_SELECT
     + """
     WHERE a.id = ANY(%(article_ids)s::uuid[])
-      AND NOT a.hidden
     GROUP BY a.id, s.code
 """
 )
 
-# Tam yeniden indeksleme için bütün görünür haberler, kimlik sırasıyla ve sayfa sayfa. Sayfalama
+# Tam yeniden indeksleme için bütün haberler, kimlik sırasıyla ve sayfa sayfa. Sayfalama
 # "şu kimlikten sonrakiler" diye yapılır (OFFSET değil): her sayfa birincil anahtar indeksiyle
 # doğrudan bulunur, baştan sayılmaz.
-_FIND_INDEXABLE_AFTER_QUERY = (
-    _INDEXABLE_SELECT
+_FIND_METADATA_AFTER_QUERY = (
+    _METADATA_SELECT
     + """
     WHERE (%(after_id)s::uuid IS NULL OR a.id > %(after_id)s::uuid)
-      AND NOT a.hidden
     GROUP BY a.id, s.code
     ORDER BY a.id
     LIMIT %(limit)s
@@ -161,9 +164,6 @@ class ArticleRepository:
                     "url": article.url,
                     "normalized_url": article.normalized_url,
                     "title": article.title,
-                    "summary": article.summary,
-                    "content": article.content,
-                    "author": article.author,
                     "language": new_article.language,
                     "item_type": article.item_type.value,
                     "published_at": article.published_at,
@@ -195,29 +195,33 @@ class ArticleRepository:
                     {"article_id": article_id, "position": position, "source_url": image_url},
                 )
 
-            await connection.execute(_INSERT_OUTBOX_QUERY, {"article_id": article_id})
+            # Metinler haberle aynı işlemde nota yazılır: haber kaydedildiyse metni de kaybolmaz.
+            texts = ArticleTexts(summary=article.summary, content=article.content, author=article.author)
+            await connection.execute(
+                _INSERT_OUTBOX_QUERY, {"article_id": article_id, "payload": Jsonb(texts.to_payload())}
+            )
             return True
 
-    async def find_indexable(
+    async def find_metadata(
         self, connection: psycopg.AsyncConnection[TupleRow], article_ids: Sequence[UUID]
-    ) -> dict[UUID, IndexableArticle]:
-        """Verilen kimliklerdeki haberleri arama indeksine yazılacak halleriyle okur.
+    ) -> dict[UUID, ArticleMetadata]:
+        """Verilen kimliklerdeki haberlerin meta verisi, haber kimliğine göre.
 
-        Sonuç haber kimliğine göre bir sözlüktür. Silinmiş veya gizlenmiş bir haber sözlükte yer
-        almaz; çağıran, istediği kimlik sözlükte yoksa haberin indekste bulunmaması gerektiğini anlar.
+        Silinmiş bir haber sözlükte yer almaz; çağıran, istediği kimlik sözlükte yoksa haberin
+        indekste bulunmaması gerektiğini anlar. Gizlenmiş haber `hidden=True` ile gelir.
         """
-        cursor = await connection.execute(_FIND_INDEXABLE_QUERY, {"article_ids": list(article_ids)})
-        return {row[0]: _to_indexable(row) for row in await cursor.fetchall()}
+        cursor = await connection.execute(_FIND_METADATA_QUERY, {"article_ids": list(article_ids)})
+        return {row[0]: _to_metadata(row) for row in await cursor.fetchall()}
 
-    async def find_indexable_after(
+    async def find_metadata_after(
         self, connection: psycopg.AsyncConnection[TupleRow], after_id: UUID | None, limit: int
-    ) -> list[IndexableArticle]:
-        """Görünür haberlerin bir sayfasını kimlik sırasıyla döner; `after_id` önceki sayfanın son kimliğidir.
+    ) -> list[ArticleMetadata]:
+        """Haberlerin bir sayfasını kimlik sırasıyla döner; `after_id` önceki sayfanın son kimliğidir.
 
         İlk sayfa için `after_id` verilmez. Boş liste, haberlerin bittiğini gösterir.
         """
-        cursor = await connection.execute(_FIND_INDEXABLE_AFTER_QUERY, {"after_id": after_id, "limit": limit})
-        return [_to_indexable(row) for row in await cursor.fetchall()]
+        cursor = await connection.execute(_FIND_METADATA_AFTER_QUERY, {"after_id": after_id, "limit": limit})
+        return [_to_metadata(row) for row in await cursor.fetchall()]
 
     async def _add_missing_categories(
         self, connection: psycopg.AsyncConnection[TupleRow], new_article: NewArticle
@@ -254,12 +258,13 @@ class ArticleRepository:
             added += cursor.rowcount
 
         if added:
-            # Kategoriler değişti: arama indeksindeki kopyanın güncellenmesi için yeni bir not bırakılır.
-            await connection.execute(_INSERT_OUTBOX_QUERY, {"article_id": article_id})
+            # Kategoriler değişti: arama indeksindeki belgenin güncellenmesi için yeni bir not bırakılır.
+            # Not metin taşımaz; belgede yalnızca meta veri alanları güncellenir.
+            await connection.execute(_INSERT_OUTBOX_QUERY, {"article_id": article_id, "payload": None})
 
 
-def _to_indexable(row: TupleRow) -> IndexableArticle:
-    return IndexableArticle(
+def _to_metadata(row: TupleRow) -> ArticleMetadata:
+    return ArticleMetadata(
         id=row[0],
         source_code=row[1],
         language=row[2],
@@ -267,8 +272,6 @@ def _to_indexable(row: TupleRow) -> IndexableArticle:
         published_at=row[4],
         group_id=row[5],
         title=row[6],
-        summary=row[7],
-        content=row[8],
-        author=row[9],
-        categories=tuple(row[10]),
+        hidden=row[7],
+        categories=tuple(row[8]),
     )

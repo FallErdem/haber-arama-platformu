@@ -95,6 +95,9 @@
       "group_id": {
         "type": "keyword"
       },
+      "hidden": {
+        "type": "boolean"
+      },
       "author": {
         "type": "keyword",
         "index": false,

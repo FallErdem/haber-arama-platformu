@@ -1,6 +1,6 @@
 # ADR-0017: Arka Plan İşlerinin Python İşçisine Taşınması
 
-- **Durum:** Kabul edildi; bağımlılık taraması aracı ADR-0018 ile Trivy olarak değiştirildi
+- **Durum:** Kabul edildi; bağımlılık taraması aracı ADR-0018 ile Trivy olarak değiştirildi; 11. bölümdeki belge, outbox aktarımı ve yeniden indeksleme kararları ADR-0019 ile değiştirildi (haber metinleri yalnızca Elasticsearch'te)
 - **Tarih:** 2026-11-05
 - **İlişki:** ADR-0005'teki toplayıcı rolünü değiştirir. ADR-0012, ADR-0013 ve ADR-0016'da toplayıcı rolüne verilen işler Python işçisine geçer.
 
@@ -223,14 +223,17 @@ Bu iş kalemiyle haberler Elasticsearch'e aktarılmaya başladı. Eklenen kütü
 
 - Belge kimliği haberin kimliğidir; aynı haber yeniden gönderildiğinde ikinci bir belge oluşmaz, var olanın üzerine yazılır.
 - Metinler haberin diline ait alanlara yazılır (`title_tr` veya `title_en`); değeri olmayan alan belgeye konmaz.
-- İçerik PostgreSQL'de temizlenmiş HTML olarak durur; indekse yalnızca yazısı gider (`to_plain_text`). Aksi halde etiket adları ve bağlantı adresleri de aranabilir kelime olurdu.
+- Belge iki parçadan kurulur: meta veri (`ArticleMetadata`: kaynak, dil, tür, yayın zamanı, grup, başlık, kategoriler, gizleme) PostgreSQL'den, metinler (`ArticleTexts`: özet, tam metin, yazar) haber kaydedilirken yazılan outbox notundan gelir (ADR-0019).
+- Tam metin belgeye temizlenmiş HTML olarak yazılır; etiketleri ve kodlanmış karakterleri arama analizörünün `html_strip` süzgeci atar, etiket adları ve bağlantı adresleri aranabilir kelime olmaz (ADR-0019). Yazısı boş olan içerik (yalnızca etiketlerden oluşan) belgeye konmaz. İlk sürümde içerik PostgreSQL'de HTML olarak durur, indekse yalnızca yazısı (`to_plain_text`) gönderilirdi.
 
 **Outbox aktarımı (`OutboxRelay`, ADR-0012)**
 
 - İşçide iki döngü yan yana çalışır: zamanlayıcı (haber toplama) ve outbox aktarımı. Aktarım `OUTBOX_INTERVAL_SECONDS` (varsayılan 5) saniyede bir, turda en fazla `OUTBOX_BATCH_SIZE` (varsayılan 200) notu en eskisinden başlayarak işler; grup dolu geldiyse beklemeden bir sonrakini alır.
-- Her not "bu haberi arama indeksinde güncel haline getir" diye işlenir: haber duruyorsa ve gizli değilse belgesi yazılır, aksi halde belgesi silinir. Karar notun türüne (`INDEX`, `DELETE`) göre değil haberin o anki durumuna göre verilir; bu yüzden bir notun geç, sırası değişmiş veya iki kez işlenmesi yanlış sonuç üretmez. Örnek: gizlenip geri açılan bir haberin eski `DELETE` notu sonradan işlense de belge silinmez.
+- Her not "bu haberi arama indeksinde güncel haline getir" diye işlenir. Karar notun türüne (`INDEX`, `DELETE`) göre değil haberin o anki durumuna göre verilir: haber PostgreSQL'de yoksa (silinmişse) belgesi silinir; haber duruyorsa ve not metin taşıyorsa belge baştan yazılır; metin taşımıyorsa (kategori eklenmesi, gizleme) belgede yalnızca meta veri alanları güncellenir, metinlere dokunulmaz (Elasticsearch'in kısmi güncellemesi; belge yoksa meta veriyle oluşturulur, `doc_as_upsert`). Bu yüzden bir notun geç, sırası değişmiş veya iki kez işlenmesi yanlış sonuç üretmez.
+- Gizlenen haberin belgesi silinmez, `hidden: true` olarak güncellenir; arama bu belgeleri dışarıda bırakır. Metnin tek kaydı belge olduğundan, silinseydi gizleme geri alındığında metin kaybolurdu (ADR-0019). İlk sürümde gizlenen haberin belgesi silinir, gizleme geri alınınca PostgreSQL'deki metinlerle yeniden yazılırdı.
+- Not işlenince metni (`payload`) silinir; metin PostgreSQL'de yalnızca Elasticsearch'e aktarılana kadar durur.
 - Aynı habere ait birden fazla not aynı turdaysa haber bir kez okunur ve bir kez yazılır; notların hepsi işlenmiş sayılır.
-- Belgeler tek bir toplu istekle (bulk) yazılır. Silinecek belgeler bütün aylık indekslerde kimlikle aranıp silinir, çünkü silinmiş bir haberin yayın tarihi ve dolayısıyla indeksi bilinmez. Arama yalnızca yenilenmiş belgeleri gördüğünden silmeden önce indeks yenilenir; yoksa yazıldıktan hemen sonra gizlenen haberin belgesi bulunamaz ve aramada kalırdı.
+- Belgeler tek bir toplu istekle (bulk) yazılır. Silinecek belgeler bütün aylık indekslerde kimlikle aranıp silinir, çünkü silinmiş bir haberin yayın tarihi ve dolayısıyla indeksi bilinmez. Arama yalnızca yenilenmiş belgeleri gördüğünden silmeden önce indeks yenilenir; yoksa yazıldıktan hemen sonra silinen haberin belgesi bulunamaz ve aramada kalırdı.
 - Notlar satır kilidiyle alınmaz: işçi tek kopya çalışır; dağıtım sırasında iki işçi kısa süre çakışsa bile aynı belge iki kez yazılır ve sonuç değişmez. Kilit, Elasticsearch isteği boyunca açık bir veritabanı işlemi gerektirirdi.
 
 | Durum | Not | Sonraki deneme |
@@ -267,10 +270,11 @@ Yeniden indekslemeden sonra aynı sorguların sonuçları (2.028 haber; asıl al
 
 **Nesiller ve tam yeniden indeksleme (`reindex.py`, ADR-0012)**
 
-- Şablon yalnızca yeni açılan indekse uygulanır; var olan indekslerin alanları değişmez. İndeks yapısı değiştiğinde veya PostgreSQL ile Elasticsearch arasında tutarsızlık şüphesi olduğunda (R-20) haberler yeni bir nesle (`articles-g2-...`) baştan yazılır.
+- Şablon yalnızca yeni açılan indekse uygulanır; var olan indekslerin alanları değişmez. İndeks yapısı değiştiğinde veya PostgreSQL ile Elasticsearch arasında meta veri tutarsızlığı şüphesi olduğunda (R-20) haberler yeni bir nesle (`articles-g2-...`) taşınır.
 - Her neslin kendi şablonu vardır (`articles-g1`, `articles-g2`); `articles` takma adını yalnızca etkin neslin şablonu taşır. Tek bir şablon bütün nesilleri kapsasaydı, doldurulmakta olan yeni nesil de aramaya girer ve her haber iki kez çıkardı.
 - Etkin nesil bir ayarda veya kodda tutulmaz; Elasticsearch'e sorulur: takma adı taşıyan şablonun nesli. Outbox aktarımı bunu her turda sorar ve yeniden indekslemeden sonra kendiliğinden yeni nesle yazar.
-- Adımlar: yarıda kalmış bir önceki denemenin indeksleri silinir → yeni neslin şablonu takma ad olmadan kurulur → görünür haberler kimlik sırasıyla, 500'erli sayfalarla okunup yazılır → yeni nesildeki belge sayısı yazılan haber sayısıyla karşılaştırılır → takma ad tek istekte eski indekslerden yeni indekslere taşınır → eski neslin şablonu ve indeksleri silinir.
+- Adımlar: yarıda kalmış bir önceki denemenin indeksleri silinir → yeni neslin şablonu takma ad olmadan kurulur → eski nesil yenilenir (son yazılan belgeler de kopyalansın diye) → PostgreSQL'deki haberler (gizliler dahil) kimlik sırasıyla, 500'erli sayfalarla okunur; her sayfanın belgeleri eski nesilden yeni nesle Elasticsearch'in `_reindex` işlemiyle kopyalanır, ardından meta verisi PostgreSQL'den yazılır → yeni nesildeki belge sayısı yazılan haber sayısıyla karşılaştırılır → takma ad tek istekte eski indekslerden yeni indekslere taşınır → eski neslin şablonu ve indeksleri silinir.
+- Kaynak eski nesildir, çünkü metinlerin tek kaydı Elasticsearch'tir (ADR-0019). Kopyalanan belge yeni neslin aynı aylık indeksine gider: indeks adındaki nesil, Elasticsearch'in betik dilinde (painless) değiştirilir (`articles-g3-2026.11.01` → `articles-g4-2026.11.01`); yeni indeks yeni neslin şablonuyla açılır ve metinler yeni tanıma göre yeniden analiz edilir. PostgreSQL'de olmayan haberin belgesi kopyalanmaz; eski nesilde belgesi olmayan haberin belgesi meta veriyle oluşturulur (metni geri getirilemez). İlk sürümde görünür haberler PostgreSQL'den okunup baştan yazılırdı.
 - Herhangi bir adımda hata olursa etkin nesil değişmez ve arama eskisi gibi çalışır; komut yeniden çalıştırılabilir.
 - Yeniden indeksleme sırasında işçi durdurulur. Arama kesilmez (API eski indekslerden okur); yalnızca haber toplama bekler ve o sırada oluşan outbox notları işçi açıldığında yeni nesle işlenir. İşçi çalışırken yapmak, kopyalama sürerken toplanan haberlerin hangi nesle yazıldığını izlemeyi gerektirirdi; bu karmaşıklık, birkaç dakikalık bekleme karşılığında tercih edilmedi.
 - Kümede `scripts/dev/reindex.sh` ile çalıştırılır: işçiyi durdurur, askıya alınmış `worker-reindex` CronJob'undan bir Job üretir (işçiyle aynı imaj ve şifreler; komut `news-worker-reindex`), bitmesini bekler ve işçiyi yeniden başlatır.
