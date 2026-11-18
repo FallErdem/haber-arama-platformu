@@ -1,4 +1,4 @@
-package com.erdemgural.newssearch.ingestion;
+package com.erdemgural.newssearch.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,11 +26,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
-/** {@code GET /api/v1/articles/{id}} (API sözleşmesi 4.2). Gerçek PostgreSQL ve gerçek MinIO ile. */
+/**
+ * {@code GET /api/v1/articles/{id}} (API sözleşmesi 4.2). Gerçek PostgreSQL, Elasticsearch ve MinIO ile:
+ * meta veri ve görseller PostgreSQL'den, özet, tam metin ve yazar Elasticsearch'ten gelir (ADR-0019).
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import({
@@ -45,18 +47,15 @@ class ArticleDetailTests {
     private final TestUsers users;
     private final TestArticles articles;
     private final TestImages images;
-    private final JdbcClient jdbcClient;
 
     private TestUser user;
 
     @Autowired
-    ArticleDetailTests(
-            MockMvcTester mvc, TestUsers users, TestArticles articles, TestImages images, JdbcClient jdbcClient) {
+    ArticleDetailTests(MockMvcTester mvc, TestUsers users, TestArticles articles, TestImages images) {
         this.mvc = mvc;
         this.users = users;
         this.articles = articles;
         this.images = images;
-        this.jdbcClient = jdbcClient;
     }
 
     @BeforeEach
@@ -77,15 +76,12 @@ class ArticleDetailTests {
     @DisplayName("detay sözleşmedeki bütün alanları taşır: tam metin, yazar, özgün adres, kaynak ve atıf")
     void detailCarriesAllContractFields() {
         Instant publishedAt = Instant.parse("2026-11-05T08:12:00Z");
-        UUID id = articles.insertRow(Article.turkish("Deprem sonrası son durum")
+        UUID id = articles.add(Article.turkish("Deprem sonrası son durum")
                 .withSummary("Bölgede çalışmalar sürüyor")
                 .withContent("Ekipler sahada.")
+                .withAuthor("Örnek Yazar")
                 .withCategories("GENERAL", "WORLD")
                 .publishedAt(publishedAt));
-        jdbcClient
-                .sql("UPDATE articles SET author = 'Örnek Yazar' WHERE id = :id")
-                .param("id", id)
-                .update();
 
         MvcTestResult result = detail(id);
 
@@ -138,12 +134,42 @@ class ArticleDetailTests {
     @Test
     @DisplayName("tam metni olmayan haberde content null döner; arayüz özeti gösterir")
     void articleWithoutContentHasNullContent() {
-        UUID id = articles.insertRow(Article.turkish("Kısa haber").withSummary("Yalnızca özet var"));
+        UUID id = articles.add(Article.turkish("Kısa haber").withSummary("Yalnızca özet var"));
 
         MvcTestResult result = detail(id);
 
         assertThat(result).bodyJson().extractingPath("$.content").isNull();
+        assertThat(result).bodyJson().extractingPath("$.author").isNull();
         assertThat(result).bodyJson().extractingPath("$.summary").isEqualTo("Yalnızca özet var");
+    }
+
+    @Test
+    @DisplayName("İngilizce haberin metinleri _en alanlarından okunur")
+    void englishArticleTextsComeFromEnglishFields() {
+        UUID id = articles.add(Article.english("Election results")
+                .withSummary("Counting continues")
+                .withContent("Polls closed at eight."));
+
+        MvcTestResult result = detail(id);
+
+        assertThat(result).bodyJson().extractingPath("$.summary").isEqualTo("Counting continues");
+        assertThat(result).bodyJson().extractingPath("$.content").isEqualTo("<p>Polls closed at eight.</p>");
+    }
+
+    @Test
+    @DisplayName("belgesi henüz aktarılmamış haber metinsiz döner; meta verisi ve görselleri gösterilir")
+    void articleNotYetIndexedHasNoTexts() {
+        UUID id = articles.insertRow(Article.turkish("Yeni kaydedilen haber"));
+        images.addDownloaded(id, 0, TestImages.png(30, 20), "image/png", 30, 20);
+
+        MvcTestResult result = detail(id);
+
+        assertThat(result).hasStatusOk();
+        assertThat(result).bodyJson().extractingPath("$.title").isEqualTo("Yeni kaydedilen haber");
+        assertThat(result).bodyJson().extractingPath("$.summary").isNull();
+        assertThat(result).bodyJson().extractingPath("$.content").isNull();
+        assertThat(result).bodyJson().extractingPath("$.author").isNull();
+        assertThat(result).bodyJson().extractingPath("$.media.length()").isEqualTo(1);
     }
 
     @Test
@@ -225,14 +251,24 @@ class ArticleDetailTests {
     @Test
     @DisplayName("gizlenen veya kayıtlı olmayan haber 404 NOT_FOUND döner (FG-AR-09)")
     void hiddenOrUnknownArticleIsNotFound() {
-        UUID hidden = articles.insertRow(Article.turkish("Gizlenecek haber"));
-        articles.hideRowOnly(hidden);
+        Article article = Article.turkish("Gizlenecek haber").withContent("Metni indekste kalır.");
+        UUID hidden = articles.add(article);
+        articles.hide(hidden, article);
 
         MvcTestResult hiddenResult = detail(hidden);
 
         assertThat(hiddenResult).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(hiddenResult).bodyJson().extractingPath("$.code").isEqualTo("NOT_FOUND");
         assertThat(detail(UUID.randomUUID())).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("gizleme notu henüz işlenmemişse de haber 404 döner: karar PostgreSQL'deki duruma göre verilir")
+    void articleHiddenOnlyInDatabaseIsNotFound() {
+        UUID id = articles.add(Article.turkish("Gizlenen haber").withContent("Belgesi henüz gizli değil."));
+        articles.hideRowOnly(id);
+
+        assertThat(detail(id)).hasStatus(HttpStatus.NOT_FOUND);
     }
 
     @Test

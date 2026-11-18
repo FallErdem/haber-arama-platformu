@@ -1,11 +1,12 @@
-package com.erdemgural.newssearch.ingestion.internal;
+package com.erdemgural.newssearch.search.internal;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * {@code GET /api/v1/articles/{id}} yanıtı (API sözleşmesi 4.2).
+ * {@code GET /api/v1/articles/{id}} yanıtı (API sözleşmesi 4.2). Meta veri PostgreSQL'den, özet, tam
+ * metin ve yazar Elasticsearch'ten gelir (ADR-0019).
  *
  * @param content tam metin (işçinin temizlediği HTML); kaynak vermiyorsa {@code null}, arayüz özeti
  *     gösterir (FG-AR-06)

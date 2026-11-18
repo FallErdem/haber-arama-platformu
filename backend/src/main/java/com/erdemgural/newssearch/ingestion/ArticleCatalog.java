@@ -2,6 +2,7 @@ package com.erdemgural.newssearch.ingestion;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -16,4 +17,10 @@ public interface ArticleCatalog {
      * doğrudan arayüze verilebilir.
      */
     Map<UUID, ArticleSummary> findSummaries(Collection<UUID> articleIds);
+
+    /**
+     * Haber detayının PostgreSQL'deki kısmı (meta veri, kaynak, imzalı görsel adresleri). Haber yoksa
+     * veya gizlenmişse boş döner (FG-AR-09).
+     */
+    Optional<ArticleDetails> findDetails(UUID articleId);
 }

@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -31,21 +32,45 @@ class ArticleSearchIndex {
      * (FOG-09).
      */
     SearchHits search(SearchCriteria criteria, Map<String, Duration> categoryWindows) {
-        SearchResponse<Void> response;
+        SearchResponse<IndexedTexts> response;
         try {
-            response = client.search(ArticleSearchQuery.build(criteria, categoryWindows), Void.class);
+            response = client.search(ArticleSearchQuery.build(criteria, categoryWindows), IndexedTexts.class);
         } catch (IOException | ElasticsearchException exception) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, ErrorCode.SEARCH_UNAVAILABLE, exception);
+            throw unavailable(exception);
         }
 
-        // Belge kimliği haberin kimliğidir (işçi böyle yazar).
+        // Belge kimliği haberin kimliğidir (işçi böyle yazar). Özetin tek kaydı belgedir (ADR-0019).
         List<SearchHits.Hit> hits = response.hits().hits().stream()
-                .map(hit -> new SearchHits.Hit(UUID.fromString(hit.id()), hit.highlight()))
+                .map(hit -> new SearchHits.Hit(
+                        UUID.fromString(hit.id()),
+                        hit.source() == null ? null : hit.source().summary(),
+                        hit.highlight()))
                 .toList();
         TotalHits total = response.hits().total();
         if (total == null) {
             return new SearchHits(hits, hits.size(), true);
         }
         return new SearchHits(hits, total.value(), total.relation() == TotalHitsRelation.Eq);
+    }
+
+    /**
+     * Bir haberin metinleri (özet, tam metin, yazar). Belge yoksa boş döner. Elasticsearch'e
+     * ulaşılamazsa {@code 503 SEARCH_UNAVAILABLE} fırlatır.
+     *
+     * <p>Belgenin hangi aylık indekste olduğu bilinmediğinden takma ad üzerinde kimliğiyle aranır;
+     * Elasticsearch, birden fazla indeksi kapsayan bir takma adda kimlikle doğrudan okumaya izin vermez.
+     */
+    Optional<IndexedTexts> findTexts(UUID articleId) {
+        SearchResponse<IndexedTexts> response;
+        try {
+            response = client.search(ArticleSearchQuery.texts(articleId), IndexedTexts.class);
+        } catch (IOException | ElasticsearchException exception) {
+            throw unavailable(exception);
+        }
+        return response.hits().hits().stream().findFirst().map(hit -> hit.source());
+    }
+
+    private static ApiException unavailable(Exception cause) {
+        return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, ErrorCode.SEARCH_UNAVAILABLE, cause);
     }
 }

@@ -613,8 +613,22 @@ class ArticleSearchTests {
     // --- İndeks ile asıl kaydın ayrıştığı durumlar (FG-AR-09) --------------------------------------
 
     @Test
-    @DisplayName("gizlenen haber, arama indeksindeki kopyası henüz silinmemiş olsa da sonuçta görünmez")
-    void hiddenArticleIsNotShownEvenIfStillIndexed() {
+    @DisplayName("gizlenen haber indekste kalır ama aramaya katılmaz; toplam sayıya da girmez (ADR-0019)")
+    void hiddenArticleIsExcludedFromResultsAndTotals() {
+        UUID visible = articles.add(Article.turkish("Deprem haberi bir"));
+        Article article = Article.turkish("Deprem haberi iki");
+        UUID hidden = articles.add(article);
+        articles.hide(hidden, article);
+
+        MvcTestResult result = search("q=deprem");
+
+        assertThat(ids(result)).containsExactly(visible);
+        assertThat(result).bodyJson().extractingPath("$.totalElements").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("gizlenen haber, indeksteki belgesi henüz gizli işaretlenmemiş olsa da sonuçta görünmez")
+    void hiddenArticleIsNotShownBeforeItsDocumentIsMarked() {
         UUID visible = articles.add(Article.turkish("Deprem haberi bir"));
         UUID hidden = articles.add(Article.turkish("Deprem haberi iki"));
         articles.hideRowOnly(hidden);
