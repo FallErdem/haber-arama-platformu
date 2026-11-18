@@ -1,5 +1,10 @@
-"""Tam yeniden indekslemenin testleri: gerçek PostgreSQL ve gerçek Elasticsearch, işçinin yetkileriyle."""
+"""Tam yeniden indekslemenin testleri: gerçek PostgreSQL ve gerçek Elasticsearch, işçinin yetkileriyle.
 
+Metinlerin tek kaydı Elasticsearch olduğundan (ADR-0019) belgeler eski nesilden kopyalanır; meta veri
+PostgreSQL'den yazılır.
+"""
+
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID
@@ -17,8 +22,7 @@ from news_worker.outbox import OutboxRepository
 from news_worker.outbox_relay import OutboxRelay
 from news_worker.parsed_article import ItemType, ParsedArticle
 from news_worker.reindex import Reindexer, ReindexError
-from news_worker.search_document import IndexableArticle
-from news_worker.search_index import ALIAS, SearchIndex
+from news_worker.search_index import ALIAS, DocumentWrite, SearchIndex, index_name_for
 
 NOVEMBER = datetime(2026, 11, 13, 13, 40, tzinfo=UTC)
 JUNE_2023 = datetime(2023, 6, 6, 16, 2, tzinfo=UTC)
@@ -32,9 +36,9 @@ async def add_article(
         url=f"https://example.test/haber-{number}",
         normalized_url=f"https://example.test/haber-{number}",
         title=f"Örnek haber {number}",
-        summary=None,
-        content=None,
-        author=None,
+        summary=f"Özet {number}",
+        content=f"<p>Tam metin {number}</p>",
+        author="Örnek Yazar",
         published_at=published_at,
         item_type=ItemType.ARTICLE,
         image_urls=(),
@@ -69,12 +73,26 @@ def build_reindexer(database: Database, client: AsyncElasticsearch, page_size: i
 
 
 async def searchable_titles(client: AsyncElasticsearch) -> list[str]:
-    """Takma ad üzerinden (aramanın gördüğü gibi) bulunan haberlerin başlıkları."""
+    """Takma ad üzerinden, aramanın gördüğü gibi (gizli olanlar hariç) bulunan haberlerin başlıkları."""
     await client.indices.refresh(index=ALIAS, ignore_unavailable=True)
     response = await client.search(
-        index=ALIAS, query={"match_all": {}}, size=100, ignore_unavailable=True, allow_no_indices=True
+        index=ALIAS,
+        query={"bool": {"must_not": {"term": {"hidden": True}}}},
+        size=100,
+        ignore_unavailable=True,
+        allow_no_indices=True,
     )
     return sorted(hit["_source"]["title_tr"] for hit in response["hits"]["hits"])
+
+
+async def source_of(client: AsyncElasticsearch, admin: psycopg.Connection, number: int) -> dict[str, object]:
+    """Haberin etkin nesildeki belgesi (yayın tarihi Kasım 2026)."""
+    row = admin.execute("SELECT id FROM articles WHERE external_id = %s", (f"haber-{number}",)).fetchone()
+    assert row is not None
+    generation = await SearchIndex(client).active_generation()
+    document = await client.get(index=index_name_for(NOVEMBER, generation), id=str(row[0]))
+    source: dict[str, object] = document["_source"]
+    return source
 
 
 async def index_names(client: AsyncElasticsearch) -> list[str]:
@@ -98,6 +116,22 @@ async def test_reindex_rewrites_all_articles_into_a_new_generation(
     assert await index_names(search_client) == ["articles-g2-2023.06.01", "articles-g2-2026.11.01"]
     assert await searchable_titles(search_client) == ["Örnek haber 1", "Örnek haber 2"]
     assert await SearchIndex(search_client).active_generation() == 2
+
+
+async def test_reindex_keeps_the_texts_of_the_old_generation(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
+) -> None:
+    """Metinler PostgreSQL'de olmadığı için eski nesildeki belgelerden kopyalanır; yeni nesilde aynen durur."""
+    await add_article(database, trt_feed, 1)
+    await SearchIndex(search_client).ensure_ready()
+    await build_relay(database, search_client).relay_batch()
+
+    await build_reindexer(database, search_client).run()
+
+    source = await source_of(search_client, admin, 1)
+    assert source["summary_tr"] == "Özet 1"
+    assert source["content_tr"] == "<p>Tam metin 1</p>"
+    assert source["author"] == "Örnek Yazar"
 
 
 async def test_reindex_applies_the_current_template_to_old_documents(
@@ -131,7 +165,11 @@ async def test_reindex_applies_the_current_template_to_old_documents(
 async def test_reindex_repairs_differences_between_the_two_stores(
     database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
 ) -> None:
-    """Tutarsızlık onarımı (R-20): indekste eksik haber eklenir, PostgreSQL'de olmayan ve gizli haberler çıkar."""
+    """Tutarsızlık onarımı (R-20): meta veri PostgreSQL'den düzeltilir.
+
+    İndekste eksik haberin belgesi meta veriyle oluşturulur (metni geri getirilemez; Elasticsearch yedeği
+    gerekir, R-38). Gizlenmiş haber gizli olarak işaretlenir, PostgreSQL'de olmayan haber yeni nesle geçmez.
+    """
     await SearchIndex(search_client).ensure_ready()
     for number in (1, 2, 3):
         await add_article(database, trt_feed, number)
@@ -155,6 +193,11 @@ async def test_reindex_repairs_differences_between_the_two_stores(
     await build_reindexer(database, search_client).run()
 
     assert await searchable_titles(search_client) == ["Örnek haber 1", "Örnek haber 4"]
+    lost = await source_of(search_client, admin, 1)
+    assert "content_tr" not in lost
+    hidden = await source_of(search_client, admin, 2)
+    assert hidden["hidden"] is True
+    assert hidden["content_tr"] == "<p>Tam metin 2</p>"
 
 
 async def test_reindex_reads_articles_page_by_page(
@@ -190,11 +233,11 @@ class FailingOnSecondPage(SearchIndex):
         super().__init__(client)
         self._pages = 0
 
-    async def write(self, articles: list[IndexableArticle], generation: int) -> dict[UUID, str]:
+    async def write(self, writes: Sequence[DocumentWrite], generation: int) -> dict[UUID, str]:
         self._pages += 1
         if self._pages == 2:
-            return {articles[0].id: "mapper_parsing_exception: örnek hata"}
-        return await super().write(articles, generation)
+            return {writes[0].metadata.id: "mapper_parsing_exception: örnek hata"}
+        return await super().write(writes, generation)
 
 
 async def test_failed_reindex_leaves_the_active_generation_untouched(

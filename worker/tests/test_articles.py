@@ -9,7 +9,7 @@ from news_worker.articles import ArticleRepository, NewArticle, UnknownCategoryE
 from news_worker.category_resolver import AssignedCategory, MappingLevel
 from news_worker.database import Database
 from news_worker.parsed_article import ItemType, ParsedArticle
-from news_worker.search_document import IndexableArticle
+from news_worker.search_document import ArticleMetadata
 
 FETCHED_AT = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 
@@ -61,12 +61,12 @@ def count(admin: psycopg.Connection, table: str) -> int:
 async def test_new_article_is_stored_with_its_fields(
     database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
 ) -> None:
-    """Yeni haber bütün alanlarıyla kaydedilir."""
+    """Yeni haber meta verisiyle kaydedilir."""
     inserted = await insert(database, new_article(trt_feed))
 
     assert inserted is True
     row = admin.execute(
-        "SELECT source_id, feed_id, external_id, url, normalized_url, title, summary, content, author, "
+        "SELECT source_id, feed_id, external_id, url, normalized_url, title, "
         "language, item_type, published_at, fetched_at, lifecycle_state, hidden FROM articles"
     ).fetchone()
     assert row == (
@@ -76,9 +76,6 @@ async def test_new_article_is_stored_with_its_fields(
         "https://example.test/ekonomi/haber-1/",
         "https://example.test/ekonomi/haber-1",
         "Örnek haber",
-        "Kısa özet.",
-        "<p>Tam metin.</p>",
-        "Örnek Yazar",
         "tr",
         "ARTICLE",
         ARTICLE.published_at,
@@ -86,6 +83,32 @@ async def test_new_article_is_stored_with_its_fields(
         "HOT",
         False,
     )
+
+
+async def test_texts_are_not_stored_in_postgresql(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Özet, tam metin ve yazar PostgreSQL'in haber tablosunda yoktur; tek kayıtları Elasticsearch'tir (ADR-0019)."""
+    columns = {
+        row[0]
+        for row in admin.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'articles'"
+        ).fetchall()
+    }
+
+    assert {"title", "url", "published_at"} <= columns
+    assert columns.isdisjoint({"summary", "content", "author"})
+
+
+async def test_texts_travel_in_the_outbox_note(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
+) -> None:
+    """Metinler haberle aynı işlemde yazılan outbox notunda taşınır; haber kaydedildiyse metni de kaybolmaz."""
+    await insert(database, new_article(trt_feed))
+
+    payloads = admin.execute("SELECT payload FROM outbox_events").fetchall()
+
+    assert payloads == [({"summary": "Kısa özet.", "content": "<p>Tam metin.</p>", "author": "Örnek Yazar"},)]
 
 
 async def test_categories_images_and_outbox_are_stored_with_the_article(
@@ -196,9 +219,10 @@ async def test_article_without_optional_fields_is_stored(
     inserted = await insert(database, new_article(trt_feed, bare))
 
     assert inserted is True
-    assert admin.execute("SELECT summary, content, author FROM articles").fetchall() == [(None, None, None)]
     assert count(admin, "media") == 0
-    assert count(admin, "outbox_events") == 1
+    assert admin.execute("SELECT payload FROM outbox_events").fetchall() == [
+        ({"summary": None, "content": None, "author": None},)
+    ]
 
 
 async def test_nothing_is_stored_when_a_step_fails(
@@ -215,9 +239,21 @@ async def test_nothing_is_stored_when_a_step_fails(
     assert count(admin, "outbox_events") == 0
 
 
-async def find_indexable(database: Database, article_ids: list[UUID]) -> dict[UUID, IndexableArticle]:
+async def find_metadata(database: Database, article_ids: list[UUID]) -> dict[UUID, ArticleMetadata]:
     async with await database.connect() as connection:
-        return await ArticleRepository().find_indexable(connection, article_ids)
+        return await ArticleRepository().find_metadata(connection, article_ids)
+
+
+def hide_articles(admin: psycopg.Connection, where: str = "true", params: tuple[object, ...] = ()) -> None:
+    """Haberleri yöneticinin yaptığı gibi gizler (gizleme kim tarafından yapıldığını gerektirir)."""
+    admin.execute(
+        "INSERT INTO users (keycloak_sub, email, role, status) "
+        "VALUES ('yonetici', 'yonetici@example.test', 'ADMIN', 'ACTIVE') ON CONFLICT DO NOTHING"
+    )
+    admin.execute(
+        f"UPDATE articles SET hidden = true, hidden_at = now(), hidden_by = (SELECT id FROM users) WHERE {where}",
+        params,
+    )
 
 
 def stored_article_id(admin: psycopg.Connection) -> UUID:
@@ -227,17 +263,17 @@ def stored_article_id(admin: psycopg.Connection) -> UUID:
     return article_id
 
 
-async def test_indexable_article_carries_source_code_and_category_codes(
+async def test_metadata_carries_source_code_and_category_codes(
     database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
 ) -> None:
-    """Arama indeksi için haber, kaynağının kodu ve kategorilerinin kodlarıyla birlikte okunur."""
+    """Arama indeksi için haberin meta verisi, kaynağının kodu ve kategorilerinin kodlarıyla birlikte okunur."""
     await insert(database, new_article(trt_feed))
     article_id = stored_article_id(admin)
 
-    found = await find_indexable(database, [article_id])
+    found = await find_metadata(database, [article_id])
 
     assert found == {
-        article_id: IndexableArticle(
+        article_id: ArticleMetadata(
             id=article_id,
             source_code="TRT",
             language="tr",
@@ -245,15 +281,13 @@ async def test_indexable_article_carries_source_code_and_category_codes(
             published_at=ARTICLE.published_at,
             group_id=None,
             title="Örnek haber",
-            summary="Kısa özet.",
-            content="<p>Tam metin.</p>",
-            author="Örnek Yazar",
             categories=("BREAKING", "ECONOMY"),
+            hidden=False,
         )
     }
 
 
-async def test_indexable_articles_are_read_together(
+async def test_metadata_of_several_articles_is_read_together(
     database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
 ) -> None:
     """Birden fazla haber tek sorguda okunur; her biri kendi kimliğiyle bulunur."""
@@ -268,31 +302,27 @@ async def test_indexable_articles_are_read_together(
     await insert(database, new_article(trt_feed, second))
     ids = [row[0] for row in admin.execute("SELECT id FROM articles").fetchall()]
 
-    found = await find_indexable(database, ids)
+    found = await find_metadata(database, ids)
 
     assert {article.title for article in found.values()} == {"Örnek haber", "İkinci haber"}
     assert set(found) == set(ids)
 
 
-async def test_hidden_article_is_not_indexable(
+async def test_hidden_article_comes_with_its_hidden_flag(
     database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
 ) -> None:
-    """Gizlenen haber arama indeksinde bulunmaz; bu yüzden indekslenecekler arasında gelmez."""
+    """Gizlenen haber de okunur, gizli olduğu bilgisiyle: belgesi indekste kalır ama aramadan çıkarılır."""
     await insert(database, new_article(trt_feed))
     article_id = stored_article_id(admin)
-    admin.execute(
-        "INSERT INTO users (keycloak_sub, email, role, status) "
-        "VALUES ('yonetici', 'yonetici@example.test', 'ADMIN', 'ACTIVE')"
-    )
-    admin.execute("UPDATE articles SET hidden = true, hidden_at = now(), hidden_by = (SELECT id FROM users)")
+    hide_articles(admin)
 
-    assert await find_indexable(database, [article_id]) == {}
+    assert [article.hidden for article in (await find_metadata(database, [article_id])).values()] == [True]
 
 
-async def test_unknown_article_is_not_indexable(database: Database, admin: psycopg.Connection) -> None:
+async def test_unknown_article_has_no_metadata(database: Database, admin: psycopg.Connection) -> None:
     """Kayıtlı olmayan (silinmiş) bir haberin kimliği sonuçta yer almaz; boş liste de hata vermez."""
-    assert await find_indexable(database, [UUID("019a0000-0000-7000-8000-000000000000")]) == {}
-    assert await find_indexable(database, []) == {}
+    assert await find_metadata(database, [UUID("019a0000-0000-7000-8000-000000000000")]) == {}
+    assert await find_metadata(database, []) == {}
 
 
 async def test_article_without_categories_has_empty_category_list(
@@ -301,15 +331,15 @@ async def test_article_without_categories_has_empty_category_list(
     """Kategorisi olmayan haber de okunur; kategori listesi boştur."""
     await insert(database, replace(new_article(trt_feed), categories=()))
 
-    found = await find_indexable(database, [stored_article_id(admin)])
+    found = await find_metadata(database, [stored_article_id(admin)])
 
     assert [article.categories for article in found.values()] == [()]
 
 
-async def test_indexable_articles_are_paged_in_id_order(
+async def test_metadata_is_paged_in_id_order(
     database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID]
 ) -> None:
-    """Tam yeniden indeksleme için haberler kimlik sırasıyla sayfalanır ("şundan sonrakiler"); gizli haber gelmez."""
+    """Tam yeniden indeksleme için haberler kimlik sırasıyla sayfalanır ("şundan sonrakiler"); gizli haber de gelir."""
     for number in (1, 2, 3, 4):
         numbered = replace(
             ARTICLE,
@@ -319,23 +349,17 @@ async def test_indexable_articles_are_paged_in_id_order(
         )
         await insert(database, new_article(trt_feed, numbered))
     ids = [row[0] for row in admin.execute("SELECT id FROM articles ORDER BY id").fetchall()]
-    admin.execute(
-        "INSERT INTO users (keycloak_sub, email, role, status) "
-        "VALUES ('yonetici', 'yonetici@example.test', 'ADMIN', 'ACTIVE')"
-    )
-    admin.execute(
-        "UPDATE articles SET hidden = true, hidden_at = now(), hidden_by = (SELECT id FROM users) WHERE id = %s",
-        (ids[1],),
-    )
+    hide_articles(admin, "id = %s", (ids[1],))
 
     async with await database.connect() as connection:
         repository = ArticleRepository()
-        first_page = await repository.find_indexable_after(connection, None, 2)
-        second_page = await repository.find_indexable_after(connection, first_page[-1].id, 2)
-        third_page = await repository.find_indexable_after(connection, second_page[-1].id, 2)
+        first_page = await repository.find_metadata_after(connection, None, 2)
+        second_page = await repository.find_metadata_after(connection, first_page[-1].id, 2)
+        third_page = await repository.find_metadata_after(connection, second_page[-1].id, 2)
 
-    assert [article.id for article in first_page] == [ids[0], ids[2]]
-    assert [article.id for article in second_page] == [ids[3]]
+    assert [article.id for article in first_page] == [ids[0], ids[1]]
+    assert [article.hidden for article in first_page] == [False, True]
+    assert [article.id for article in second_page] == [ids[2], ids[3]]
     assert third_page == []
     assert first_page[0].categories == ("BREAKING", "ECONOMY")
 
@@ -381,8 +405,9 @@ async def test_added_category_is_reported_to_search_index(
         database, replace(new_article(trt_feed), categories=(AssignedCategory("BREAKING", MappingLevel.FEED),))
     )
 
-    rows = admin.execute("SELECT operation, status FROM outbox_events").fetchall()
-    assert rows == [("INDEX", "PENDING"), ("INDEX", "PENDING")]
+    rows = admin.execute("SELECT operation, status, payload IS NOT NULL FROM outbox_events ORDER BY id").fetchall()
+    # İkinci not metin taşımaz: belgede yalnızca meta veri (kategoriler) güncellenecek.
+    assert rows == [("INDEX", "PENDING", True), ("INDEX", "PENDING", False)]
 
 
 async def test_duplicate_with_known_categories_changes_nothing(

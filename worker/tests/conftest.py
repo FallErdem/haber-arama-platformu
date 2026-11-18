@@ -97,17 +97,28 @@ def _migration_version(path: Path) -> int:
     return int(match.group(1))
 
 
-def _apply_migrations(postgres: PostgresContainer) -> None:
-    # Flyway'in yaptığı gibi: betikler sürüm numarasına göre sıralanır ve tabloların sahibi
-    # olan news_owner ile, her biri kendi işleminde çalıştırılır.
+def apply_migrations(
+    postgres: PostgresContainer,
+    dbname: str = "news",
+    from_version: int = 1,
+    to_version: int | None = None,
+) -> None:
+    """Geçiş betiklerini uygular; sürüm aralığı verilirse yalnızca o aralıktakileri.
+
+    Flyway'in yaptığı gibi: betikler sürüm numarasına göre sıralanır ve tabloların sahibi olan
+    news_owner ile, her biri kendi işleminde çalıştırılır.
+    """
     with psycopg.connect(
         host=postgres.get_container_host_ip(),
         port=int(postgres.get_exposed_port(5432)),
-        dbname="news",
+        dbname=dbname,
         user="news_owner",
         password="test-owner",
     ) as connection:
         for path in sorted(MIGRATIONS_DIR.glob("V*.sql"), key=_migration_version):
+            version = _migration_version(path)
+            if version < from_version or (to_version is not None and version > to_version):
+                continue
             connection.execute(path.read_bytes())
             connection.commit()
 
@@ -121,7 +132,7 @@ def postgres() -> Iterator[PostgresContainer]:
         with admin_connect(container) as connection:
             connection.execute(CREATE_ROLES_SQL)
             connection.execute(CREATE_EMPTY_DATABASE_SQL)
-        _apply_migrations(container)
+        apply_migrations(container)
         yield container
 
 

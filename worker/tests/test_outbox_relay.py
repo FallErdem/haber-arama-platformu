@@ -30,9 +30,9 @@ async def add_article(
         url=f"https://example.test/haber-{number}",
         normalized_url=f"https://example.test/haber-{number}",
         title=f"Örnek haber {number}",
-        summary=None,
-        content=None,
-        author=None,
+        summary=f"Özet {number}",
+        content=f"<p>Tam metin {number}</p>",
+        author="Örnek Yazar",
         published_at=published_at,
         item_type=ItemType.ARTICLE,
         image_urls=(),
@@ -65,16 +65,33 @@ def add_event(admin: psycopg.Connection, target: UUID, operation: str) -> None:
 
 
 def hide_articles(admin: psycopg.Connection) -> None:
-    """API'nin gizleme işlemini taklit eder: haber gizlenir ve aynı anda DELETE notu yazılır."""
+    """API'nin gizleme işlemini taklit eder: haber gizlenir ve aynı işlemde metin taşımayan bir not yazılır."""
     admin.execute(
         "INSERT INTO users (keycloak_sub, email, role, status) "
-        "VALUES ('yonetici', 'yonetici@example.test', 'ADMIN', 'ACTIVE')"
+        "VALUES ('yonetici', 'yonetici@example.test', 'ADMIN', 'ACTIVE') ON CONFLICT DO NOTHING"
     )
     admin.execute("UPDATE articles SET hidden = true, hidden_at = now(), hidden_by = (SELECT id FROM users)")
     admin.execute(
         "INSERT INTO outbox_events (article_id, operation, status, next_attempt_at) "
-        "SELECT id, 'DELETE', 'PENDING', now() FROM articles"
+        "SELECT id, 'INDEX', 'PENDING', now() FROM articles"
     )
+
+
+def unhide_articles(admin: psycopg.Connection) -> None:
+    """Gizlemenin geri alınması: haber yeniden görünür olur ve metin taşımayan bir not yazılır."""
+    admin.execute("UPDATE articles SET hidden = false, hidden_at = NULL, hidden_by = NULL")
+    admin.execute(
+        "INSERT INTO outbox_events (article_id, operation, status, next_attempt_at) "
+        "SELECT id, 'INDEX', 'PENDING', now() FROM articles"
+    )
+
+
+async def stored_source(
+    client: AsyncElasticsearch, target: UUID, published_at: datetime = NOVEMBER
+) -> dict[str, object]:
+    document = await client.get(index=index_name_for(published_at), id=str(target))
+    source: dict[str, object] = document["_source"]
+    return source
 
 
 def event_rows(admin: psycopg.Connection) -> list[tuple[str, int, bool]]:
@@ -120,11 +137,52 @@ async def test_new_article_is_written_to_the_search_index(
     count = await build_relay(database, search_client).relay_batch()
 
     assert count == 1
-    stored = await search_client.get(index="articles-g1-2026.11.01", id=str(article_id(admin, 1)))
-    assert stored["_source"]["title_tr"] == "Örnek haber 1"
-    assert stored["_source"]["source_code"] == "TRT"
-    assert stored["_source"]["categories"] == ["GENERAL"]
+    stored = await stored_source(search_client, article_id(admin, 1))
+    assert stored["title_tr"] == "Örnek haber 1"
+    assert stored["source_code"] == "TRT"
+    assert stored["categories"] == ["GENERAL"]
+    assert stored["hidden"] is False
+    # Metinler nottan gelir; PostgreSQL'de yoktur.
+    assert stored["summary_tr"] == "Özet 1"
+    assert stored["content_tr"] == "<p>Tam metin 1</p>"
+    assert stored["author"] == "Örnek Yazar"
     assert event_rows(admin) == [("PROCESSED", 0, False)]
+
+
+async def test_texts_are_removed_from_the_note_once_relayed(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
+) -> None:
+    """Not aktarılınca metin nottan silinir: metin artık Elasticsearch'tedir, PostgreSQL'de kopyası kalmaz."""
+    await SearchIndex(search_client).ensure_ready()
+    await add_article(database, trt_feed, 1)
+    assert admin.execute("SELECT payload IS NOT NULL FROM outbox_events").fetchall() == [(True,)]
+
+    await build_relay(database, search_client).relay_batch()
+
+    assert admin.execute("SELECT payload FROM outbox_events").fetchall() == [(None,)]
+
+
+async def test_metadata_change_keeps_the_texts(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
+) -> None:
+    """Sonradan gelen meta veri değişikliği (kategori eklenmesi) belgede yalnızca meta veriyi günceller."""
+    await SearchIndex(search_client).ensure_ready()
+    await add_article(database, trt_feed, 1)
+    relay = build_relay(database, search_client)
+    await relay.relay_batch()
+    admin.execute(
+        "INSERT INTO article_categories (article_id, category_id, mapping_level) "
+        "SELECT %s, id, 'FEED' FROM categories WHERE code = 'BREAKING'",
+        (article_id(admin, 1),),
+    )
+    add_event(admin, article_id(admin, 1), "INDEX")
+
+    await relay.relay_batch()
+
+    stored = await stored_source(search_client, article_id(admin, 1))
+    assert stored["categories"] == ["BREAKING", "GENERAL"]
+    assert stored["content_tr"] == "<p>Tam metin 1</p>"
+    assert stored["author"] == "Örnek Yazar"
 
 
 async def test_nothing_happens_when_there_is_no_event(database: Database, search_client: AsyncElasticsearch) -> None:
@@ -179,10 +237,10 @@ async def test_batch_size_limits_one_round(
     assert [status for status, _, _ in event_rows(admin)] == ["PROCESSED", "PROCESSED", "PENDING"]
 
 
-async def test_hidden_article_is_removed_from_the_search_index(
+async def test_hidden_article_stays_in_the_index_marked_as_hidden(
     database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
 ) -> None:
-    """Gizlenen haberin belgesi silinir (FG-AR-09); belge az önce yazılmış olsa da bulunur."""
+    """Gizlenen haberin belgesi silinmez, gizli olarak işaretlenir (ADR-0019); metni korunur."""
     await SearchIndex(search_client).ensure_ready()
     await add_article(database, trt_feed, 1)
     relay = build_relay(database, search_client)
@@ -191,22 +249,63 @@ async def test_hidden_article_is_removed_from_the_search_index(
 
     await relay.relay_batch()
 
-    assert not await document_exists(search_client, article_id(admin, 1))
+    stored = await stored_source(search_client, article_id(admin, 1))
+    assert stored["hidden"] is True
+    assert stored["content_tr"] == "<p>Tam metin 1</p>"
     assert event_rows(admin) == [("PROCESSED", 0, False), ("PROCESSED", 0, False)]
 
 
-async def test_article_hidden_before_its_first_event_is_never_indexed(
+async def test_unhidden_article_comes_back_with_its_texts(
     database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
 ) -> None:
-    """Haber, ilk notu işlenmeden gizlenirse indekse hiç yazılmaz; INDEX notu da işlenmiş sayılır."""
+    """Gizlenip geri açılan haber metniyle birlikte geri gelir; metnin tek kaydı Elasticsearch olduğu için önemli."""
+    await SearchIndex(search_client).ensure_ready()
+    await add_article(database, trt_feed, 1)
+    relay = build_relay(database, search_client)
+    await relay.relay_batch()
+    hide_articles(admin)
+    await relay.relay_batch()
+
+    unhide_articles(admin)
+    await relay.relay_batch()
+
+    stored = await stored_source(search_client, article_id(admin, 1))
+    assert stored["hidden"] is False
+    assert stored["summary_tr"] == "Özet 1"
+    assert stored["content_tr"] == "<p>Tam metin 1</p>"
+
+
+async def test_article_hidden_before_its_first_event_keeps_its_texts(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
+) -> None:
+    """Haber ilk notu işlenmeden gizlenirse belgesi metniyle yazılır ve gizli olarak işaretlenir."""
     await SearchIndex(search_client).ensure_ready()
     await add_article(database, trt_feed, 1)
     hide_articles(admin)
 
     await build_relay(database, search_client).relay_batch()
 
-    assert not await document_exists(search_client, article_id(admin, 1))
+    stored = await stored_source(search_client, article_id(admin, 1))
+    assert stored["hidden"] is True
+    assert stored["content_tr"] == "<p>Tam metin 1</p>"
     assert event_rows(admin) == [("PROCESSED", 0, False), ("PROCESSED", 0, False)]
+
+
+async def test_deleted_article_is_removed_from_the_index(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], search_client: AsyncElasticsearch
+) -> None:
+    """Haber PostgreSQL'den silinirse (kaynak içeriğinin silinmesi, FG-YP-14) belgesi de silinir."""
+    await SearchIndex(search_client).ensure_ready()
+    await add_article(database, trt_feed, 1)
+    relay = build_relay(database, search_client)
+    await relay.relay_batch()
+    deleted = article_id(admin, 1)
+    admin.execute("DELETE FROM articles WHERE id = %s", (deleted,))
+    add_event(admin, deleted, "DELETE")
+
+    await relay.relay_batch()
+
+    assert not await document_exists(search_client, deleted)
 
 
 async def test_event_of_a_deleted_article_is_processed_without_any_index(
