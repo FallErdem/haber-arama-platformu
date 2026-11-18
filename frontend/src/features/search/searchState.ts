@@ -1,5 +1,6 @@
 import { parseDate } from '@internationalized/date'
 import { z } from 'zod'
+import { TIME_ZONE } from '../../lib/time'
 
 /**
  * Arama ekranının durumu adres çubuğunda tutulur (ekran akışları 5.1): adres paylaşıldığında aynı
@@ -11,9 +12,6 @@ import { z } from 'zod'
  * varsayılan değere döner; böylece adresteki bir yazım hatası hata ekranı değil, çalışan bir arama
  * gösterir. Kuralları Zod tanımlar.
  */
-
-/** Tarihler Türkiye saatiyle gösterilir ve seçilir (ekran akışları 2. bölüm). */
-export const TIME_ZONE = 'Europe/Istanbul'
 
 export const PAGE_SIZE = 20
 

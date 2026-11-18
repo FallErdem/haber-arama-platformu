@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { I18nProvider } from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { fetchMe } from './api/me'
@@ -21,7 +22,7 @@ interface AuthenticatedAppProps {
  * hangi ekranın gösterileceği seçilir.
  */
 export function AuthenticatedApp({ accessToken, onSignOut }: AuthenticatedAppProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const me = useQuery({
     queryKey: ['me'],
     queryFn: () => fetchMe(accessToken),
@@ -54,17 +55,20 @@ export function AuthenticatedApp({ accessToken, onSignOut }: AuthenticatedAppPro
 
   // Yönlendirici yalnızca giriş tamamlandıktan sonra kurulur: girişten dönüş sayfası (/oidc-callback)
   // adres çubuğunu düzelttikten sonra açıldığı için adresi doğru okur. Sayfalar token'ı
-  // AccessTokenContext'ten alır (useAccessToken).
+  // AccessTokenContext'ten alır (useAccessToken). I18nProvider, React Aria bileşenlerine ve tarih/sayı
+  // biçimlerine dili verir: takvimde Türkçe ay adları, haftanın Pazartesi başlaması, "1.284".
   return (
     <AccessTokenContext value={accessToken}>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<AppLayout user={me.data} onSignOut={onSignOut} />}>
-            <Route index element={<SearchPage />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <I18nProvider locale={i18n.language === 'en' ? 'en-GB' : 'tr-TR'}>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppLayout user={me.data} onSignOut={onSignOut} />}>
+              <Route index element={<SearchPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </I18nProvider>
     </AccessTokenContext>
   )
 }

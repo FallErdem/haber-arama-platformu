@@ -9,8 +9,20 @@ function meWithStatus(status: UserStatus, displayName: string | null = 'Erdem G�
   return { id: '0193f1a2-0000-7000-8000-000000000001', email: 'erdem@example.test', displayName, role: 'USER', status }
 }
 
+/**
+ * API'yi taklit eder: `/me` verilen yanıtı döner. Arama sayfası açılınca istediği kaynak, kategori
+ * ve haber listeleri boş döner; bu testler yalnızca uygulamanın çerçevesini sınar.
+ */
 function stubMeResponse(status: number, body: unknown) {
-  const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status })))
+  const fetchMock = vi.fn((url: string) => {
+    if (url === '/api/v1/me') return Promise.resolve(new Response(JSON.stringify(body), { status }))
+    if (url.startsWith('/api/v1/articles')) {
+      return Promise.resolve(
+        Response.json({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0, totalRelation: 'eq' }),
+      )
+    }
+    return Promise.resolve(Response.json({ items: [] }))
+  })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
 }

@@ -27,7 +27,7 @@ export function AppLayout({ user, onSignOut }: AppLayoutProps) {
       </a>
 
       <header className="border-b border-border">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-4xl items-center gap-6 px-4 sm:px-6">
           <Link to="/" className="font-heading text-xl font-semibold tracking-tight">
             {t('app.brand')}
           </Link>

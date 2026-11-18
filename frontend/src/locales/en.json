@@ -22,7 +22,62 @@
     "search": "Search"
   },
   "search": {
-    "title": "Search the news"
+    "title": "Search the news",
+    "queryLabel": "Search terms",
+    "queryPlaceholder": "Search for news, people or places",
+    "submit": "Search",
+    "clearQuery": "Clear search",
+    "filters": {
+      "label": "Filters",
+      "source": "Source",
+      "category": "Category",
+      "language": "Language",
+      "allLanguages": "All languages",
+      "date": "Date",
+      "clearDate": "Clear date",
+      "breaking": "Breaking",
+      "clear": "Clear filters",
+      "selectedCount": "{{label}} · {{count}}"
+    },
+    "sort": {
+      "label": "Sort by",
+      "relevance": "Relevance",
+      "newest": "Newest"
+    },
+    "resultCount_one": "{{formatted}} result",
+    "resultCount_other": "{{formatted}} results",
+    "resultCountAtLeast": "{{formatted}}+ results",
+    "loading": "Loading results…",
+    "empty": "No news matched your search.",
+    "pageEmpty": "There are no results on this page.",
+    "firstPage": "Back to the first page",
+    "loadFailed": "Results could not be loaded.",
+    "retry": "Try again",
+    "moreSources_one": "{{count}} more source",
+    "moreSources_other": "{{count}} more sources",
+    "pagination": {
+      "label": "Pages",
+      "previous": "Previous",
+      "next": "Next",
+      "status": "Page {{page}} of {{total}}",
+      "limit": "At most 10,000 results can be shown. Narrow your search to reach older news."
+    }
+  },
+  "categories": {
+    "GENERAL": "Top stories",
+    "WORLD": "World",
+    "ECONOMY": "Economy",
+    "SPORTS": "Sports",
+    "HEALTH": "Health",
+    "SCIENCE_TECH": "Science and technology",
+    "CULTURE_ARTS": "Culture and arts",
+    "LIFESTYLE": "Lifestyle",
+    "BREAKING": "Breaking",
+    "OTHER": "Other"
+  },
+  "languages": {
+    "tr": "Turkish",
+    "en": "English"
   },
   "notFound": {
     "title": "Page not found",
