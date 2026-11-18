@@ -1,22 +1,38 @@
 {
   "app": {
-    "title": "Haber Arama Platformu"
+    "title": "Haber Arama Platformu",
+    "brand": "Haber Arama"
   },
   "common": {
     "loading": "Yükleniyor…"
   },
   "login": {
+    "intro": "Farklı kaynaklardan toplanan haberleri tek yerden arayın.",
     "button": "Giriş yap",
     "failed": "Giriş yapılamadı. Lütfen yeniden deneyin."
   },
   "logout": {
     "button": "Çıkış yap"
   },
+  "layout": {
+    "skipToContent": "İçeriğe geç"
+  },
+  "nav": {
+    "label": "Ana menü",
+    "search": "Arama"
+  },
+  "search": {
+    "title": "Haberlerde ara"
+  },
+  "notFound": {
+    "title": "Sayfa bulunamadı",
+    "text": "Aradığınız sayfa taşınmış ya da hiç var olmamış olabilir.",
+    "back": "Aramaya dön"
+  },
   "account": {
     "loadFailed": "Hesap bilgileri alınamadı. Lütfen daha sonra yeniden deneyin.",
     "status": {
       "PENDING": "Hesabınız yönetici onayı bekliyor.",
-      "ACTIVE": "Hoş geldiniz, {{name}}.",
       "PASSIVE": "Hesabınız pasif duruma alınmış.",
       "REJECTED": "Kayıt talebiniz reddedildi."
     }

@@ -1,7 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { useAuth } from 'react-oidc-context'
+import { AuthenticatedApp } from './AuthenticatedApp'
+import { currentReturnPath } from './auth/returnPath'
 import { useSilentLogin } from './auth/useSilentLogin'
-import { AccountStatus } from './features/account/AccountStatus'
+import { CenteredScreen } from './components/CenteredScreen'
+import { Button } from './components/ui/button'
 
 export default function App() {
   const auth = useAuth()
@@ -10,14 +13,14 @@ export default function App() {
 
   if (auth.isLoading || !isSilentLoginDone) {
     return (
-      <main>
-        <p>{t('common.loading')}</p>
-      </main>
+      <CenteredScreen>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
+      </CenteredScreen>
     )
   }
 
   if (auth.isAuthenticated && auth.user) {
-    return <AccountStatus accessToken={auth.user.access_token} onSignOut={() => void auth.signoutRedirect()} />
+    return <AuthenticatedApp accessToken={auth.user.access_token} onSignOut={() => void auth.signoutRedirect()} />
   }
 
   // Sessiz giriş denemesinin başarısız olması olağandır (kullanıcı henüz giriş
@@ -25,12 +28,18 @@ export default function App() {
   const hasLoginFailed = auth.error !== undefined && auth.error.source !== 'signinSilent'
 
   return (
-    <main>
-      <h1>{t('app.title')}</h1>
-      {hasLoginFailed && <p role="alert">{t('login.failed')}</p>}
-      <button type="button" onClick={() => void auth.signinRedirect()}>
+    <CenteredScreen>
+      <h1 className="text-4xl font-semibold tracking-tight">{t('app.brand')}</h1>
+      <p className="mt-3 text-muted-foreground">{t('login.intro')}</p>
+      {hasLoginFailed && (
+        <p role="alert" className="mt-6 text-sm text-destructive">
+          {t('login.failed')}
+        </p>
+      )}
+      {/* Kullanıcının bulunduğu adres girişe `state` olarak verilir; girişten sonra oraya dönülür. */}
+      <Button className="mt-8" size="lg" onPress={() => void auth.signinRedirect({ state: currentReturnPath() })}>
         {t('login.button')}
-      </button>
-    </main>
+      </Button>
+    </CenteredScreen>
   )
 }

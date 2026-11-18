@@ -1,22 +1,38 @@
 {
   "app": {
-    "title": "News Search Platform"
+    "title": "News Search Platform",
+    "brand": "News Search"
   },
   "common": {
     "loading": "Loading…"
   },
   "login": {
+    "intro": "Search news gathered from different sources in one place.",
     "button": "Sign in",
     "failed": "Sign-in failed. Please try again."
   },
   "logout": {
     "button": "Sign out"
   },
+  "layout": {
+    "skipToContent": "Skip to content"
+  },
+  "nav": {
+    "label": "Main menu",
+    "search": "Search"
+  },
+  "search": {
+    "title": "Search the news"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "The page you are looking for may have moved or may never have existed.",
+    "back": "Back to search"
+  },
   "account": {
     "loadFailed": "Your account details could not be loaded. Please try again later.",
     "status": {
       "PENDING": "Your account is waiting for administrator approval.",
-      "ACTIVE": "Welcome, {{name}}.",
       "PASSIVE": "Your account has been deactivated.",
       "REJECTED": "Your registration request was rejected."
     }

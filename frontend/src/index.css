@@ -1,12 +1,161 @@
-/* İskelet için en sade görünüm. Görsel kütüphane ilk gerçek ekranla birlikte eklenecek. */
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
+/*
+ * Uygulamanın görünümü: gazete sadeliği. Kırık beyaz kâğıt zemin, mürekkep rengi metin, tek vurgu
+ * rengi (bordo); kart ve gölge yerine ince çizgiler. Başlıklar ve haber metni Newsreader (haber
+ * okumak için tasarlanmış serif yazı tipi), arayüz öğeleri işletim sisteminin yazı tipiyle yazılır.
+ *
+ * Renkler shadcn/ui bileşenlerinin beklediği adlarla tanımlanır (--background, --primary...);
+ * bileşenler bu değişkenleri kullandığı için görünüm yalnızca burada değiştirilir.
+ */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+/* Yazı tipi npm paketinden gelir ve derlemeyle birlikte bizim sunucumuzdan sunulur. */
+@import '@fontsource-variable/newsreader/opsz.css';
+
+/*
+ * Bileşenlerdeki dark: sınıfları işletim sisteminin koyu tema ayarına değil, .dark sınıfına bağlanır.
+ * Uygulamada koyu tema yoktur; bu satır olmasaydı koyu temalı bir bilgisayarda açık renklerin üstüne
+ * koyu tema sınıfları uygulanırdı.
+ */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * shadcn/ui bileşenlerinin kullandığı durum seçicileri (açık, s; Google'a istek gitmezeçili, devre dışı...). Kaynak:
+ * shadcn 4.23.0, dist/tailwind.css (MIT lisansı). Paketin tamamı yerine yalnızca bu bölüm alındı:
+ * paket bir komut satırı aracıdır ve 32 bağımlılığıyla birlikte projeye girerdi.
+ */
+@custom-variant data-open {
+  &:where([data-state='open']),
+  &:where([data-open]:not([data-open='false'])) {
+    @slot;
+  }
 }
 
-main {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 2rem 1rem;
+@custom-variant data-closed {
+  &:where([data-state='closed']),
+  &:where([data-closed]:not([data-closed='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-checked {
+  &:where([data-state='checked']),
+  &:where([data-checked]:not([data-checked='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-unchecked {
+  &:where([data-state='unchecked']),
+  &:where([data-unchecked]:not([data-unchecked='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-selected {
+  &:where([data-selected='true']) {
+    @slot;
+  }
+}
+
+@custom-variant data-disabled {
+  &:where([data-disabled='true']),
+  &:where([data-disabled]:not([data-disabled='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-active {
+  &:where([data-state='active']),
+  &:where([data-active]:not([data-active='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-horizontal {
+  &:where([data-orientation='horizontal']) {
+    @slot;
+  }
+}
+
+@custom-variant data-vertical {
+  &:where([data-orientation='vertical']) {
+    @slot;
+  }
+}
+
+/* Değişkenleri Tailwind sınıflarına bağlar: --color-primary → bg-primary, text-primary... */
+@theme inline {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Newsreader Variable', Georgia, 'Times New Roman', serif;
+  --font-heading: var(--font-serif);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-highlight: var(--highlight);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+/*
+ * Renkler OKLCH ile yazılır: ilk sayı açıklık (0 siyah, 1 beyaz), ikincisi doygunluk, üçüncüsü renk
+ * tonu. Açıklık doğrudan okunabildiği için kontrast ayarlamak kolaydır. Metin renklerinin zemine
+ * karşıtlığı WCAG AA'nın istediği 4,5:1'in üzerindedir (FOG-30).
+ */
+:root {
+  --background: oklch(0.985 0.006 85); /* kırık beyaz kâğıt */
+  --foreground: oklch(0.22 0.012 60); /* mürekkep */
+  --card: oklch(0.995 0.003 85);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.995 0.003 85);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.45 0.14 25); /* bordo: bağlantılar, seçili öğe, ana düğme */
+  --primary-foreground: oklch(0.985 0.006 85);
+  --secondary: oklch(0.955 0.008 85);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.955 0.008 85);
+  --muted-foreground: oklch(0.47 0.012 60); /* kaynak adı, saat gibi ikincil bilgiler */
+  --accent: oklch(0.94 0.012 85);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.52 0.19 27);
+  --border: oklch(0.88 0.012 80);
+  --input: oklch(0.85 0.012 80);
+  --ring: oklch(0.45 0.14 25);
+  --highlight: oklch(0.93 0.1 95); /* aramada eşleşen kelimeler: soluk sarı fosforlu kalem */
+  --radius: 0.375rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-heading;
+  }
+  mark {
+    @apply rounded-sm bg-highlight px-0.5 text-inherit;
+  }
 }

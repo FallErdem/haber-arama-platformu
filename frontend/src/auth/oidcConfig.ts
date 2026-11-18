@@ -1,5 +1,6 @@
 import { InMemoryWebStorage, WebStorageStateStore } from 'oidc-client-ts'
 import type { AuthProviderProps } from 'react-oidc-context'
+import { safeReturnPath } from './returnPath'
 
 // Frontend, API ve Keycloak aynı adresin altındadır (haber.localhost/, /api, /auth);
 // bu yüzden adresler sayfanın kendi adresinden türetilir.
@@ -22,8 +23,9 @@ export const oidcConfig: AuthProviderProps = {
   // sızan bir kod onu sonradan okuyamaz. Bedeli, sayfa yenilenince token'ın
   // kaybolmasıdır; bunu sessiz yeniden giriş telafi eder (useSilentLogin).
   userStore: new WebStorageStateStore({ store: new InMemoryWebStorage() }),
-  // Girişten dönünce adres çubuğundaki tek kullanımlık kod temizlenir.
-  onSigninCallback: () => {
-    window.history.replaceState({}, document.title, '/')
+  // Girişten dönünce adres çubuğundaki tek kullanımlık kod temizlenir ve kullanıcı giriş başlarken
+  // bulunduğu adrese döner (girişe giderken `state` olarak verilir, bkz. App.tsx).
+  onSigninCallback: (user) => {
+    window.history.replaceState({}, document.title, safeReturnPath(user?.state))
   },
 }

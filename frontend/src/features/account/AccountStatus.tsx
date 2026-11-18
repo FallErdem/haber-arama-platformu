@@ -1,43 +1,27 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { fetchMe } from '../../api/me'
+import type { UserStatus } from '../../api/me'
+import { CenteredScreen } from '../../components/CenteredScreen'
+import { Button } from '../../components/ui/button'
 
 interface AccountStatusProps {
-  accessToken: string
+  status: Exclude<UserStatus, 'ACTIVE'>
   onSignOut: () => void
 }
 
 /**
- * Giriş yapmış kullanıcıya hesabının durumunu gösterir. Durum her zaman
- * API'den gelir; arayüz kendi başına karar vermez.
+ * Hesabı aktif olmayan kullanıcıya durumunu gösterir (onay bekliyor, reddedildi, pasif). Durum her
+ * zaman API'den gelir; arayüz kendi başına karar vermez.
  */
-export function AccountStatus({ accessToken, onSignOut }: AccountStatusProps) {
+export function AccountStatus({ status, onSignOut }: AccountStatusProps) {
   const { t } = useTranslation()
-  const me = useQuery({
-    queryKey: ['me'],
-    queryFn: () => fetchMe(accessToken),
-    retry: false,
-  })
-
-  if (me.isPending) {
-    return (
-      <main>
-        <p>{t('common.loading')}</p>
-      </main>
-    )
-  }
 
   return (
-    <main>
-      <h1>{t('app.title')}</h1>
-      {me.isError ? (
-        <p role="alert">{t('account.loadFailed')}</p>
-      ) : (
-        <p>{t(`account.status.${me.data.status}`, { name: me.data.displayName ?? me.data.email })}</p>
-      )}
-      <button type="button" onClick={onSignOut}>
+    <CenteredScreen>
+      <h1 className="text-3xl font-semibold tracking-tight">{t('app.brand')}</h1>
+      <p className="mt-4">{t(`account.status.${status}`)}</p>
+      <Button variant="outline" className="mt-8" onPress={onSignOut}>
         {t('logout.button')}
-      </button>
-    </main>
+      </Button>
+    </CenteredScreen>
   )
 }

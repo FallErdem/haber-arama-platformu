@@ -73,6 +73,17 @@ describe('App', () => {
     expect(auth.signinRedirect).toHaveBeenCalledOnce()
   })
 
+  it('girişe giderken bulunulan adresi saklar; paylaşılan adres girişten sonra açılır', async () => {
+    window.history.pushState({}, '', '/articles/0193f1a2?q=deprem')
+    const auth = stubAuth()
+    renderApp()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Giriş yap' }))
+
+    expect(auth.signinRedirect).toHaveBeenCalledWith({ state: '/articles/0193f1a2?q=deprem' })
+    window.history.pushState({}, '', '/')
+  })
+
   it('sessiz girişin başarısız olmasını hata olarak göstermez', async () => {
     stubAuth({ error: { source: 'signinSilent' } as AuthContextProps['error'] })
 
