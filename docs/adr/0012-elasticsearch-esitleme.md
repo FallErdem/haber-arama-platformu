@@ -1,6 +1,6 @@
 # ADR-0012: PostgreSQL ile Elasticsearch'ün Eşitlenmesi
 
-- **Durum:** Kabul edildi; outbox işlemi ADR-0017 ile Python işçisine taşındı (uygulama ayrıntıları: ADR-0017, 11. bölüm)
+- **Durum:** Kabul edildi; outbox işlemi ADR-0017 ile Python işçisine taşındı (uygulama ayrıntıları: ADR-0017, 11. bölüm); outbox notunun haber metinlerini taşıması ve tam yeniden indekslemenin kaynağı ADR-0019 ile değiştirildi
 - **Tarih:** 2026-11-04
 
 ## Bağlam

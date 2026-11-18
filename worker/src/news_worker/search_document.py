@@ -1,8 +1,8 @@
 """Bir haberin Elasticsearch belgesine çevrilmesi (`05-veri-modeli.md` 5.2).
 
-Belge, haberin aranabilir kopyasıdır: filtre alanları (kaynak, dil, tür, kategoriler, tarih) ve
-haberin diline göre doldurulan metin alanları. Görseller, kaynak adı ve yazar belgede yoktur; arama
-sonuçları gösterilirken PostgreSQL'den okunur.
+Belge; filtre alanlarını (kaynak, dil, tür, kategoriler, tarih), haberin diline göre doldurulan metin
+alanlarını ve yazarı taşır. Özet, tam metin ve yazarın tek kopyası Elasticsearch'tedir (ADR-0019).
+Görseller ve kaynak adı belgede yoktur; gösterilirken PostgreSQL'den okunur.
 """
 
 from dataclasses import dataclass
@@ -26,8 +26,9 @@ class IndexableArticle:
     group_id: UUID | None
     title: str
     summary: str | None
-    # Temizlenmiş HTML (PostgreSQL'de saklandığı gibi).
+    # Temizlenmiş HTML (işçinin nh3 ile temizlediği hali).
     content: str | None
+    author: str | None
     categories: tuple[str, ...]
 
 
@@ -55,10 +56,11 @@ def build_document(article: IndexableArticle) -> dict[str, Any]:
         document["group_id"] = str(article.group_id)
     if article.summary:
         document[f"summary_{article.language}"] = article.summary
-    if article.content:
-        # İçerik HTML olarak saklanır; indekse yalnızca yazısı gider. Yoksa etiket adları ve
-        # bağlantı adresleri de aranabilir kelime olurdu.
-        text = to_plain_text(article.content)
-        if text:
-            document[f"content_{article.language}"] = text
+    # İçerik HTML olarak yazılır: detay sayfası paragrafları gösterir. Etiketleri arama analizörü atar
+    # (html_strip); etiket adları ve bağlantı adresleri aranabilir kelime olmaz. Yazısı olmayan içerik
+    # ("<p> </p>") yazılmaz.
+    if article.content and to_plain_text(article.content):
+        document[f"content_{article.language}"] = article.content
+    if article.author:
+        document["author"] = article.author
     return document

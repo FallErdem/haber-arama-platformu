@@ -29,6 +29,7 @@ TURKISH_ARTICLE = IndexableArticle(
     content=(
         '<p>Ziyaretçiler <a href="https://example.test/gizli-adres">kitapları</a> inceledi.</p><p>Işıklar yandı.</p>'
     ),
+    author="Örnek Yazar",
     categories=("BREAKING", "CULTURE_ARTS"),
 )
 
@@ -55,7 +56,8 @@ def test_turkish_article_fills_turkish_fields() -> None:
         "published_at": PUBLISHED_AT,
         "title_tr": "İstanbul'daki kitap fuarı açıldı",
         "summary_tr": "Fuar bir hafta sürecek.",
-        "content_tr": "Ziyaretçiler kitapları inceledi. Işıklar yandı.",
+        "content_tr": TURKISH_ARTICLE.content,
+        "author": "Örnek Yazar",
     }
 
 
@@ -65,24 +67,25 @@ def test_english_article_fills_english_fields() -> None:
 
     assert document["title_en"] == "Volunteers are running a library"
     assert document["summary_en"] == "A short summary."
-    assert document["content_en"] == "The readers borrowed books."
+    assert document["content_en"] == "<p>The readers borrowed books.</p>"
     assert not any(field.endswith("_tr") for field in document)
 
 
-def test_content_is_indexed_as_plain_text() -> None:
-    """İçerik HTML olarak saklanır ama indekse yalnızca yazısı gider: etiket ve bağlantı adresi yok."""
-    content = build_document(TURKISH_ARTICLE)["content_tr"]
+def test_content_is_kept_as_html() -> None:
+    """Tam metin HTML olarak yazılır: tek kopyası burada ve detay sayfası paragrafları gösterir (ADR-0019).
 
-    assert "<" not in content
-    assert "gizli-adres" not in content
+    Etiketlerin ve bağlantı adreslerinin aranmadığını aşağıdaki gerçek Elasticsearch testi gösterir.
+    """
+    assert build_document(TURKISH_ARTICLE)["content_tr"].startswith("<p>Ziyaretçiler <a href=")
 
 
 def test_missing_optional_fields_are_left_out() -> None:
-    """Özeti ve içeriği olmayan haberde (CNN Türk içerik vermez) bu alanlar belgeye konmaz."""
-    document = build_document(replace(TURKISH_ARTICLE, summary=None, content=None))
+    """Özeti, içeriği ve yazarı olmayan haberde (CNN Türk içerik ve yazar vermez) bu alanlar belgeye konmaz."""
+    document = build_document(replace(TURKISH_ARTICLE, summary=None, content=None, author=None))
 
     assert "summary_tr" not in document
     assert "content_tr" not in document
+    assert "author" not in document
     assert "group_id" not in document
 
 
@@ -184,6 +187,50 @@ async def test_link_addresses_in_content_are_not_searchable(search_client: Async
     await store(search_client, TURKISH_ARTICLE)
 
     assert await search_ids(search_client, "content_tr", "gizli") == []
+
+
+async def test_html_tags_in_content_are_not_searchable(search_client: AsyncElasticsearch) -> None:
+    """Tam metin HTML olarak saklanır, ama etiket ve öznitelik adları aranabilir kelime olmaz (html_strip)."""
+    await SearchIndex(search_client).ensure_ready()
+    await store(search_client, TURKISH_ARTICLE)
+
+    for word in ("href", "example", "https"):
+        assert await search_ids(search_client, "content_tr", word) == []
+        assert await search_ids(search_client, "content_tr.folded", word) == []
+    # Metnin kendisi aranır.
+    assert await search_ids(search_client, "content_tr", "ziyaretçi") == [str(ARTICLE_ID)]
+
+
+async def test_html_entities_in_content_are_searched_as_letters(search_client: AsyncElasticsearch) -> None:
+    """HTML kodlanmış karakterler çözülerek aranır: "&Ccedil;ocuklar" Çocuklar, "&#351;ehir" şehir olarak okunur."""
+    await SearchIndex(search_client).ensure_ready()
+    await store(
+        search_client, replace(TURKISH_ARTICLE, content="<p>&Ccedil;ocuklar &#351;ehir k&#252;t&#252;phanesinde</p>")
+    )
+
+    assert await search_ids(search_client, "content_tr", "çocuk") == [str(ARTICLE_ID)]
+    assert await search_ids(search_client, "content_tr", "şehir") == [str(ARTICLE_ID)]
+
+
+async def test_stored_document_keeps_html_content_and_author(search_client: AsyncElasticsearch) -> None:
+    """Belgede tam metin HTML olarak ve yazar olduğu gibi durur; detay sayfası onları buradan okuyacak."""
+    await SearchIndex(search_client).ensure_ready()
+    await store(search_client, TURKISH_ARTICLE)
+
+    stored = await search_client.get(index="articles-g1-2026.11.01", id=str(ARTICLE_ID))
+
+    assert stored["_source"]["content_tr"] == TURKISH_ARTICLE.content
+    assert stored["_source"]["author"] == "Örnek Yazar"
+
+
+async def test_author_is_not_searchable(search_client: AsyncElasticsearch) -> None:
+    """Yazar yalnızca gösterilir; yazar adıyla arama yapılmaz."""
+    await SearchIndex(search_client).ensure_ready()
+    await store(search_client, TURKISH_ARTICLE)
+
+    response = await search_client.search(index=ALIAS, query={"query_string": {"query": "Örnek Yazar"}})
+
+    assert response["hits"]["hits"] == []
 
 
 async def test_english_article_is_found_by_word_stem(search_client: AsyncElasticsearch) -> None:

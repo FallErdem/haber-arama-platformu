@@ -247,6 +247,7 @@ async def test_indexable_article_carries_source_code_and_category_codes(
             title="Örnek haber",
             summary="Kısa özet.",
             content="<p>Tam metin.</p>",
+            author="Örnek Yazar",
             categories=("BREAKING", "ECONOMY"),
         )
     }

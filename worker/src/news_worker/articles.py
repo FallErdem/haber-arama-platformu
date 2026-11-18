@@ -108,7 +108,7 @@ _INSERT_OUTBOX_QUERY = """
 # toplar; FILTER, kategorisi olmayan haberde dizinin [NULL] yerine boş olmasını sağlar.
 _INDEXABLE_SELECT = """
     SELECT a.id, s.code, a.language, a.item_type, a.published_at, a.group_id, a.title, a.summary,
-           a.content,
+           a.content, a.author,
            COALESCE(array_agg(c.code ORDER BY c.code) FILTER (WHERE c.code IS NOT NULL), '{}'::text[])
     FROM articles a
     JOIN sources s ON s.id = a.source_id
@@ -269,5 +269,6 @@ def _to_indexable(row: TupleRow) -> IndexableArticle:
         title=row[6],
         summary=row[7],
         content=row[8],
-        categories=tuple(row[9]),
+        author=row[9],
+        categories=tuple(row[10]),
     )
