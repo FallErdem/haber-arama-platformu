@@ -90,15 +90,18 @@ async def test_monthly_index_is_created_from_template_on_first_write(search_clie
 
     mapping = await search_client.indices.get_mapping(index=NOVEMBER_INDEX)
     properties = mapping[NOVEMBER_INDEX]["mappings"]["properties"]
+    # Her dilin bütün metin alanları aynı analizörü kullanır (cross_fields araması bunu gerektirir).
     turkish_text = {
         "type": "text",
-        "analyzer": "turkish",
+        "analyzer": "turkish_article",
         "fields": {"folded": {"type": "text", "analyzer": "turkish_folded"}},
     }
-    assert properties["title_tr"] == turkish_text
-    assert properties["summary_tr"] == turkish_text
-    assert properties["content_tr"] == turkish_text
-    assert properties["title_en"] == {"type": "text", "analyzer": "english"}
+    english_text = {"type": "text", "analyzer": "english_article"}
+    for field in ("title_tr", "summary_tr", "content_tr"):
+        assert properties[field] == turkish_text
+    for field in ("title_en", "summary_en", "content_en"):
+        assert properties[field] == english_text
+    assert properties["author"] == {"type": "keyword", "index": False, "doc_values": False}
     assert properties["categories"] == {"type": "keyword"}
     assert properties["published_at"] == {"type": "date"}
     settings = (await search_client.indices.get_settings(index=NOVEMBER_INDEX))[NOVEMBER_INDEX]["settings"]["index"]
@@ -151,6 +154,66 @@ async def test_turkish_analyzer_handles_suffixes_and_dotted_i(search_client: Asy
     assert [token["token"] for token in response["tokens"]] == ["istanbul", "kitap", "ışık"]
 
 
+# Yeniden kurulan analizörlerin yerleşik analizörlerle karşılaştırıldığı metinler: ekler, kesme
+# işareti, Türkçe büyük harf, etkisiz kelimeler (ve, bir, the, a), sayılar, iyelik eki ('s).
+_COMPARISON_TEXTS = {
+    "tr": [
+        "İstanbul'daki KİTAPLARI ışıklar altında okudular.",
+        "Cumhurbaşkanı Erdoğan, Türkiye'nin seçimlerinde bir ve bu gibi kelimeleri kullandı.",
+        "Merkez Bankası faiz kararını 2026 yılının 3,5 puanlık artışıyla açıkladı; çocuklar ağaçların altında.",
+    ],
+    "en": [
+        "The volunteers were running the library's new reading programs.",
+        "A government's decisions and the citizens' reactions in 2026.",
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    ("language", "builtin", "rebuilt", "field"),
+    [
+        ("tr", "turkish", "turkish_article", "content_tr"),
+        ("en", "english", "english_article", "content_en"),
+    ],
+)
+async def test_rebuilt_analyzers_produce_the_same_words_as_builtin_ones(
+    search_client: AsyncElasticsearch, language: str, builtin: str, rebuilt: str, field: str
+) -> None:
+    """Metin alanlarının analizörü, yerleşik analizörle aynı kelimeleri üretir (ADR-0019).
+
+    Yerleşik `turkish` ve `english` analizörlerine HTML etiketlerini atan süzgeç eklenemediği için
+    ikisi Elastic'in dokümanındaki tanımlarıyla yeniden kuruldu. HTML'siz metinde yerleşik analizörle
+    birebir aynı kelimeleri üretmeleri, arama davranışının değişmediğini gösterir.
+    """
+    await SearchIndex(search_client).ensure_ready()
+    await search_client.index(index=NOVEMBER_INDEX, id="haber-1", document={"language": language})
+
+    for text in _COMPARISON_TEXTS[language]:
+        # Yerleşik analizör de indeks üzerinden çağrılır: indeks belirtilmeyen çağrı küme düzeyinde bir
+        # yetki ister ve işçinin kullanıcısında bu yetki yoktur (en az yetki).
+        expected = await search_client.indices.analyze(index=NOVEMBER_INDEX, analyzer=builtin, text=text)
+        actual = await search_client.indices.analyze(index=NOVEMBER_INDEX, field=field, text=text)
+
+        assert [token["token"] for token in actual["tokens"]] == [token["token"] for token in expected["tokens"]]
+    mapping = await search_client.indices.get_mapping(index=NOVEMBER_INDEX)
+    assert mapping[NOVEMBER_INDEX]["mappings"]["properties"][field]["analyzer"] == rebuilt
+
+
+async def test_content_analyzer_ignores_html(search_client: AsyncElasticsearch) -> None:
+    """Tam metnin analizörü HTML etiketlerini atar ve kodlanmış karakterleri çözer; aynı metnin HTML'li
+    ve HTML'siz hali aynı kelimeleri üretir."""
+    await SearchIndex(search_client).ensure_ready()
+    await search_client.index(index=NOVEMBER_INDEX, id="haber-1", document={"language": "tr"})
+    html = '<p>&Ccedil;ocuklar <a href="https://example.test/x">kitapları</a></p><p>okudu.</p>'
+
+    with_html = await search_client.indices.analyze(index=NOVEMBER_INDEX, field="content_tr", text=html)
+    plain = await search_client.indices.analyze(
+        index=NOVEMBER_INDEX, analyzer="turkish", text="Çocuklar kitapları okudu."
+    )
+
+    assert [token["token"] for token in with_html["tokens"]] == [token["token"] for token in plain["tokens"]]
+
+
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
@@ -186,7 +249,10 @@ async def test_english_fields_have_no_folded_subfield(search_client: AsyncElasti
 
     mapping = await search_client.indices.get_mapping(index=NOVEMBER_INDEX)
 
-    assert mapping[NOVEMBER_INDEX]["mappings"]["properties"]["title_en"] == {"type": "text", "analyzer": "english"}
+    assert mapping[NOVEMBER_INDEX]["mappings"]["properties"]["title_en"] == {
+        "type": "text",
+        "analyzer": "english_article",
+    }
 
 
 # --- Nesiller ------------------------------------------------------------------------------------

@@ -357,12 +357,15 @@ Başlangıç verisi:
 | `categories` | `keyword` (çok değerli) | Kategori kodları |
 | `published_at` | `date` | |
 | `group_id` | `keyword` | Gruplanmış haberlerin tek sonuç olarak gösterilmesi için |
-| `title_tr`, `summary_tr`, `content_tr` | `text`, Türkçe analiz | Yalnızca Türkçe haberlerde dolar. İçerik düz metin olarak yazılır (HTML etiketleri çıkarılır) |
+| `title_tr`, `summary_tr`, `content_tr` | `text`, `turkish_article` analizörü | Yalnızca Türkçe haberlerde dolar. Tam metin HTML olarak yazılır (ADR-0019) |
 | `title_tr.folded`, `summary_tr.folded`, `content_tr.folded` | `text`, `turkish_folded` analizörü | Alt alan; belgeye ayrıca yazılmaz, Elasticsearch aynı metni ikinci bir biçimde indeksler |
-| `title_en`, `summary_en`, `content_en` | `text`, İngilizce analiz | Yalnızca İngilizce haberlerde dolar. İçerik düz metin olarak yazılır |
+| `title_en`, `summary_en`, `content_en` | `text`, `english_article` analizörü | Yalnızca İngilizce haberlerde dolar. Tam metin HTML olarak yazılır |
+| `author` | `keyword`, indekslenmez | Yalnızca gösterilir; aranmaz ve sıralanmaz |
 
-- Türkçe ve İngilizce alanlarda Elasticsearch'ün yerleşik `turkish` ve `english` dil analizörleri kullanılır.
-- Türkçe analizör gerçek haberlerle denendi (ADR-0017, 11. bölüm): Türkçe karaktersiz yazımı (`cumhurbaskani`), noktasız büyük I'yı (`ISTANBUL`) ve bazı kelimelerde tekil ile çoğulu (`seçim` / `seçimler`) eşleştirmiyor. Bunun için Türkçe alanların `folded` alt alanı vardır; analizörü kesme işaretinden sonrasını atar, Türkçe kurallarıyla küçük harfe çevirir, harfleri ASCII karşılığına çevirir ve kelimenin ilk beş harfini alır. Kaba eşleşmeler üretebildiğinden aramada asıl alandan düşük ağırlık alır.
+- Özet, tam metin ve yazarın tek kaydı Elasticsearch'tir; PostgreSQL haberin meta verisini tutar (ADR-0019). Başlık iki depoda da durur.
+- `turkish_article` ve `english_article`, Elasticsearch'ün yerleşik `turkish` ve `english` analizörlerinin Elastic dokümanındaki tanımlarıyla yeniden kurulmuş halleridir; başlarında HTML etiketlerini atan ve kodlanmış karakterleri çözen `html_strip` süzgeci vardır. HTML'siz metinde yerleşik analizörlerle aynı kelimeleri ürettikleri testle denetlenir. Tam metin HTML olarak saklandığı halde etiket ve bağlantı adresleri aranabilir kelime olmaz.
+- Bir dilin bütün metin alanları aynı analizörü kullanır: arama `cross_fields` yöntemini kullanır ve Elasticsearch yalnızca aynı analizörlü alanları birlikte değerlendirir (5.5).
+- Türkçe analizör gerçek haberlerle denendi (ADR-0017, 11. bölüm): Türkçe karaktersiz yazımı (`cumhurbaskani`), noktasız büyük I'yı (`ISTANBUL`) ve bazı kelimelerde tekil ile çoğulu (`seçim` / `seçimler`) eşleştirmiyor. Bunun için Türkçe alanların `folded` alt alanı vardır; analizörü HTML etiketlerini atar, kesme işaretinden sonrasını atar, Türkçe kurallarıyla küçük harfe çevirir, harfleri ASCII karşılığına çevirir ve kelimenin ilk beş harfini alır. Kaba eşleşmeler üretebildiğinden aramada asıl alandan düşük ağırlık alır.
 - Değeri olmayan alan belgeye konmaz.
 - Arama, iki dilin alanlarında birlikte yapılır. Alan ağırlıkları başlık, özet ve tam metin sırasıyla azalır (FG-AR-01); değerler ve sorgunun diğer kuralları 5.5'tedir.
 - Gizlenen haberler indekste bulunmaz.

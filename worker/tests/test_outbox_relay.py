@@ -322,7 +322,7 @@ async def test_loop_sets_up_the_index_before_the_first_document(
 
     mapping = await search_client.indices.get_mapping(index="articles-g1-2026.11.01")
     properties = mapping["articles-g1-2026.11.01"]["mappings"]["properties"]
-    assert properties["title_tr"]["analyzer"] == "turkish"
+    assert properties["title_tr"]["analyzer"] == "turkish_article"
     assert properties["title_tr"]["fields"]["folded"]["analyzer"] == "turkish_folded"
 
 

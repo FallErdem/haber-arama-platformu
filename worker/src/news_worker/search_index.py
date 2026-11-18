@@ -71,17 +71,52 @@ FOLDED_PREFIX_LENGTH = 5
 #   first_letters      kelimenin ilk beş harfini alır              secimler -> secim, istanbul -> istan
 # Türkçe sondan eklemeli bir dildir; kelimenin başı kökü taşır. İlk beş harf, Türkçe haber
 # metinlerindeki arama deneylerinde kök bulucularla benzer sonuç vermiştir (Can ve ark., 2008).
+#
+# Tam metin (content_*) Elasticsearch'te HTML olarak saklanır (ADR-0019): metnin tek kopyası buradadır
+# ve detay sayfası onu paragraflarıyla gösterir. Aramadan önce etiketler atılır ve kodlanmış karakterler
+# çözülür (html_strip). Yerleşik `turkish` ve `english` analizörlerine bu süzgeç eklenemediğinden ikisi
+# Elastic'in dokümanındaki tanımlarıyla birebir yeniden kurulur; aynı kelimeleri ürettikleri testle
+# denetlenir (test_search_index.py).
+#
+# Her dilin bütün alanları (başlık, özet, tam metin) aynı analizörü kullanır. Arama, kelimelerin farklı
+# alanlarda geçmesine izin veren cross_fields yöntemini kullanır ve Elasticsearch yalnızca aynı
+# analizörlü alanları birlikte değerlendirir; tam metne ayrı bir analizör verilseydi "galatasaray"
+# başlıkta, "fenerbahçe" tam metinde geçen haber bulunamazdı. Başlık ve özette HTML yoktur; süzgeç
+# onlarda bir şey değiştirmez.
+TURKISH_ANALYZER = "turkish_article"
+ENGLISH_ANALYZER = "english_article"
+
 _ANALYSIS: dict[str, Any] = {
     "filter": {
         "turkish_lowercase": {"type": "lowercase", "language": "turkish"},
+        "turkish_stop": {"type": "stop", "stopwords": "_turkish_"},
+        "turkish_stemmer": {"type": "stemmer", "language": "turkish"},
+        "english_possessive_stemmer": {"type": "stemmer", "language": "possessive_english"},
+        "english_stop": {"type": "stop", "stopwords": "_english_"},
+        "english_stemmer": {"type": "stemmer", "language": "english"},
         "first_letters": {"type": "truncate", "length": FOLDED_PREFIX_LENGTH},
     },
     "analyzer": {
+        # Yerleşik `turkish` analizörünün aynısı; önce HTML etiketleri atılır.
+        TURKISH_ANALYZER: {
+            "type": "custom",
+            "char_filter": ["html_strip"],
+            "tokenizer": "standard",
+            "filter": ["apostrophe", "turkish_lowercase", "turkish_stop", "turkish_stemmer"],
+        },
         FOLDED_ANALYZER: {
             "type": "custom",
+            "char_filter": ["html_strip"],
             "tokenizer": "standard",
             "filter": ["apostrophe", "turkish_lowercase", "asciifolding", "first_letters"],
-        }
+        },
+        # Yerleşik `english` analizörünün aynısı; önce HTML etiketleri atılır.
+        ENGLISH_ANALYZER: {
+            "type": "custom",
+            "char_filter": ["html_strip"],
+            "tokenizer": "standard",
+            "filter": ["english_possessive_stemmer", "lowercase", "english_stop", "english_stemmer"],
+        },
     },
 }
 
@@ -91,13 +126,13 @@ def _text(analyzer: str) -> dict[str, Any]:
 
 
 def _turkish_text() -> dict[str, Any]:
-    """Türkçe metin alanı: asıl hali `turkish` analizörüyle, alt alanı katlanmış analizörle işlenir.
+    """Türkçe metin alanı: asıl hali Türkçe analizörle, alt alanı katlanmış analizörle işlenir.
 
     Alt alan belgeye ayrıca yazılmaz; Elasticsearch aynı metni iki biçimde indeksler. Arama iki
     alana birlikte bakar ve asıl alana daha yüksek ağırlık verir; katlanmış alan yalnızca asıl
     alanın kaçırdıklarını yakalar.
     """
-    return {**_text("turkish"), "fields": {FOLDED_SUBFIELD: _text(FOLDED_ANALYZER)}}
+    return {**_text(TURKISH_ANALYZER), "fields": {FOLDED_SUBFIELD: _text(FOLDED_ANALYZER)}}
 
 
 # Türkçe ve İngilizce metinler ayrı alanlarda tutulur; her alan kendi dilinin analizörüyle işlenir
@@ -114,12 +149,14 @@ _MAPPINGS: dict[str, Any] = {
         "categories": {"type": "keyword"},
         "published_at": {"type": "date"},
         "group_id": {"type": "keyword"},
+        # Yazar yalnızca gösterilir; aranmaz ve sıralanmaz. Belgede saklanır ama indekslenmez.
+        "author": {"type": "keyword", "index": False, "doc_values": False},
         "title_tr": _turkish_text(),
         "summary_tr": _turkish_text(),
         "content_tr": _turkish_text(),
-        "title_en": _text("english"),
-        "summary_en": _text("english"),
-        "content_en": _text("english"),
+        "title_en": _text(ENGLISH_ANALYZER),
+        "summary_en": _text(ENGLISH_ANALYZER),
+        "content_en": _text(ENGLISH_ANALYZER),
     },
 }
 
