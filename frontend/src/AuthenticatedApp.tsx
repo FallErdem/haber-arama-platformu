@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { fetchMe } from './api/me'
 import { AccessTokenContext } from './auth/accessToken'
+import { useSessionErrors } from './auth/useSessionErrors'
 import { CenteredScreen } from './components/CenteredScreen'
 import { Button } from './components/ui/button'
 import { AccountStatus } from './features/account/AccountStatus'
@@ -15,6 +16,8 @@ import { SearchPage } from './features/search/SearchPage'
 interface AuthenticatedAppProps {
   accessToken: string
   onSignOut: () => void
+  /** Bir istek 401 alınca çağrılır: token geçersiz veya süresi dolmuş, yeniden giriş gerekir. */
+  onSessionExpired: () => void
 }
 
 /**
@@ -22,8 +25,9 @@ interface AuthenticatedAppProps {
  * hesap durumu ekranı, aktifse sayfalar gösterilir. Yetki kararı backend'dedir; burada yalnızca
  * hangi ekranın gösterileceği seçilir.
  */
-export function AuthenticatedApp({ accessToken, onSignOut }: AuthenticatedAppProps) {
+export function AuthenticatedApp({ accessToken, onSignOut, onSessionExpired }: AuthenticatedAppProps) {
   const { t, i18n } = useTranslation()
+  useSessionErrors(onSessionExpired)
   const me = useQuery({
     queryKey: ['me'],
     queryFn: () => fetchMe(accessToken),

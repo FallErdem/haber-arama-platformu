@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { shouldRetry } from './api/client'
 import type { Me, UserStatus } from './api/me'
 import { AuthenticatedApp } from './AuthenticatedApp'
 
@@ -28,16 +29,19 @@ function stubMeResponse(status: number, body: unknown) {
 }
 
 /** Uygulamayı verilen adreste açar. Yönlendirici tarayıcının adresini okur; jsdom'da da adres vardır. */
-function renderAt(path: string, onSignOut = vi.fn()) {
+function renderAt(path: string, onSignOut = vi.fn(), onSessionExpired = vi.fn()) {
   window.history.pushState({}, '', path)
-  // Her test kendi önbelleğiyle başlar; bir testin yanıtı diğerine taşınmaz.
+  // Her test kendi önbelleğiyle başlar; bir testin yanıtı diğerine taşınmaz. Yeniden deneme kuralı
+  // uygulamadakiyle aynıdır (main.tsx).
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <AuthenticatedApp accessToken="test-token" onSignOut={onSignOut} />
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: shouldRetry } } })}>
+      <AuthenticatedApp accessToken="test-token" onSignOut={onSignOut} onSessionExpired={onSessionExpired} />
     </QueryClientProvider>,
   )
   return onSignOut
 }
+
+const json = (status: number, body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status }))
 
 describe('AuthenticatedApp', () => {
   afterEach(() => {
@@ -49,21 +53,20 @@ describe('AuthenticatedApp', () => {
     const fetchMock = stubMeResponse(200, meWithStatus('ACTIVE'))
 
     renderAt('/')
-    await screen.findByRole('navigation', { name: 'Ana menü' })
+    await screen.findByRole('link', { name: 'Haber Arama Platformu' })
 
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/me', { headers: { Authorization: 'Bearer test-token' } })
   })
 
-  it('aktif kullanıcıya menüyü ve arama sayfasını gösterir', async () => {
+  it('aktif kullanıcıya üst çubuğu ve arama sayfasını gösterir; uygulamanın adı ana sayfaya götürür', async () => {
     stubMeResponse(200, meWithStatus('ACTIVE'))
 
     renderAt('/')
 
-    const nav = await screen.findByRole('navigation', { name: 'Ana menü' })
-    expect(nav).toContainElement(screen.getByRole('link', { name: 'Arama' }))
-    expect(screen.getByRole('link', { name: 'Arama' })).toHaveAttribute('aria-current', 'page')
+    const header = await screen.findByRole('banner')
+    expect(within(header).getByRole('link', { name: 'Haber Arama Platformu' })).toHaveAttribute('href', '/')
+    expect(within(header).getByText('Erdem Güral')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Haberlerde ara' })).toBeInTheDocument()
-    expect(screen.getByText('Erdem Güral')).toBeInTheDocument()
   })
 
   it('görünen adı olmayan kullanıcının e-posta adresini gösterir', async () => {
@@ -77,7 +80,7 @@ describe('AuthenticatedApp', () => {
   it('ilk odaklanılabilir öğe "İçeriğe geç" bağlantısıdır ve içeriğe götürür', async () => {
     stubMeResponse(200, meWithStatus('ACTIVE'))
     renderAt('/')
-    await screen.findByRole('navigation', { name: 'Ana menü' })
+    await screen.findByRole('link', { name: 'Haber Arama Platformu' })
 
     await userEvent.tab()
 
@@ -107,13 +110,13 @@ describe('AuthenticatedApp', () => {
     expect(onSignOut).toHaveBeenCalledOnce()
   })
 
-  it('hesabı aktif olmayan kullanıcıya menüyü değil hesap durumunu gösterir', async () => {
+  it('hesabı aktif olmayan kullanıcıya uygulamayı değil hesap durumunu gösterir', async () => {
     stubMeResponse(200, meWithStatus('PENDING'))
 
     renderAt('/')
 
     expect(await screen.findByText('Hesabınız yönetici onayı bekliyor.')).toBeInTheDocument()
-    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
   })
 
   it('hesap bilgisi alınamazsa hata metnini ve çıkış düğmesini gösterir', async () => {
@@ -123,5 +126,56 @@ describe('AuthenticatedApp', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Hesap bilgileri alınamadı.')
     expect(screen.getByRole('button', { name: 'Çıkış yap' })).toBeInTheDocument()
+  })
+
+  it('bir istek 401 alırsa yeniden girişi bir kez başlatır', async () => {
+    // Token yenilenemedi: sayfanın bütün istekleri (kaynaklar, kategoriler, arama) 401 alır.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url === '/api/v1/me' ? json(200, meWithStatus('ACTIVE')) : json(401, { code: 'UNAUTHENTICATED' }),
+      ),
+    )
+    const onSessionExpired = vi.fn()
+
+    renderAt('/', vi.fn(), onSessionExpired)
+
+    await waitFor(() => expect(onSessionExpired).toHaveBeenCalled())
+    expect(onSessionExpired).toHaveBeenCalledOnce()
+  })
+
+  it('oturum ortasında pasif yapılan kullanıcı hesap durumu ekranına geçer (ekran akışları 4.6)', async () => {
+    // Kullanıcı açılışta aktiftir; yönetici onu pasif yapar ve sonraki istek 403 USER_PASSIVE alır.
+    let status: UserStatus = 'ACTIVE'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url === '/api/v1/me') return json(200, meWithStatus(status))
+        if (url.startsWith('/api/v1/articles')) {
+          status = 'PASSIVE'
+          return json(403, { code: 'USER_PASSIVE' })
+        }
+        return json(200, { items: [] })
+      }),
+    )
+
+    renderAt('/')
+
+    expect(await screen.findByText('Hesabınız pasif duruma alınmış.')).toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+  })
+
+  it('yetki eksikliğinden gelen 403 hesap bilgisini yeniden istemez', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/api/v1/me') return json(200, meWithStatus('ACTIVE'))
+      if (url.startsWith('/api/v1/articles')) return json(403, { code: 'FORBIDDEN' })
+      return json(200, { items: [] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderAt('/')
+
+    expect(await screen.findByText('Sonuçlar alınamadı.')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/v1/me')).toHaveLength(1)
   })
 })

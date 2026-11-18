@@ -17,7 +17,7 @@ export function AccountStatus({ status, onSignOut }: AccountStatusProps) {
 
   return (
     <CenteredScreen>
-      <h1 className="text-3xl font-semibold tracking-tight">{t('app.brand')}</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">{t('app.title')}</h1>
       <p className="mt-4">{t(`account.status.${status}`)}</p>
       <Button variant="outline" className="mt-8" onPress={onSignOut}>
         {t('logout.button')}

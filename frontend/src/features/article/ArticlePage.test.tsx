@@ -189,7 +189,7 @@ describe('ArticlePage', () => {
 
     renderDetail()
 
-    await waitFor(() => expect(document.title).toBe('Deprem sonrası son durum · Haber Arama'))
+    await waitFor(() => expect(document.title).toBe('Deprem sonrası son durum · Haber Arama Platformu'))
   })
 
   it('"Aramaya dön" gelinen aramaya, filtreleriyle birlikte döner', async () => {

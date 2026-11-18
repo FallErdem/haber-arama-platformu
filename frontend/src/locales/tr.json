@@ -1,7 +1,6 @@
 {
   "app": {
-    "title": "Haber Arama Platformu",
-    "brand": "Haber Arama"
+    "title": "Haber Arama Platformu"
   },
   "common": {
     "loading": "Yükleniyor…"
@@ -16,10 +15,6 @@
   },
   "layout": {
     "skipToContent": "İçeriğe geç"
-  },
-  "nav": {
-    "label": "Ana menü",
-    "search": "Arama"
   },
   "search": {
     "title": "Haberlerde ara",

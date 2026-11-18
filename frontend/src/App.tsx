@@ -20,7 +20,14 @@ export default function App() {
   }
 
   if (auth.isAuthenticated && auth.user) {
-    return <AuthenticatedApp accessToken={auth.user.access_token} onSignOut={() => void auth.signoutRedirect()} />
+    return (
+      <AuthenticatedApp
+        accessToken={auth.user.access_token}
+        onSignOut={() => void auth.signoutRedirect()}
+        // Keycloak oturumu sürüyorsa yönlendirme şifre sormadan geri döner; kullanıcı aynı adrese döner.
+        onSessionExpired={() => void auth.signinRedirect({ state: currentReturnPath() })}
+      />
+    )
   }
 
   // Sessiz giriş denemesinin başarısız olması olağandır (kullanıcı henüz giriş
@@ -29,7 +36,7 @@ export default function App() {
 
   return (
     <CenteredScreen>
-      <h1 className="text-4xl font-semibold tracking-tight">{t('app.brand')}</h1>
+      <h1 className="text-4xl font-semibold tracking-tight">{t('app.title')}</h1>
       <p className="mt-3 text-muted-foreground">{t('login.intro')}</p>
       {hasLoginFailed && (
         <p role="alert" className="mt-6 text-sm text-destructive">

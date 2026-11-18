@@ -1,7 +1,6 @@
 {
   "app": {
-    "title": "News Search Platform",
-    "brand": "News Search"
+    "title": "News Search Platform"
   },
   "common": {
     "loading": "Loading…"
@@ -16,10 +15,6 @@
   },
   "layout": {
     "skipToContent": "Skip to content"
-  },
-  "nav": {
-    "label": "Main menu",
-    "search": "Search"
   },
   "search": {
     "title": "Search the news",

@@ -81,7 +81,7 @@ function ArticleView({ article }: { article: ArticleDetail }) {
 
   // Sekmede haberin başlığı görünür; sayfadan çıkınca uygulamanın adına döner.
   useEffect(() => {
-    document.title = `${article.title} · ${t('app.brand')}`
+    document.title = `${article.title} · ${t('app.title')}`
     return () => {
       document.title = t('app.title')
     }
