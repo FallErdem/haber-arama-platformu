@@ -92,7 +92,7 @@ Hatalar RFC 9457 Problem Details biçiminde (`application/problem+json`) döner.
 | 409 | `SOURCE_MUST_BE_DISABLED` | Kaynak içeriğinin silinmesi için kaynağın önce devre dışı bırakılması gerekiyor |
 | 429 | `RATE_LIMITED` | İstek sınırı aşıldı (FOG-21) |
 | 503 | `MEDIA_UNAVAILABLE` | Görselin bulunduğu nesne depolamaya (MinIO) ulaşılamıyor |
-| 503 | `SEARCH_UNAVAILABLE` | Arama indeksine (Elasticsearch) ulaşılamıyor; aramayla ilgisi olmayan uç noktalar çalışmaya devam eder (FOG-09) |
+| 503 | `SEARCH_UNAVAILABLE` | Arama indeksine (Elasticsearch) ulaşılamıyor; arama ve haber detayı (metinler indekstedir) kullanılamaz, diğer uç noktalar çalışmaya devam eder (FOG-09) |
 | 500 | `INTERNAL_ERROR` | Beklenmeyen hata |
 
 ### 2.7 İstek kimliği
@@ -168,7 +168,7 @@ Yanıttaki her öğe:
 - `image`: Haberin ana görseli: indirilmiş görsellerinden sırası en küçük olanı (ana görsel indirilemediyse sıradaki). `url` imzalı görsel adresidir (bkz. 4.4). Görsel yoksa veya henüz indirilmemişse `null`, arayüz yer tutucu gösterir (FG-AR-08).
 - `otherSourcesCount`: Aynı gruptaki diğer kaynakların sayısı.
 - Yanıtın sayfalama alanlarına ek olarak `totalRelation` alanı bulunur (bkz. 2.4).
-- Gösterilen bilgiler (başlık, özet, kaynak, adres) arama indeksinden değil asıl kayıttan okunur. Gizlenmiş veya silinmiş bir haber, arama indeksindeki kopyası henüz kaldırılmamış olsa da sonuçta yer almaz (FG-AR-09); bu durumda bir sayfa `size` değerinden az öğe taşıyabilir.
+- Başlık, kaynak, adres, kategoriler ve görsel asıl kayıttan (PostgreSQL), özet arama indeksinden okunur (ADR-0019). Gizlenmiş haberin belgesi indekste gizli olarak işaretlidir; sonuçta yer almaz ve toplam sayıya girmez. PostgreSQL'de gizlenmiş veya silinmiş ama indeksteki belgesi henüz güncellenmemiş bir haber de sonuçta yer almaz (FG-AR-09); bu durumda bir sayfa `size` değerinden az öğe taşıyabilir.
 - Arama indeksine ulaşılamıyorsa `503 SEARCH_UNAVAILABLE` döner.
 
 ### 4.2 `GET /api/v1/articles/{id}` — Haber detayı
@@ -201,13 +201,15 @@ Yanıttaki her öğe:
 }
 ```
 
+- `summary`, `content` ve `author` arama indeksinden (Elasticsearch), diğer alanlar asıl kayıttan (PostgreSQL) okunur (ADR-0019). Haber yeni kaydedildiyse ve indekse henüz aktarılmadıysa (birkaç saniye) bu üç alan `null`'dır.
 - `content`: Tam metin; işçi tarafından temizlenmiş HTML (FOG-16). Kaynak tam metin vermiyorsa `null`, arayüz özeti gösterir (FG-AR-06).
+- `author`: Kaynak yazar bilgisi vermiyorsa `null`.
 - `media`: Yalnızca indirilmiş görseller, haberdeki sırasıyla listelenir; `url` imzalı görsel adresidir (bkz. 4.4). Görseli olmayan haberde boş listedir; arayüz yer tutucu gösterir (FG-AR-08). Mevcut kaynaklar altyazı ve fotoğrafçı bilgisi vermediğinden `caption` ve `credit` şimdilik `null`'dır.
 - `categories`: Arama sonuçlarındaki kuralla aynıdır; süresi dolan haberde `BREAKING` yer almaz (bkz. 4.1).
 - `otherSources`: Kaynaklar arası gruplama (FG-AR-10) gelene kadar boş listedir.
 - `saved`: Haberin bu kullanıcı tarafından kaydedilip kaydedilmediği. Kaydedilen haberler işleviyle (FG-KO-01) birlikte doldurulur; o zamana kadar `false`'tur.
 - Arayüz, kaynağın koduna göre gerekli atıfı ve logoyu gösterir (FG-AR-07, ADR-0009).
-- Gizlenmiş veya kayıtlı olmayan bir haber için `404 NOT_FOUND`, kimlik geçerli bir UUID değilse `400 VALIDATION_FAILED` döner.
+- Gizlenmiş veya kayıtlı olmayan bir haber için `404 NOT_FOUND`, kimlik geçerli bir UUID değilse `400 VALIDATION_FAILED`, arama indeksine ulaşılamıyorsa `503 SEARCH_UNAVAILABLE` döner.
 
 ### 4.3 `GET /api/v1/sources` ve `GET /api/v1/categories`
 

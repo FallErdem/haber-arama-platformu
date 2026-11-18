@@ -102,7 +102,7 @@ Backend, iş alanlarına göre altı modülden oluşur (ADR-0005; modül adları
 |---|---|---|
 | `identity` | Kullanıcı tablosu, kullanıcı durumları, token'daki kimliğin kullanıcıyla eşleştirilmesi, yetki kontrolü | API |
 | `ingestion` | API'de: kaynak ve besleme yönetimi, elle toplama ve içerik silme taleplerinin oluşturulması. İşçide: zamanlama, RSS/Atom/API okuyucuları, normalleştirme, kategori eşlemesi, tekrar kontrolü, görsel indirme, kaynak içeriğinin silinmesi | API ve işçi |
-| `search` | API'de: arama sorguları. İşçide: outbox aktarımı, tam yeniden indeksleme, kaynaklar arası gruplama | API ve işçi |
+| `search` | API'de: arama sorguları ve haber detayı (haber metinleri Elasticsearch'te olduğu için, ADR-0019). İşçide: outbox aktarımı, tam yeniden indeksleme, kaynaklar arası gruplama | API ve işçi |
 | `library` | Kaydedilen haberler ve kaydedilmiş aramalar | API |
 | `admin` | Yönetim paneli işlevleri ve istatistikler | API |
 | `audit` | Denetim kayıtlarının yazılması, aranması ve dışa aktarılması. İşçi, sistem kayıtlarını doğrudan yazar. | API ve işçi |
@@ -151,10 +151,10 @@ sequenceDiagram
     T->>K: Koşullu istek (ETag / Last-Modified)
     K-->>T: Besleme (veya 304 Değişmedi)
     T->>T: Ayrıştır, normalleştir, tekrarları ayıkla
-    T->>PG: Haber + outbox kaydı + görsel kuyruğu kaydı (tek işlem)
+    T->>PG: Haberin meta verisi + outbox kaydı (metinlerle) + görsel kuyruğu kaydı (tek işlem)
     Note over T,ES: Outbox işi (birkaç saniyede bir)
-    T->>PG: İşlenmemiş outbox kayıtlarını oku
-    T->>ES: Haberi indeksle
+    T->>PG: İşlenmemiş outbox kayıtlarını ve haberlerin meta verisini oku
+    T->>ES: Belgeyi yaz (meta veri + nottaki metinler)
     T->>PG: Outbox kaydını işlenmiş olarak işaretle
     Note over T,M: Görsel işi
     T->>K: Görseli indir
@@ -175,9 +175,12 @@ sequenceDiagram
     A->>A: JWT'yi önbellekteki /certs anahtarlarıyla doğrula
     A->>PG: Kullanıcının rolünü ve durumunu oku
     A->>ES: Arama sorgusu
-    ES-->>A: Sonuçlar
+    ES-->>A: Kimlikler, sıra, özetler, vurgular
+    A->>PG: Başlık, kaynak, adres, kategoriler, ana görsel (tek sorgu)
     A-->>B: Sonuçlar
 ```
+
+Haber detayı da aynı şekilde iki depodan birleştirilir: meta veri ve görseller PostgreSQL'den, özet, tam metin ve yazar Elasticsearch'ten (ADR-0019).
 
 ### 5.3 Giriş ve yetki kontrolü
 
@@ -248,7 +251,7 @@ sequenceDiagram
     T->>PG: Outbox kaydını işlenmiş olarak işaretle
 ```
 
-Gizleme, outbox kaydı işlenene kadar (birkaç saniye) aramaya yansımayabilir (ADR-0012).
+Gizleme, outbox kaydı işlenene kadar (birkaç saniye) aramaya yansımayabilir (ADR-0012). Belge silinmez, gizli olarak işaretlenir (`hidden: true`); metinlerin tek kaydı belge olduğundan gizleme geri alındığında haber metniyle birlikte aramaya döner (ADR-0019).
 
 ### 5.6 Toplama sırasında uygulanan kurallar
 
@@ -263,8 +266,8 @@ Gizleme, outbox kaydı işlenene kadar (birkaç saniye) aramaya yansımayabilir 
 
 | Depo | Tuttuğu veri |
 |---|---|
-| PostgreSQL | Kullanıcılar, kaynaklar ve beslemeler, haberlerin bütün bilgileri ve yaşam döngüsü durumu, görsel kayıtları, kaydedilen haberler ve aramalar, toplama işi kayıtları, outbox ve görsel kuyruğu, audit log |
-| Elasticsearch | Haberlerin arama için gereken alanları; aylık indeksler |
+| PostgreSQL | Kullanıcılar, kaynaklar ve beslemeler, haberlerin meta verisi (başlık dahil) ve yaşam döngüsü durumu, görsel kayıtları, kaydedilen haberler ve aramalar, toplama işi kayıtları, outbox ve görsel kuyruğu, audit log |
+| Elasticsearch | Haberlerin özeti, tam metni ve yazarı (tek kayıtları burasıdır, ADR-0019) ve aramada kullanılan meta verinin kopyası; aylık indeksler |
 | MinIO | Görsel dosyaları |
 | PostgreSQL (ayrı veritabanı) | Keycloak'ın kullanıcıları, oturumları ve olay kayıtları |
 

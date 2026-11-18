@@ -161,13 +161,13 @@ Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, ta
 
 ### 10. Arama indeksini yeniden oluştur (yalnızca gerektiğinde)
 
-İlk kurulumda gerekmez; işçi haberleri topladıkça arama indeksine kendisi yazar. İndeks yapısı değiştiğinde (yeni bir alan, başka bir analizör) veya PostgreSQL ile Elasticsearch arasında tutarsızlık şüphesi olduğunda çalıştırılır:
+İlk kurulumda gerekmez; işçi haberleri topladıkça arama indeksine kendisi yazar. İndeks yapısı değiştiğinde (yeni bir alan, başka bir analizör) veya PostgreSQL ile Elasticsearch arasında meta veri tutarsızlığı şüphesi olduğunda çalıştırılır:
 
 ```bash
 ./scripts/dev/reindex.sh
 ```
 
-Betik işçiyi durdurur, bütün haberleri yeni bir nesle (`articles-g2-...`) yazar, `articles` takma adını oraya taşır, eski neslin indekslerini siler ve işçiyi yeniden başlatır. Arama bu sırada kesilmez; yalnızca haber toplama bekler. İş başarısız olursa etkin nesil değişmez; betik yeniden çalıştırılabilir. Etkin nesil şu komutla görülür (takma adı taşıyan şablon):
+Betik işçiyi durdurur, belgeleri metinleriyle birlikte yeni bir nesle (`articles-g2-...`) kopyalar ve meta verilerini PostgreSQL'den yazar (haber metinlerinin tek kaydı Elasticsearch'tir, ADR-0019), `articles` takma adını yeni nesle taşır, eski neslin indekslerini siler ve işçiyi yeniden başlatır. Arama bu sırada kesilmez; yalnızca haber toplama bekler. İş başarısız olursa etkin nesil değişmez; betik yeniden çalıştırılabilir. Etkin nesil şu komutla görülür (takma adı taşıyan şablon):
 
 ```bash
 export ES_PW=$(grep '^password=' deploy/k8s/overlays/dev/secrets/elasticsearch-news-worker.env | cut -d= -f2)
@@ -185,7 +185,7 @@ kubectl exec -n haber elasticsearch-0 -- curl -s -u "news_worker:$ES_PW" 'localh
 | API | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/api/v1/me` | `401` (token olmadan) |
 | Frontend | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/` | `200` |
 | İşçi | `kubectl logs -n haber deploy/worker --tail=5` | "Okuma zamanı gelmiş besleme sayısı: ..." ve "Besleme toplandı: ... (yeni: ..., tekrar: ..., atlanan: ...)" satırları |
-| Outbox aktarımı | `kubectl logs -n haber deploy/worker --tail=200 \| grep Outbox` | "Outbox aktarıldı (not: ..., yazılan haber: ..., silinen haber: ..., hata: 0)" satırları; Elasticsearch kapalıyken "Elasticsearch'e ulaşılamadı; outbox notları bekliyor" |
+| Outbox aktarımı | `kubectl logs -n haber deploy/worker --tail=200 \| grep Outbox` | "Outbox aktarıldı (not: ..., yazılan haber: ..., metniyle yazılan: ..., silinen haber: ..., hata: 0)" satırları; Elasticsearch kapalıyken "Elasticsearch'e ulaşılamadı; outbox notları bekliyor" |
 | Görsel indirme | `kubectl logs -n haber deploy/worker --tail=200 \| grep Görseller` | "Görseller işlendi (indirilen: ..., yeniden denenecek: ..., başarısız: ...)" satırları; MinIO kapalıyken "Nesne depolamaya ulaşılamadı; görseller bekliyor" |
 | API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{content_type}\n" http://haber.localhost/actuator/health` | `text/html` (yanıtı API değil frontend verir; API'nin yanıtı `application/...json` olurdu) |
 
