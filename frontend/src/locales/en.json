@@ -6,17 +6,105 @@
     "loading": "Loading…"
   },
   "login": {
+    "intro": "Search news gathered from different sources in one place.",
     "button": "Sign in",
     "failed": "Sign-in failed. Please try again."
   },
   "logout": {
     "button": "Sign out"
   },
+  "layout": {
+    "skipToContent": "Skip to content"
+  },
+  "search": {
+    "title": "Search the news",
+    "queryLabel": "Search terms",
+    "queryPlaceholder": "Search for news, people or places",
+    "submit": "Search",
+    "clearQuery": "Clear search",
+    "filters": {
+      "label": "Filters",
+      "source": "Source",
+      "category": "Category",
+      "language": "Language",
+      "allLanguages": "All languages",
+      "date": "Date",
+      "clearDate": "Clear date",
+      "breaking": "Breaking",
+      "clear": "Clear filters",
+      "selectedCount": "{{label}} · {{count}}"
+    },
+    "sort": {
+      "label": "Sort by",
+      "relevance": "Relevance",
+      "newest": "Newest"
+    },
+    "resultCount_one": "{{formatted}} result",
+    "resultCount_other": "{{formatted}} results",
+    "resultCountAtLeast": "{{formatted}}+ results",
+    "loading": "Loading results…",
+    "empty": "No news matched your search.",
+    "pageEmpty": "There are no results on this page.",
+    "firstPage": "Back to the first page",
+    "loadFailed": "Results could not be loaded.",
+    "retry": "Try again",
+    "moreSources_one": "{{count}} more source",
+    "moreSources_other": "{{count}} more sources",
+    "pagination": {
+      "label": "Pages",
+      "quickLabel": "Quick page navigation",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {{page}}",
+      "status": "Page {{page}} of {{total}}",
+      "limit": "At most 10,000 results can be shown. Narrow your search to reach older news."
+    }
+  },
+  "article": {
+    "back": "Back to search",
+    "byAuthor": "By {{author}}",
+    "categories": "Categories",
+    "readAtSource": "Read the full story at the source",
+    "source": "Source",
+    "photoCredit": "Photo: {{credit}}",
+    "otherSources": "Other sources reporting this story",
+    "loading": "Loading the story…",
+    "loadFailed": "The story could not be loaded.",
+    "textUnavailable": "Story texts are unavailable right now. Please try again shortly.",
+    "textPending": "The story text is not ready yet. Try again in a few seconds or read it at the source.",
+    "retry": "Try again",
+    "license": {
+      "GLOBALVOICES": {
+        "text": "This story is published under the Creative Commons Attribution (CC BY) license.",
+        "policy": "Global Voices attribution policy"
+      }
+    }
+  },
+  "categories": {
+    "GENERAL": "Top stories",
+    "WORLD": "World",
+    "ECONOMY": "Economy",
+    "SPORTS": "Sports",
+    "HEALTH": "Health",
+    "SCIENCE_TECH": "Science and technology",
+    "CULTURE_ARTS": "Culture and arts",
+    "LIFESTYLE": "Lifestyle",
+    "BREAKING": "Breaking",
+    "OTHER": "Other"
+  },
+  "languages": {
+    "tr": "Turkish",
+    "en": "English"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "The page you are looking for may have moved or may never have existed.",
+    "back": "Back to search"
+  },
   "account": {
     "loadFailed": "Your account details could not be loaded. Please try again later.",
     "status": {
       "PENDING": "Your account is waiting for administrator approval.",
-      "ACTIVE": "Welcome, {{name}}.",
       "PASSIVE": "Your account has been deactivated.",
       "REJECTED": "Your registration request was rejected."
     }

@@ -1,4 +1,6 @@
 {
   "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+  // shadcn komutu kısaltmayı bu dosyada arar; derleme tsconfig.app.json'dakini kullanır.
+  "compilerOptions": { "paths": { "@/*": ["./src/*"] } }
 }

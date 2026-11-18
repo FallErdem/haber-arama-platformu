@@ -123,7 +123,7 @@ class IngestionService:
             return
 
         try:
-            read = self._reader.read(fetched.body, feed.field_mapping)
+            read = self._reader.read(fetched.body, feed.field_mapping, feed.feed_time_zone)
         except FeedParseError as error:
             await self._fail(connection, feed, run_id, str(error), fetched.http_status, fetched.final_url)
             return

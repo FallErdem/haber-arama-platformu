@@ -67,6 +67,7 @@ erDiagram
 | `request_interval_seconds` | `integer` | Zorunlu, sıfırdan büyük | İki istek arasında beklenecek süre |
 | `daily_request_limit` | `integer` | Boş olabilir, sıfırdan büyük | Son 24 saatteki en fazla istek sayısı; boşsa sınır yok (NYT için 400) |
 | `field_mapping` | `jsonb` | | Alanların nereden okunacağı |
+| `feed_time_zone` | `text` | | Beslemedeki saatlerin gerçekte yazıldığı saat dilimi (IANA adı, örnek `Europe/Istanbul`); boşsa beslemede yazan saat dilimine güvenilir |
 | `license` | `text` | | Kullanım hakkının dayanağı |
 | `attribution_text` | `text` | | Arayüzde gösterilecek atıf metni |
 | `purge_requested_at` | `timestamptz` | | Kaynak içeriğinin silinmesi istendiğinde dolar; işçi silmeyi tamamladığında boşaltır (FG-YP-14) |
@@ -76,6 +77,7 @@ erDiagram
 
 - API anahtarları bu tabloda tutulmaz; kaynağın `code` değerine göre yapılandırmadan okunur.
 - `field_mapping`, kaynağın standart dışı etiketlerini okuyucuya tanıtır. Şu an tek anahtar `image`'dır: haberin ana görselinin okunacağı etiketin adı. Örnek: CNN Türk için `{"image": "image"}` (`V12` betiği). Değer boşsa görsel standart alanlardan okunur (ADR-0017, 8. bölüm).
+- `feed_time_zone`, saat dilimini yanlış yazan kaynaklar içindir: doluysa okuyucu beslemedeki saati bu saat diliminde okur, yanındaki saat dilimi bilgisini yok sayar. CNN Türk Türkiye saatini yazıp yanına "GMT" koyduğu için değeri `Europe/Istanbul`'dur; `V15` betiği ayrıca CNN Türk'ün daha önce 3 saat ileri kaydedilen haberlerini düzeltti. Tanınmayan bir ad okumayı başarısız yapar ve nedeni toplama geçmişinde görünür (ADR-0017, 8. bölüm).
 
 ### 3.3 `feeds` (modül: ingestion)
 

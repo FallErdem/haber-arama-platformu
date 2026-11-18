@@ -9,7 +9,7 @@ Bu doküman, arayüzün ekranlarını, ekranlar arasındaki geçişleri ve uçta
 - **Dil:** Arayüz Türkçedir; bütün metinler dil dosyalarında tutulur (FOG-31). Haberlerin içeriği kaynağın dilinde gösterilir. Hata mesajları, API'nin döndüğü hata kodlarından dil dosyalarıyla üretilir (FOG-27).
 - **Tarihler:** Europe/Istanbul saatiyle gösterilir (FOG-33).
 - **Ekran boyutları:** 360 piksel ile 1920 piksel arasındaki genişliklerde kullanılabilir olmalıdır (FOG-34).
-- **Erişilebilirlik:** WCAG 2.2 AA düzeyi (FOG-30). Bütün işlemler klavyeyle yapılabilir; görsellerin alternatif metni, görselin altyazısı veya haberin başlığıdır.
+- **Erişilebilirlik:** WCAG 2.2 AA düzeyi (FOG-30). Bütün işlemler klavyeyle yapılabilir; görsellerin alternatif metni, görselin altyazısı veya haberin başlığıdır. Görsel, başlığın hemen yanında yalnızca süs olarak duruyorsa (arama sonuçları) alternatif metni boştur; ekran okuyucu başlığı iki kez okumaz.
 - **Yetki:** Yönetim paneli menüsü yalnızca `ADMIN` rolündeki kullanıcılara gösterilir. Bu yalnızca bir kolaylıktır; yetki kontrolü backend'de yapılır.
 - **Atıf:**
   - Her haberde kaynağın adı ve özgün habere bağlantı gösterilir (FG-AR-07).
@@ -141,9 +141,9 @@ Bu akışlar, uçtan uca testlerin senaryolarının temelidir.
   - Filtreler: kaynak (çoklu seçim), dil, kategori (çoklu seçim), tarih aralığı
   - Son Dakika için hızlı erişim düğmesi
   - Sıralama: İlgililik veya En yeni. Arama kutusu boşken yalnızca En yeni.
-  - Sonuç kartları: görsel, başlık, vurgulanmış özet, kaynak adı, yayın tarihi ve "N kaynak daha" bilgisi
-  - Sayfalama
-  - "Bu aramayı kaydet" butonu
+  - Sonuç kartları: görsel, başlık, vurgulanmış özet, kaynak adı, yayın tarihi ve "N kaynak daha" bilgisi. Görsel başlığın hemen yanında olduğu için alternatif metni boştur; ekran okuyucu başlığı iki kez okumaz. Son 24 saatteki haberin zamanı göreli ("3 saat önce"), daha eskisininki tarih ve saattir.
+  - Sayfalama: önceki/sonraki ve sayfa numaraları (`1 2 3 4 5 … 150`; her sayfada yedi yuva, bağlantılar kaymaz). Dar ekranda numaralar yerine "Sayfa 2 / 150". Listenin üstünde de kısa bir sayfa geçişi (`‹ 2 / 150 ›`) bulunur: yeni sayfaya geçince sayfanın başına dönülür, önceki/sonraki için en alta inmek gerekmez.
+  - "Bu aramayı kaydet" butonu (İ-30)
 - **Davranışlar:**
   - Arama kutusu boşken en yeni haberler listelenir.
   - Arama ifadesi, filtreler, sıralama ve sayfa adres çubuğunda tutulur; geri butonu ve sayfa yenileme aramayı korur.
@@ -164,7 +164,11 @@ Bu akışlar, uçtan uca testlerin senaryolarının temelidir.
   - "Aynı haberi veren diğer kaynaklar" listesi
   - Kaydet ve kayıttan çıkar butonu
   - Yalnızca yöneticilere: "Gizle" butonu
-- **Davranışlar:** Gizleme butonu, gerekçe alanı zorunlu olan bir onay penceresi açar.
+- **Davranışlar:**
+  - Gizleme butonu, gerekçe alanı zorunlu olan bir onay penceresi açar.
+  - "Aramaya dön" bağlantısı, gelinen aramaya filtreleri ve sayfasıyla döner; detay doğrudan açıldıysa ana sayfaya gider.
+  - Tam metin, işçinin temizlediği HTML'dir ve tarayıcıda ikinci kez temizlenir (ADR-0018, 6. bölüm); metindeki bağlantılar yeni sekmede açılır.
+  - Haber yeni kaydedildiyse ve metni arama indeksine henüz aktarılmadıysa (birkaç saniye) "metin henüz hazır değil" mesajı gösterilir. Arama indeksine ulaşılamıyorsa metinlerin alınamadığı söylenir ve yeniden deneme seçeneği sunulur.
 - **Uç noktalar:** `GET /articles/{id}`, `PUT` ve `DELETE /me/saved-articles/{articleId}`, `POST /admin/articles/{id}/hide`
 
 #### Kaydedilenler

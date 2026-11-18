@@ -18,6 +18,9 @@
 
     "resolveJsonModule": true,
 
+    /* "@/..." içe aktarmaları src/ klasörüne çözülür (vite.config.ts'deki alias ile aynı). */
+    "paths": { "@/*": ["./src/*"] },
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,

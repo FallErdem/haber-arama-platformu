@@ -6,17 +6,105 @@
     "loading": "Yükleniyor…"
   },
   "login": {
+    "intro": "Farklı kaynaklardan toplanan haberleri tek yerden arayın.",
     "button": "Giriş yap",
     "failed": "Giriş yapılamadı. Lütfen yeniden deneyin."
   },
   "logout": {
     "button": "Çıkış yap"
   },
+  "layout": {
+    "skipToContent": "İçeriğe geç"
+  },
+  "search": {
+    "title": "Haberlerde ara",
+    "queryLabel": "Arama ifadesi",
+    "queryPlaceholder": "Haber, kişi veya yer ara",
+    "submit": "Ara",
+    "clearQuery": "Aramayı temizle",
+    "filters": {
+      "label": "Filtreler",
+      "source": "Kaynak",
+      "category": "Kategori",
+      "language": "Dil",
+      "allLanguages": "Tüm diller",
+      "date": "Tarih",
+      "clearDate": "Tarihi temizle",
+      "breaking": "Son Dakika",
+      "clear": "Filtreleri temizle",
+      "selectedCount": "{{label}} · {{count}}"
+    },
+    "sort": {
+      "label": "Sıralama",
+      "relevance": "İlgililik",
+      "newest": "En yeni"
+    },
+    "resultCount_one": "{{formatted}} sonuç",
+    "resultCount_other": "{{formatted}} sonuç",
+    "resultCountAtLeast": "{{formatted}}+ sonuç",
+    "loading": "Sonuçlar yükleniyor…",
+    "empty": "Aramanızla eşleşen haber bulunamadı.",
+    "pageEmpty": "Bu sayfada sonuç yok.",
+    "firstPage": "İlk sayfaya dön",
+    "loadFailed": "Sonuçlar alınamadı.",
+    "retry": "Yeniden dene",
+    "moreSources_one": "{{count}} kaynak daha",
+    "moreSources_other": "{{count}} kaynak daha",
+    "pagination": {
+      "label": "Sayfalar",
+      "quickLabel": "Hızlı sayfa geçişi",
+      "previous": "Önceki",
+      "next": "Sonraki",
+      "page": "Sayfa {{page}}",
+      "status": "Sayfa {{page}} / {{total}}",
+      "limit": "En fazla 10.000 sonuç gösterilebilir. Daha eskilere ulaşmak için aramanızı daraltın."
+    }
+  },
+  "article": {
+    "back": "Aramaya dön",
+    "byAuthor": "Yazan: {{author}}",
+    "categories": "Kategoriler",
+    "readAtSource": "Haberin tamamını kaynağında oku",
+    "source": "Kaynak",
+    "photoCredit": "Fotoğraf: {{credit}}",
+    "otherSources": "Aynı haberi veren diğer kaynaklar",
+    "loading": "Haber yükleniyor…",
+    "loadFailed": "Haber alınamadı.",
+    "textUnavailable": "Haber metinleri şu an alınamıyor. Biraz sonra yeniden deneyin.",
+    "textPending": "Haberin metni henüz hazır değil. Birkaç saniye sonra yeniden deneyin ya da haberi kaynağında okuyun.",
+    "retry": "Yeniden dene",
+    "license": {
+      "GLOBALVOICES": {
+        "text": "Bu haber Creative Commons Atıf (CC BY) lisansıyla yayımlanmıştır.",
+        "policy": "Global Voices atıf politikası"
+      }
+    }
+  },
+  "categories": {
+    "GENERAL": "Gündem",
+    "WORLD": "Dünya",
+    "ECONOMY": "Ekonomi",
+    "SPORTS": "Spor",
+    "HEALTH": "Sağlık",
+    "SCIENCE_TECH": "Bilim ve Teknoloji",
+    "CULTURE_ARTS": "Kültür ve Sanat",
+    "LIFESTYLE": "Yaşam",
+    "BREAKING": "Son Dakika",
+    "OTHER": "Diğer"
+  },
+  "languages": {
+    "tr": "Türkçe",
+    "en": "İngilizce"
+  },
+  "notFound": {
+    "title": "Sayfa bulunamadı",
+    "text": "Aradığınız sayfa taşınmış ya da hiç var olmamış olabilir.",
+    "back": "Aramaya dön"
+  },
   "account": {
     "loadFailed": "Hesap bilgileri alınamadı. Lütfen daha sonra yeniden deneyin.",
     "status": {
       "PENDING": "Hesabınız yönetici onayı bekliyor.",
-      "ACTIVE": "Hoş geldiniz, {{name}}.",
       "PASSIVE": "Hesabınız pasif duruma alınmış.",
       "REJECTED": "Kayıt talebiniz reddedildi."
     }

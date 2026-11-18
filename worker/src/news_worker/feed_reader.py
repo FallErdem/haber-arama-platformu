@@ -8,10 +8,12 @@ import io
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlsplit
 from xml.etree import ElementTree
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import feedparser
 
@@ -33,7 +35,8 @@ _IMAGE_TYPE_PREFIX = "image/"
 
 
 class FeedParseError(Exception):
-    """Gelen metin RSS veya Atom olarak tanınamadı (örneğin besleme yerine bir hata sayfası döndü)."""
+    """Besleme okunamadı: gelen metin RSS veya Atom olarak tanınmadı (örneğin besleme yerine bir hata
+    sayfası döndü) ya da kaynağın okuma ayarı geçersiz (tanınmayan saat dilimi adı)."""
 
 
 @dataclass(frozen=True)
@@ -46,8 +49,19 @@ class FeedReadResult:
 class FeedReader:
     """RSS ve Atom okuyucusu. feedparser iki biçimi de aynı alan adlarıyla verdiği için tek sınıftır."""
 
-    def read(self, body: bytes, field_mapping: Mapping[str, str] | None = None) -> FeedReadResult:
-        """Beslemeyi okur. Boş besleme hata değildir; tanınmayan içerik `FeedParseError` fırlatır."""
+    def read(
+        self,
+        body: bytes,
+        field_mapping: Mapping[str, str] | None = None,
+        feed_time_zone: str | None = None,
+    ) -> FeedReadResult:
+        """Beslemeyi okur. Boş besleme hata değildir; tanınmayan içerik `FeedParseError` fırlatır.
+
+        `feed_time_zone` (`sources.feed_time_zone`): beslemedeki saatlerin gerçekte yazıldığı saat
+        dilimi. Verilirse saatin yanındaki saat dilimi bilgisi yok sayılır. Saat dilimini yanlış
+        yazan kaynaklar içindir: CNN Türk Türkiye saatini yazıp yanına "GMT" koyar.
+        """
+        time_zone = _time_zone(feed_time_zone) if feed_time_zone else None
         # BytesIO: feedparser'a düz metin verilirse onu bir adres veya dosya yolu sanıp açmayı
         # dener; dosya benzeri bir nesne verildiğinde yalnızca içeriğini okur.
         parsed = feedparser.parse(io.BytesIO(body))
@@ -60,7 +74,7 @@ class FeedReader:
         articles: list[ParsedArticle] = []
         skipped_count = 0
         for entry in parsed.entries:
-            article = _to_article(entry, custom_images)
+            article = _to_article(entry, custom_images, time_zone)
             if article is None:
                 skipped_count += 1
             else:
@@ -71,13 +85,20 @@ class FeedReader:
         return FeedReadResult(articles=tuple(articles), skipped_count=skipped_count)
 
 
-def _to_article(entry: Any, custom_images: Mapping[str, str]) -> ParsedArticle | None:
+def _time_zone(name: str) -> tzinfo:
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError) as error:
+        raise FeedParseError(f"Kaynağın saat dilimi ayarı tanınmıyor: {name}") from error
+
+
+def _to_article(entry: Any, custom_images: Mapping[str, str], time_zone: tzinfo | None) -> ParsedArticle | None:
     """feedparser'ın verdiği haberi ortak yapıya çevirir; zorunlu bir alan eksikse None döner."""
     url = _text(entry.get("link"))
     # Kimlik vermeyen kaynaklarda haberin adresi kimlik sayılır.
     external_id = _text(entry.get("id")) or url
     title = to_plain_text(_text(entry.get("title")) or "")
-    published_at = _published_at(entry)
+    published_at = _published_at(entry, time_zone)
     if url is None or external_id is None or not is_http_url(url) or not title or published_at is None:
         return None
 
@@ -100,14 +121,40 @@ def _to_article(entry: Any, custom_images: Mapping[str, str]) -> ParsedArticle |
     )
 
 
-def _published_at(entry: Any) -> datetime | None:
+def _published_at(entry: Any, time_zone: tzinfo | None) -> datetime | None:
     # feedparser tarihi hangi saat diliminde gelirse gelsin UTC'ye çevirip verir (FG-VT-08);
     # burada yalnızca Python tarihine dönüştürülür. Yayın tarihi yoksa güncellenme tarihi kullanılır.
     parsed_time = entry.get("published_parsed") or entry.get("updated_parsed")
     if parsed_time is None:
         return None
     year, month, day, hour, minute, second = parsed_time[:6]
-    return datetime(year, month, day, hour, minute, second, tzinfo=UTC)
+    published_at = datetime(year, month, day, hour, minute, second, tzinfo=UTC)
+    if time_zone is None:
+        return published_at
+    # feedparser'ın UTC'ye çevirdiği değer yazan saat dilimine göre hesaplanmıştır; burada saat,
+    # beslemede yazıldığı haliyle yeniden okunur ve kaynağın gerçek saat dilimiyle yorumlanır.
+    written = _written_clock_time(entry.get("published") or entry.get("updated"))
+    if written is None:
+        return published_at
+    return written.replace(tzinfo=time_zone).astimezone(UTC)
+
+
+def _written_clock_time(value: Any) -> datetime | None:
+    """Tarihin beslemede yazdığı gün ve saat; yanındaki saat dilimi bilgisi atılmış olarak.
+
+    RSS tarihleri e-posta biçimindedir (`Fri, 13 Nov 2026 16:28:48 GMT`), Atom tarihleri ISO 8601
+    (`2026-11-13T16:28:48Z`). İkisi de okunamazsa None döner; o zaman feedparser'ın değeri kullanılır.
+    """
+    if not isinstance(value, str):
+        return None
+    try:
+        return parsedate_to_datetime(value).replace(tzinfo=None)
+    except TypeError, ValueError:
+        pass
+    try:
+        return datetime.fromisoformat(value).replace(tzinfo=None)
+    except ValueError:
+        return None
 
 
 def _first_content(entry: Any) -> str | None:

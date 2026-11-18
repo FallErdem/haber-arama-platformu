@@ -123,8 +123,29 @@ Not: nginx burada yalnızca statik dosya sunucusu olarak kullanılır; emekliye 
 - **Sessiz yeniden giriş:** Token bellekte tutulduğundan sayfa yenilendiğinde kaybolur. Sayfa açılırken uygulama, görünmeyen bir çerçevede Keycloak'a ekran göstermeden giriş isteği gönderir; Keycloak oturumu sürüyorsa yeni token alınır, sürmüyorsa giriş düğmesi gösterilir. Bu, Keycloak'ın oturum çerezine ve aynı site kararına dayanır (1. bölüm). Dönüş adresi normal girişle aynıdır (`/oidc-callback`); Keycloak'ta ek bir adres tanımlanmaz.
 - **Sunucu verisi** TanStack Query ile alınır; **çeviri** `i18next` ve `react-i18next` ile yapılır, metinler `src/locales/` altındaki dil dosyalarındadır (FOG-31).
 - **Testler** Vitest ve React Testing Library ile, jsdom ortamında çalışır; Keycloak ve API taklit edilir. Gerçek Keycloak ile giriş, uçtan uca testlerin konusudur (`08-test-stratejisi.md`).
-- **Sonraya bırakılanlar:** Görsel kütüphane (shadcn/ui, Tailwind) ve sayfa yönlendirmesi (React Router, Zod) iskelette kurulmamıştır; kullanıldıkları ilk ekranla birlikte eklenecektir. Kod stili aracı Prettier, İ-09'da eklenecektir.
+- **Sonraya bırakılanlar:** Görsel kütüphane (shadcn/ui, Tailwind) ve sayfa yönlendirmesi (React Router, Zod) iskelette kurulmamıştır; kullanıldıkları ilk ekranla birlikte eklenecektir. Kod stili aracı Prettier, İ-09'da eklenecektir. (İkisi de eklendi: Prettier İ-09'da, diğerleri İ-19'da; aşağıya bakın.)
 - **Sürümler** `package.json`'da aralık olmadan, kesin olarak yazılır; dolaylı bağımlılıkların sürümleri `package-lock.json` ile sabitlenir.
+
+Arama ve haber detayı ekranları (İ-19, 18 Kasım 2026) kurulurken eklenenler:
+
+| Araç | Sürüm | Ne için | Neden bu, alternatifi |
+|---|---|---|---|
+| React Router | 8.5.1 | Sayfa adresleri: `/` arama, `/articles/:id` detay, gerisi "bulunamadı" | En basit kullanımıyla (`BrowserRouter`, `Routes`) kurulur. Kendi veri yükleme özelliği kullanılmaz; veriyi TanStack Query getirir, iki araç aynı işi yapmaz. |
+| Zod | 4.6.7 | Adres çubuğundaki arama parametrelerinin doğrulanması | Adres kullanıcının değiştirebileceği bir girdidir; her parametrenin geçerli değeri ve geçersizse varsayılanı tek bir şemada yazılıdır. Elle yazılan `if` zincirine göre kısa ve türünü TypeScript'e kendisi verir. Daha küçük `zod/mini` sürümü yazımı daha az okunur olduğu için seçilmedi. |
+| Tailwind CSS (`@tailwindcss/vite`) | 4.3.4 | Stil | Sınıflar bileşenin üstüne yazılır, derleme yalnızca kullanılanların CSS'ini üretir. |
+| shadcn/ui (stil `aria-nova`) | Komut 4.23.0 | Düğme, seçim kutusu, açılır pencere, takvim, aç/kapa düğmesi, metin kutusu | Paket değildir; bileşenlerin kaynak kodu `src/components/ui/` altına kopyalanır ve projenin parçası olur. Yalnızca kullanılan parçalar alındı. `shadcn` paketi kurulmadı: bir komut satırı aracıdır ve 32 bağımlılık getirirdi; bileşenlerin ihtiyaç duyduğu dokuz CSS tanımı kaynağı yazılarak `index.css`'e alındı. |
+| React Aria Components (Adobe) | 1.22.1 | shadcn bileşenlerinin altındaki erişilebilirlik katmanı: klavye, dokunma, ekran okuyucu, odak yönetimi | Radix ve Base UI ile birlikte denendi. WCAG ve klavye davranışı en kapsamlı olanıdır (FOG-30); takvimde Türkçe ay adları ve Pazartesi ile başlayan hafta dil ayarından gelir; takvim için `react-day-picker` ve `date-fns` gerekmez. Radix'in artısı shadcn ile daha yaygın kullanılmasıdır. |
+| `@internationalized/date` | 3.12.4 | Takvimin tarih türleri; "Türkiye saatiyle günün başı ve sonu" hesabı | React Aria ile zaten gelir; doğrudan kullanıldığı için aynı sürümle açıkça eklendi. Saat farkı koda yazılmaz, saat dilimi kurallarından hesaplanır. |
+| `cn`, `class-variance-authority` | 0.5.2, 0.7.1 | Sınıf adlarını birleştirme; bileşen türlerine göre sınıf tablosu | shadcn bileşenlerinin kullandıkları. `cn` shadcn'in kendi paketidir. |
+| `lucide-react` | 1.68.0 | İkonlar | shadcn'in ikon kütüphanesi; shadcn'in seçtiği sürüm aynı gün yayımlanmıştı, iki haftalık sürüme sabitlendi. |
+| `@fontsource-variable/newsreader` | 5.3.0 | Başlık ve haber metni yazı tipi | Haber okumak için tasarlanmış, açık lisanslı (OFL) serif yazı tipi; npm paketinden derlemeye girer ve uygulamanın kendi sunucusundan sunulur, Google'a istek gitmez. Türkçe harfler `latin-ext` alt kümesindedir. |
+| DOMPurify | 3.4.17 | Haberin tam metninin tarayıcıda ikinci kez temizlenmesi | Tam metin HTML olarak sayfaya basılır. İşçi kaydederken `nh3` ile temizler (FOG-16); işçideki temizlik bir hata yüzünden atlanırsa sayfaya sızan bir betik bellekteki token'ı okuyabilirdi. İzin verilen etiketler işçininkiyle aynıdır. |
+
+- **Görünüm:** Gazete sadeliği; kâğıt rengi zemin, mürekkep rengi metin, tek vurgu rengi (bordo), kart ve gölge yerine ince çizgiler. Renkler `index.css`'te shadcn'in beklediği değişken adlarıyla tanımlıdır; metin renklerinin zemine karşıtlığı WCAG AA'nın 4,5:1 sınırının üzerindedir. Koyu tema şimdilik yoktur.
+- **Arama durumu adres çubuğundadır:** İfade, filtreler, sıralama ve sayfa adreste tutulur; geri düğmesi, sayfa yenileme ve paylaşma ek kod gerektirmez. Bozuk bir değer API'ye gitmez, varsayılana döner. Adreste sayfa 1'den başlar, API'de 0'dan; tarihler adreste gün (`2026-11-05`), API'ye Türkiye saatindeki günün başı ve sonu olarak gider.
+- **Vurgulama HTML olarak basılmaz:** `<mark>` etiketleri ayrılır, geri kalan metin React'e düz metin olarak verilir.
+- **Yeniden deneme:** Sunucunun döndürdüğü hata yeniden denenmez, kullanıcı mesajı hemen görür; yalnızca ağ hataları iki kez daha denenir. TanStack Query'nin varsayılanı her hatayı üç kez dener; kapalı bir arama indeksinde mesaj yaklaşık 7 saniye gecikiyordu.
+- **Oturum hataları tek yerde:** 401 alan istek yeniden girişi başlatır (kullanıcı bulunduğu adrese döner); hesap durumunu bildiren 403 hesap bilgisinin yeniden okunmasını tetikler, uygulama hesap durumu ekranına geçer. Oturumu olmayan kullanıcı paylaşılan bir adresi açarsa girişten sonra o adrese döner; dönüş adresi yalnızca uygulamanın kendi yollarından biri olabilir (açık yönlendirme engellenir).
 
 ### 7. Yerel ortamdaki altyapı bileşenlerinin kurulumu
 

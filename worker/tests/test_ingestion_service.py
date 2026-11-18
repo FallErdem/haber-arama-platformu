@@ -210,6 +210,24 @@ async def test_mixed_feed_assigns_categories_from_article_urls_and_reads_custom_
     assert count(admin, "media") == 2
 
 
+async def test_cnnturk_times_are_read_with_the_source_time_zone(
+    service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
+) -> None:
+    """CNN Türk'ün "GMT" yazan saatleri veritabanındaki ayarla (V15) Türkiye saati olarak kaydedilir."""
+    feed = await due_feed(database, "CNNTURK", "all")
+    respx_mock.get(feed.url).respond(200, content=fixture_body("cnnturk-all.xml"))
+
+    await service.ingest(feed)
+
+    rows = admin.execute("SELECT published_at FROM articles ORDER BY published_at DESC").fetchall()
+    # Beslemede 17:05:15, 17:01:24 ve 16:46:44 "GMT" yazıyor; bunlar Türkiye saatidir (UTC+3).
+    assert [row[0].astimezone(UTC) for row in rows] == [
+        datetime(2026, 11, 13, 14, 5, 15, tzinfo=UTC),
+        datetime(2026, 11, 13, 14, 1, 24, tzinfo=UTC),
+        datetime(2026, 11, 13, 13, 46, 44, tzinfo=UTC),
+    ]
+
+
 async def test_repeated_articles_are_counted_as_duplicates(
     service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
 ) -> None:
@@ -448,7 +466,7 @@ class StubReader(FeedReader):
         self._articles = articles
         self._error = error
 
-    def read(self, body: bytes, field_mapping: Any = None) -> FeedReadResult:
+    def read(self, body: bytes, field_mapping: Any = None, feed_time_zone: str | None = None) -> FeedReadResult:
         if self._error is not None:
             raise self._error
         return FeedReadResult(articles=self._articles, skipped_count=0)
