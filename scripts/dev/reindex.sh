@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Arama indeksini PostgreSQL'den baştan üretir (tam yeniden indeksleme, ADR-0012).
+# Arama indeksini yeni bir nesle taşır (tam yeniden indeksleme, ADR-0012, ADR-0019): belgeler
+# metinleriyle eski nesilden kopyalanır, meta veri PostgreSQL'den yazılır.
 #
 # Ne zaman: indeks yapısı değiştiğinde (yeni alan, başka analizör) veya PostgreSQL ile
-# Elasticsearch arasında tutarsızlık şüphesi olduğunda.
+# Elasticsearch arasında meta veri tutarsızlığı şüphesi olduğunda.
 #
 # Adımlar: işçi durdurulur -> yeniden indeksleme Job'u çalışır -> işçi yeniden başlatılır.
 # Arama bu sırada kesilmez (API eski indekslerden okur); yalnızca haber toplama bekler.
