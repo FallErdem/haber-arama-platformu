@@ -1,7 +1,7 @@
 import { NewspaperIcon } from 'lucide-react'
 import { useLocale } from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import type { ArticleImage, ArticleSearchItem } from '../../api/articles'
 import { formatPublishedAt } from '../../lib/time'
 import { Highlighted } from './Highlighted'
@@ -13,6 +13,7 @@ import { Highlighted } from './Highlighted'
 export function ResultItem({ item }: { item: ArticleSearchItem }) {
   const { t } = useTranslation()
   const { locale } = useLocale()
+  const location = useLocation()
   const title = item.highlights?.title?.[0]
   const summary = item.highlights?.summary?.[0]
 
@@ -27,7 +28,12 @@ export function ResultItem({ item }: { item: ArticleSearchItem }) {
           <time dateTime={item.publishedAt}>{formatPublishedAt(item.publishedAt, locale)}</time>
         </p>
         <h2 className="mt-1 text-lg leading-snug font-semibold sm:text-xl">
-          <Link to={`/articles/${item.id}`} className="decoration-1 underline-offset-4 hover:underline">
+          {/* state: detay sayfasındaki "Aramaya dön" bu aramaya (filtreler ve sayfa dahil) döner. */}
+          <Link
+            to={`/articles/${item.id}`}
+            state={{ search: location.search }}
+            className="decoration-1 underline-offset-4 hover:underline"
+          >
             {title ? <Highlighted fragment={title} /> : item.title}
           </Link>
         </h2>

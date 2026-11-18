@@ -7,7 +7,7 @@ import { Link } from 'react-router'
 import type { ArticleSearchResponse } from '../../api/articles'
 import { Button } from '../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
-import { Pagination } from './Pagination'
+import { PageStepper, Pagination } from './Pagination'
 import { ResultItem } from './ResultItem'
 import type { SearchSort, SearchState } from './searchState'
 
@@ -48,13 +48,16 @@ export function SearchResults({ state, results, onChange, onClearFilters, hrefFo
 
   return (
     <section className="mt-8">
-      <div className="flex min-h-9 items-center justify-between gap-4 border-b border-border pb-3">
+      <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border pb-3">
         {/* aria-live: sayı değişince ekran okuyucu yeni sonucu duyurur. */}
         <p aria-live="polite" className="text-sm text-muted-foreground tabular-nums">
           {countText}
         </p>
-        {/* Arama ifadesi yokken ilgililik hesaplanamaz; haberler yalnızca tarihe göre sıralanır. */}
-        {state.q && <SortSelect value={state.sort ?? 'relevance'} onChange={(sort) => onChange({ sort })} />}
+        <div className="flex items-center gap-2">
+          {/* Arama ifadesi yokken ilgililik hesaplanamaz; haberler yalnızca tarihe göre sıralanır. */}
+          {state.q && <SortSelect value={state.sort ?? 'relevance'} onChange={(sort) => onChange({ sort })} />}
+          <PageStepper page={state.page} totalPages={totalPages} hrefForPage={hrefForPage} />
+        </div>
       </div>
 
       {items.length === 0 ? (

@@ -1,5 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiGet } from './client'
+import { ApiError, apiGet, shouldRetry } from './client'
+
+describe('shouldRetry', () => {
+  it('sunucunun verdiği hatayı yeniden denemez', () => {
+    expect(shouldRetry(0, new ApiError(503, 'SEARCH_UNAVAILABLE'))).toBe(false)
+    expect(shouldRetry(0, new ApiError(404, 'NOT_FOUND'))).toBe(false)
+  })
+
+  it('ağ hatasını iki kez daha dener', () => {
+    const networkError = new TypeError('Failed to fetch')
+
+    expect([0, 1, 2].map((failureCount) => shouldRetry(failureCount, networkError))).toEqual([true, true, false])
+  })
+})
 
 function stubResponse(response: Response) {
   const fetchMock = vi.fn(() => Promise.resolve(response))

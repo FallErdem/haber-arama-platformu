@@ -20,6 +20,11 @@ export function formatPublishedAt(iso: string, locale: string, now: Date = new D
   if (elapsed < HOUR) return relative.format(-Math.floor(elapsed / MINUTE), 'minute')
   if (elapsed < DAY) return relative.format(-Math.floor(elapsed / HOUR), 'hour')
 
+  return formatDateTime(iso, locale)
+}
+
+/** Türkiye saatiyle tarih ve saat: "5 Kasım 2026 11:12". Haber detayında her zaman bu biçim kullanılır. */
+export function formatDateTime(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'long',
@@ -27,5 +32,5 @@ export function formatPublishedAt(iso: string, locale: string, now: Date = new D
     hour: '2-digit',
     minute: '2-digit',
     timeZone: TIME_ZONE,
-  }).format(publishedAt)
+  }).format(new Date(iso))
 }

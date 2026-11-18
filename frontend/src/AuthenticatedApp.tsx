@@ -7,6 +7,7 @@ import { AccessTokenContext } from './auth/accessToken'
 import { CenteredScreen } from './components/CenteredScreen'
 import { Button } from './components/ui/button'
 import { AccountStatus } from './features/account/AccountStatus'
+import { ArticlePage } from './features/article/ArticlePage'
 import { NotFoundPage } from './features/errors/NotFoundPage'
 import { AppLayout } from './features/layout/AppLayout'
 import { SearchPage } from './features/search/SearchPage'
@@ -64,6 +65,7 @@ export function AuthenticatedApp({ accessToken, onSignOut }: AuthenticatedAppPro
           <Routes>
             <Route element={<AppLayout user={me.data} onSignOut={onSignOut} />}>
               <Route index element={<SearchPage />} />
+              <Route path="articles/:articleId" element={<ArticlePage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>

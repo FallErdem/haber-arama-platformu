@@ -282,6 +282,38 @@ describe('SearchPage', () => {
     expect(within(pages).getByRole('link', { name: /Sonraki/ })).toHaveAttribute('href', '/?q=deprem&page=2')
   })
 
+  it('sayfa numaralarını gösterir; bulunulan sayfa bağlantı değildir ve öyle işaretlenir', async () => {
+    stubApi(() => page([article()], { totalElements: 3000, totalPages: 150 }))
+
+    renderAt('/?q=deprem&page=2')
+
+    const pages = await screen.findByRole('navigation', { name: 'Sayfalar' })
+    const numbers = within(pages)
+      .getAllByRole('link', { name: /^Sayfa \d+$/ })
+      .map((link) => [link.textContent, link.getAttribute('href')])
+    expect(numbers).toEqual([
+      ['1', '/?q=deprem'],
+      ['3', '/?q=deprem&page=3'],
+      ['4', '/?q=deprem&page=4'],
+      ['5', '/?q=deprem&page=5'],
+      ['150', '/?q=deprem&page=150'],
+    ])
+    const current = within(pages).getByText('2')
+    expect(current).toHaveAttribute('aria-current', 'page')
+    expect(current.tagName).not.toBe('A')
+  })
+
+  it('listenin üstünde de önceki ve sonraki sayfa bağlantısı vardır', async () => {
+    stubApi(() => page([article()], { totalElements: 3000, totalPages: 150 }))
+
+    renderAt('/?q=deprem&page=2')
+
+    const quick = await screen.findByRole('navigation', { name: 'Hızlı sayfa geçişi' })
+    expect(within(quick).getByRole('link', { name: 'Önceki' })).toHaveAttribute('href', '/?q=deprem')
+    expect(within(quick).getByRole('link', { name: 'Sonraki' })).toHaveAttribute('href', '/?q=deprem&page=3')
+    expect(within(quick).getByText('Sayfa 2 / 150')).toBeInTheDocument()
+  })
+
   it("10.000 sonuç sınırında son sayfa 500'dür ve aramayı daraltma önerisi gösterilir", async () => {
     stubApi(() => page([article()], { totalElements: 10000, totalPages: 1200, totalRelation: 'gte' }))
 

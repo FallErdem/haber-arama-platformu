@@ -57,10 +57,32 @@
     "moreSources_other": "{{count}} more sources",
     "pagination": {
       "label": "Pages",
+      "quickLabel": "Quick page navigation",
       "previous": "Previous",
       "next": "Next",
+      "page": "Page {{page}}",
       "status": "Page {{page}} of {{total}}",
       "limit": "At most 10,000 results can be shown. Narrow your search to reach older news."
+    }
+  },
+  "article": {
+    "back": "Back to search",
+    "byAuthor": "By {{author}}",
+    "categories": "Categories",
+    "readAtSource": "Read the full story at the source",
+    "source": "Source",
+    "photoCredit": "Photo: {{credit}}",
+    "otherSources": "Other sources reporting this story",
+    "loading": "Loading the story…",
+    "loadFailed": "The story could not be loaded.",
+    "textUnavailable": "Story texts are unavailable right now. Please try again shortly.",
+    "textPending": "The story text is not ready yet. Try again in a few seconds or read it at the source.",
+    "retry": "Try again",
+    "license": {
+      "GLOBALVOICES": {
+        "text": "This story is published under the Creative Commons Attribution (CC BY) license.",
+        "policy": "Global Voices attribution policy"
+      }
     }
   },
   "categories": {

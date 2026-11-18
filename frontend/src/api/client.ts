@@ -29,6 +29,17 @@ export async function apiGet<T>(path: string, accessToken: string, query?: URLSe
   return (await response.json()) as T
 }
 
+/**
+ * Başarısız bir isteğin yeniden denenip denenmeyeceği (TanStack Query'nin `retry` ayarı; bütün
+ * isteklerin varsayılanı, bkz. main.tsx). Sunucu yanıt verdiyse (404, 503...) durumu bellidir:
+ * yeniden denenmez, kullanıcı mesajı hemen görür ve isterse "Yeniden dene"ye basar. Yalnızca ağ
+ * hataları (bağlantı kopması) iki kez daha denenir. Kütüphanenin varsayılanı her hatayı üç kez
+ * dener; kapalı bir arama indeksinde hata mesajı yaklaşık 7 saniye gecikirdi.
+ */
+export function shouldRetry(failureCount: number, error: unknown): boolean {
+  return !(error instanceof ApiError) && failureCount < 2
+}
+
 async function readErrorCode(response: Response): Promise<string | undefined> {
   try {
     const body: unknown = await response.json()

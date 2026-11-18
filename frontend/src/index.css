@@ -159,3 +159,49 @@
     @apply rounded-sm bg-highlight px-0.5 text-inherit;
   }
 }
+
+/*
+ * Haber metni (detay sayfası). Metin kaynaktan HTML olarak gelir; sınıf adı taşımaz. Bu yüzden
+ * stiller öğe adlarıyla verilir: serif yazı, rahat satır aralığı, paragraflar arası boşluk.
+ * Satır uzunluğu sayfa sütunuyla (yaklaşık 70 karakter) sınırlıdır.
+ */
+@layer components {
+  .article-body {
+    @apply font-serif text-lg leading-relaxed text-foreground;
+  }
+  .article-body > * + * {
+    @apply mt-5;
+  }
+  .article-body h2,
+  .article-body h3,
+  .article-body h4 {
+    @apply mt-8 text-xl leading-snug font-semibold;
+  }
+  .article-body a {
+    @apply text-primary underline decoration-1 underline-offset-4;
+  }
+  .article-body ul,
+  .article-body ol {
+    @apply pl-6;
+  }
+  .article-body ul {
+    @apply list-disc;
+  }
+  .article-body ol {
+    @apply list-decimal;
+  }
+  .article-body li + li {
+    @apply mt-1.5;
+  }
+  .article-body blockquote {
+    @apply border-l-2 border-primary pl-4 text-muted-foreground italic;
+  }
+  .article-body figure,
+  .article-body table {
+    @apply w-full;
+  }
+  .article-body th,
+  .article-body td {
+    @apply border border-border px-2 py-1 text-left text-base;
+  }
+}
