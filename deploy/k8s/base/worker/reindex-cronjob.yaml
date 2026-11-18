@@ -53,6 +53,15 @@ spec:
                     secretKeyRef:
                       name: elasticsearch-news-worker
                       key: password
+                # Yeniden indeksleme MinIO'yu kullanmaz, ama işçinin ayar sınıfı MinIO şifresini zorunlu
+                # tutar; verilmezse komut açılışta durur. İşçinin Deployment'ıyla aynı değerler.
+                - name: MINIO_URL
+                  value: http://minio:9000
+                - name: MINIO_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-news-worker
+                      key: password
               resources:
                 requests:
                   cpu: 50m
