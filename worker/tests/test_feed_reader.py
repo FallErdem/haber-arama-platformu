@@ -88,6 +88,57 @@ def test_old_publication_dates_are_kept() -> None:
     assert [article.published_at.year for article in articles] == [2023, 2023]
 
 
+def test_declared_time_zone_is_trusted_without_feed_time_zone() -> None:
+    """Kaynağın saat dilimi ayarı yoksa beslemede yazan saat dilimine güvenilir."""
+    article = read_fixture("cnnturk-turkiye.xml").articles[0]
+
+    assert article.published_at == datetime(2026, 11, 13, 16, 28, 48, tzinfo=UTC)
+
+
+def test_feed_time_zone_corrects_local_time_labelled_as_gmt() -> None:
+    """CNN Türk saati Türkiye saatiyle yazıp yanına "GMT" koyar: `16:28:48 GMT` gerçekte 13:28:48 UTC'dir.
+
+    Kaynağın saat dilimi ayarı verildiğinde beslemede yazan saat o saat diliminde okunur.
+    """
+    body = (FIXTURES / "cnnturk-turkiye.xml").read_bytes()
+
+    article = FeedReader().read(body, CNNTURK_FIELD_MAPPING, feed_time_zone="Europe/Istanbul").articles[0]
+
+    assert article.published_at == datetime(2026, 11, 13, 13, 28, 48, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    "pub_date",
+    ["Fri, 13 Nov 2026 16:40:00 +0300", "Fri, 13 Nov 2026 16:40:00 +0000", "Fri, 13 Nov 2026 16:40:00 GMT"],
+)
+def test_feed_time_zone_ignores_the_declared_offset(pub_date: str) -> None:
+    """Ayar verildiğinde yazan saat esas alınır; yanındaki saat dilimi ne olursa olsun sonuç aynıdır."""
+    body = rss(VALID_ITEM.format(extra="").replace("Fri, 13 Nov 2026 16:40:00 +0300", pub_date))
+
+    article = FeedReader().read(body, feed_time_zone="Europe/Istanbul").articles[0]
+
+    assert article.published_at == datetime(2026, 11, 13, 13, 40, tzinfo=UTC)
+
+
+def test_feed_time_zone_applies_to_atom_dates() -> None:
+    """Atom beslemelerinde tarih ISO 8601 biçimindedir; ayar aynı şekilde uygulanır."""
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Örnek</title>'
+        "<entry><id>haber-1</id><title>Atom haberi</title>"
+        '<link href="https://example.test/haber-1"/><updated>2026-11-13T16:40:00Z</updated></entry></feed>'
+    ).encode()
+
+    article = FeedReader().read(body, feed_time_zone="Europe/Istanbul").articles[0]
+
+    assert article.published_at == datetime(2026, 11, 13, 13, 40, tzinfo=UTC)
+
+
+def test_unknown_feed_time_zone_raises_parse_error() -> None:
+    """Ayardaki saat dilimi adı tanınmıyorsa (yazım hatası) okuma başarısız sayılır ve neden görünür."""
+    with pytest.raises(FeedParseError, match="Avrupa/Istanbul"):
+        FeedReader().read(rss(VALID_ITEM.format(extra="")), feed_time_zone="Avrupa/Istanbul")
+
+
 def test_summary_is_plain_text_without_leading_image() -> None:
     """TRT özeti <img> ile başlar; özette yalnızca cümle kalır, görsel ana görsel olur."""
     article = read_fixture("trt-gundem.xml").articles[0]
@@ -336,3 +387,10 @@ def test_other_sources_have_no_field_mapping(admin: psycopg.Connection) -> None:
     rows = admin.execute("SELECT code FROM sources WHERE field_mapping IS NOT NULL ORDER BY code").fetchall()
 
     assert rows == [("CNNTURK",)]
+
+
+def test_only_cnnturk_has_a_feed_time_zone(admin: psycopg.Connection) -> None:
+    """Saat dilimini doğru yazan kaynakların ayarı boştur; yalnızca CNN Türk'ünki doludur (V15)."""
+    rows = admin.execute("SELECT code, feed_time_zone FROM sources WHERE feed_time_zone IS NOT NULL").fetchall()
+
+    assert rows == [("CNNTURK", "Europe/Istanbul")]

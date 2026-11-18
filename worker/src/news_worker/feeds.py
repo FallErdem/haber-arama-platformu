@@ -21,6 +21,9 @@ class DueFeed:
     request_interval_seconds: int
     # Kaynağın standart dışı etiketleri (ör. CNN Türk {"image": "image"}); yoksa None.
     field_mapping: dict[str, str] | None
+    # Beslemedeki saatlerin gerçekte yazıldığı saat dilimi (ör. CNN Türk "Europe/Istanbul"); yoksa None
+    # ve beslemede yazan saat dilimine güvenilir.
+    feed_time_zone: str | None
     name: str
     url: str
     # Besleme düzeyindeki kategori; karışık içerikli beslemelerde None.
@@ -42,7 +45,7 @@ class FailureState:
 # şimdiye çeker, işçi bir sonraki turda onu burada bulur (ADR-0013).
 _FIND_DUE_QUERY = """
     SELECT f.id, s.id AS source_id, s.code AS source_code, s.language, s.request_interval_seconds,
-           s.field_mapping, f.name, f.url, c.code AS default_category_code, f.use_item_categories,
+           s.field_mapping, s.feed_time_zone, f.name, f.url, c.code AS default_category_code, f.use_item_categories,
            f.etag, f.last_modified, f.next_fetch_at
     FROM feeds f
     JOIN sources s ON s.id = f.source_id
