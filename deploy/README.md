@@ -1,16 +1,101 @@
 # Yerel Geliştirme Ortamı
 
-Bu doküman, uygulamanın altyapısının yerel bir Kubernetes kümesinde sıfırdan nasıl kurulacağını anlatır. Kararların gerekçeleri ADR-0018'dedir.
+Bu doküman, uygulamanın bütün bileşenleriyle (PostgreSQL, Elasticsearch, MinIO, Keycloak, API, frontend, işçi) yerel bir Kubernetes kümesinde, boş bir Ubuntu bilgisayarda sıfırdan nasıl kurulacağını anlatır. Kararların gerekçeleri ADR-0018'dedir.
+
+Bilgisayarda Java, Node.js veya Python kurmak gerekmez: API, frontend ve işçi imajları Docker'ın içinde derlenir. Bunlar yalnızca testleri bilgisayarda çalıştırmak için gerekir.
+
+## Donanım
+
+| | En az | Önerilen | Not |
+|---|---|---|---|
+| Bellek (RAM) | 8 GB | 16 GB | Küme çalışırken yaklaşık 4,3 GB kullanır (Elasticsearch 1,75 GB, Keycloak 750 MB, API 200 MB); imaj derlemeleri sırasında ek bellek gerekir |
+| Boş disk | 25 GB | 40 GB | İmajlar, derleme önbelleği ve veriler yaklaşık 20 GB tutar |
+| İşlemci | 4 çekirdek | — | |
+| İşletim sistemi | Ubuntu (64 bit, x86_64) | | Komutlar Ubuntu içindir |
+| İnternet | Gerekli | | İmajlar ve bağımlılıklar indirilir; işçi haberleri kaynak sitelerden toplar |
+
+İlk kurulumda imajların indirilmesi ve ilk derlemeler (Maven ve npm bağımlılıkları) internet hızına göre uzun sürebilir.
 
 ## Gereksinimler
 
 | Araç | Sürüm | Not |
 |---|---|---|
-| Docker | — | Kullanıcının `docker` grubunda olması gerekir |
+| Docker Engine | — | Kullanıcının `docker` grubunda olması gerekir |
 | kubectl | 1.36.x | Kubernetes'in resmi paket deposundan (`pkgs.k8s.io`, v1.36 serisi) |
 | Helm | 4.3.1 | `https://github.com/helm/helm/releases`; indirilen dosyanın özeti doğrulanmalıdır |
 | k3d | 5.9.0 | `https://github.com/k3d-io/k3d/releases`; indirilen dosyanın özeti doğrulanmalıdır |
-| openssl | — | Şifre üretmek için |
+| git, curl, openssl | — | Depoyu indirmek, adresleri denemek ve şifre üretmek için |
+
+### Araçların kurulumu (Ubuntu)
+
+Araçlar kuruluysa bu bölüm atlanır; `docker version`, `kubectl version --client`, `helm version` ve `k3d version` komutlarıyla kontrol edilir.
+
+**Temel araçlar:**
+
+```bash
+sudo apt update
+sudo apt install -y git curl openssl ca-certificates gnupg
+```
+
+**Docker Engine** (Docker'ın resmi paket deposundan; adımlar `docs.docker.com/engine/install/ubuntu/` sayfasındakilerdir):
+
+```bash
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# docker komutunu sudo olmadan çalıştırmak için kullanıcı docker grubuna eklenir.
+sudo usermod -aG docker $USER
+```
+
+Grup üyeliğinin geçerli olması için **oturumu kapatıp yeniden açın** (veya bilgisayarı yeniden başlatın). Ardından `docker run --rm hello-world` sudo olmadan çalışmalıdır.
+
+**kubectl** (Kubernetes'in resmi paket deposundan, v1.36 serisi; `kubernetes.io/docs/tasks/tools/install-kubectl-linux/`):
+
+```bash
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.36/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+sudo chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.36/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sudo chmod 644 /etc/apt/sources.list.d/kubernetes.list
+sudo apt update
+sudo apt install -y kubectl
+```
+
+**Helm 4.3.1** (hazır derlenmiş dosya; özet doğrulanır):
+
+```bash
+cd /tmp
+curl -fsSLO https://get.helm.sh/helm-v4.3.1-linux-amd64.tar.gz
+curl -fsSLO https://get.helm.sh/helm-v4.3.1-linux-amd64.tar.gz.sha256sum
+sha256sum -c helm-v4.3.1-linux-amd64.tar.gz.sha256sum   # "OK" yazmalı
+tar -xzf helm-v4.3.1-linux-amd64.tar.gz
+sudo install -m 0755 linux-amd64/helm /usr/local/bin/helm
+helm version
+```
+
+**k3d 5.9.0** (hazır derlenmiş dosya; özet doğrulanır):
+
+```bash
+cd /tmp
+curl -fsSLO https://github.com/k3d-io/k3d/releases/download/v5.9.0/k3d-linux-amd64
+curl -fsSLO https://github.com/k3d-io/k3d/releases/download/v5.9.0/checksums.txt
+# Özet dosyasında dosyanın adı "_dist/k3d-linux-amd64" olarak geçer; yalnızca özet karşılaştırılır.
+echo "$(grep 'k3d-linux-amd64$' checksums.txt | cut -d' ' -f1)  k3d-linux-amd64" | sha256sum -c   # "OK" yazmalı
+sudo install -m 0755 k3d-linux-amd64 /usr/local/bin/k3d
+k3d version
+```
+
+### Bilgisayarın ayarları
 
 Elasticsearch için bilgisayarın `vm.max_map_count` değerinin en az 262144 olması gerekir:
 
@@ -31,13 +116,22 @@ Bilgisayarın 80, 443 ve 5000 numaralı portlarının boş olması gerekir:
 ss -ltnp | grep -E ':(80|443|5000)\b'
 ```
 
-Bu komut hiçbir çıktı vermemelidir.
+Bu komut hiçbir çıktı vermemelidir. Bir web sunucusu (örneğin Apache veya nginx) 80 numaralı portu kullanıyorsa kurulumdan önce durdurulur.
 
 ## Kurulum
 
-Bütün komutlar deponun kök klasöründen çalıştırılır.
+### Depoyu indir
 
-Depo ilk indirildiğinde, commit öncesi gizli bilgi kontrolü bir kez etkinleştirilir:
+Depo özeldir: indirmek için GitHub hesabının depoya eklenmiş (collaborator) olması gerekir.
+
+```bash
+git clone https://github.com/FallErdem/haber-arama-platformu.git
+cd haber-arama-platformu
+```
+
+Bundan sonraki bütün komutlar deponun kök klasöründen çalıştırılır.
+
+Yalnızca kodda değişiklik yapıp commit atacaksanız, commit öncesi gizli bilgi kontrolü bir kez etkinleştirilir:
 
 ```bash
 git config core.hooksPath .githooks
@@ -87,7 +181,7 @@ helm upgrade --install cnpg cnpg/cloudnative-pg --version 0.29.1 \
 
 Şifreler ve görsel adreslerini imzalayan anahtar (`api-media-signing.env`) `deploy/k8s/overlays/dev/secrets/` klasörüne yazılır. Bu klasör depoya girmez. Betik var olan dosyalara dokunmaz; daha önce kurulmuş bir ortamda yeni bir gizli bilgi eklendiğinde yeniden çalıştırılır ve yalnızca eksik olanları üretir.
 
-Aynı klasöre, ilk yöneticinin e-posta adresini içeren `api-settings.env` dosyası elle eklenir (ADR-0014). Bu adresle kaydolan ve e-postasını doğrulayan kullanıcı ilk girişinde yönetici olur:
+Aynı klasöre, ilk yöneticinin e-posta adresini içeren `api-settings.env` dosyası elle eklenir (ADR-0014). Bu adresle kaydolan ve e-postasını doğrulayan kullanıcı ilk girişinde yönetici olur. `YONETICI_EPOSTASI` yerine 10. adımda Keycloak'a kaydolurken kullanacağınız adresi yazın; e-postalar gerçekten gönderilmez, Mailpit'te görünür:
 
 ```bash
 printf 'initial-admin-email=%s\n' 'YONETICI_EPOSTASI' > deploy/k8s/overlays/dev/secrets/api-settings.env
@@ -131,9 +225,7 @@ Betik API imajını derler (`backend/Dockerfile`, derleme bağlamı deponun kök
 ./scripts/dev/deploy-frontend.sh
 ```
 
-API betiğiyle aynı şekilde çalışır (`frontend/Dockerfile`). Yeni kurulan bir kümede `frontend` pod'u da bu adım çalıştırılana kadar `ImagePullBackOff` durumunda kalır.
-
-Ardından tarayıcıda `http://haber.localhost/` adresi açılır. "Giriş yap" Keycloak'ın giriş sayfasına götürür; ilk kullanıcı oradaki kayıt bağlantısıyla oluşturulur. Doğrulama e-postası Mailpit'e düşer.
+API betiğiyle aynı şekilde çalışır (`frontend/Dockerfile`). Yeni kurulan bir kümede `frontend` pod'u da bu adım çalıştırılana kadar `ImagePullBackOff` durumunda kalır. İlk yönetici 10. adımda oluşturulur.
 
 ### 9. İşçiyi derle ve dağıt
 
@@ -159,7 +251,23 @@ Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, ta
 | `MEDIA_INTERVAL_SECONDS` | `10` | Görsel indirme döngüsünün iki turu arasındaki süre |
 | `MEDIA_BATCH_SIZE` | `100` | Bir turda alınan en fazla görsel |
 
-### 10. Arama indeksini yeniden oluştur (yalnızca gerektiğinde)
+### 10. İlk yöneticiyi oluştur ve uygulamayı aç
+
+1. Mailpit'in arayüzünü açın (komut çalıştığı sürece açık kalır; ayrı bir terminalde bırakın):
+
+   ```bash
+   kubectl port-forward -n haber svc/mailpit 8025:8025
+   ```
+
+   Tarayıcıda `http://localhost:8025`.
+
+2. Tarayıcıda `http://haber.localhost/` adresini açın ve "Giriş yap"a basın. Keycloak'ın giriş sayfasındaki kayıt bağlantısıyla, 4. adımda `api-settings.env` dosyasına yazdığınız e-posta adresiyle kaydolun (kullanıcı adı, ad, soyad ve e-posta).
+3. Keycloak e-postanın doğrulanmasını ister. Mailpit'te gelen e-postadaki bağlantıya tıklayın; ardından şifrenizi belirleyin (en az 12 karakter, kullanıcı adı veya e-posta olamaz).
+4. Uygulamaya dönülür. Bu e-postayla gelen ilk kullanıcı aktif yönetici olarak kaydedilir: üst menüde Arama, Kaydedilenler ve Yönetim görünür.
+
+Başka bir adresle kaydolan kullanıcı "onay bekliyor" durumunda kalır; yönetici onu Yönetim → Kullanıcılar ekranından onaylar. Haberler, işçinin ilk turu bittikçe aramada görünmeye başlar (birkaç dakika).
+
+### 11. Arama indeksini yeniden oluştur (yalnızca gerektiğinde)
 
 İlk kurulumda gerekmez; işçi haberleri topladıkça arama indeksine kendisi yazar. İndeks yapısı değiştiğinde (yeni bir alan, başka bir analizör) veya PostgreSQL ile Elasticsearch arasında meta veri tutarsızlığı şüphesi olduğunda çalıştırılır:
 
@@ -198,6 +306,21 @@ kubectl port-forward -n haber svc/mailpit 8025:8025
 ```
 
 Ardından `http://localhost:8025`.
+
+## Sorun giderme
+
+| Belirti | Neden ve çözüm |
+|---|---|
+| `permission denied while trying to connect to the Docker daemon socket` | Kullanıcı `docker` grubuna eklendikten sonra oturum yeniden açılmamıştır. Oturumu kapatıp açın. |
+| `k3d cluster create` port hatası veriyor (`address already in use`) | 80, 443 veya 5000 numaralı port başka bir program tarafından kullanılıyor. `ss -ltnp \| grep -E ':(80\|443\|5000)\b'` ile bulun ve durdurun. |
+| `elasticsearch-0` pod'u sürekli yeniden başlıyor | `vm.max_map_count` değeri düşüktür (bkz. "Bilgisayarın ayarları"). |
+| `api`, `frontend` veya `worker` pod'u `ImagePullBackOff` durumunda | O bileşenin imajı henüz derlenmemiştir. 7, 8 ve 9. adımlardaki betikler çalıştırılınca düzelir. |
+| Pod'lar uzun süre `Pending` veya `ContainerCreating` durumunda | İlk kurulumda imajlar indiriliyordur; `kubectl describe pod -n haber <pod adı>` en alttaki olaylarda nedeni gösterir. Bellek yetersizse pod'lar `Pending` kalır. |
+| `http://haber.localhost/` açılmıyor | `kubectl get pods -n haber` ile bütün pod'ların `Running` olduğunu, `kubectl get gateway -n traefik` ile ağ geçidinin `PROGRAMMED` olduğunu kontrol edin. |
+| Giriş sayfasında e-posta doğrulaması bekleniyor ama e-posta yok | E-postalar gerçekten gönderilmez, Mailpit'e düşer; 10. adımdaki port yönlendirmesinin açık olduğunu kontrol edin. |
+| İlk kullanıcı yönetici olmadı, "onay bekliyor" ekranı görünüyor | Kaydolunan adres `api-settings.env` dosyasındakiyle aynı değildir ya da dosya API dağıtıldıktan sonra eklenmiştir. Dosyayı düzeltip `kubectl apply -k deploy/k8s/overlays/dev` ve `kubectl rollout restart -n haber deployment/api` çalıştırın; kayıtlı kullanıcının rolü değişmez, yeni bir hesapla kaydolun. |
+| Aramada hiç haber yok | İşçinin ilk turu sürüyordur veya pod internete çıkamıyordur: `kubectl logs -n haber deploy/worker --tail=20`. |
+| `kubectl port-forward` bağlantısı kopuyor | Komut yeniden çalıştırılır; kopma kümeyi etkilemez. |
 
 ## Kümeyi silme
 
