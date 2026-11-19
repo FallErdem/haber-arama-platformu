@@ -16,6 +16,28 @@
   "layout": {
     "skipToContent": "İçeriğe geç"
   },
+  "nav": {
+    "label": "Ana menü",
+    "search": "Arama",
+    "saved": "Kaydedilenler"
+  },
+  "bookmark": {
+    "save": "Kaydet",
+    "saveWithTitle": "Kaydet: {{title}}",
+    "failed": "İşlem tamamlanamadı. Lütfen yeniden deneyin."
+  },
+  "saved": {
+    "title": "Kaydedilenler",
+    "loading": "Kaydedilen haberler yükleniyor…",
+    "loadFailed": "Kaydedilen haberler alınamadı.",
+    "retry": "Yeniden dene",
+    "empty": "Henüz kaydettiğiniz bir haber yok.",
+    "emptyHint": "Haberleri yer imi simgesine basarak kaydedebilirsiniz.",
+    "goToSearch": "Aramaya git",
+    "pageEmpty": "Bu sayfada kayıt yok.",
+    "firstPage": "İlk sayfaya dön",
+    "hidden": "Bu haber yönetici tarafından kaldırıldı."
+  },
   "search": {
     "title": "Haberlerde ara",
     "queryLabel": "Arama ifadesi",
@@ -62,6 +84,7 @@
   },
   "article": {
     "back": "Aramaya dön",
+    "backToSaved": "Kaydedilenlere dön",
     "byAuthor": "Yazan: {{author}}",
     "categories": "Kategoriler",
     "readAtSource": "Haberin tamamını kaynağında oku",

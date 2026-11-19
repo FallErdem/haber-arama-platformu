@@ -4,16 +4,19 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router'
 import type { ArticleImage, ArticleSearchItem } from '../../api/articles'
 import { formatPublishedAt } from '../../lib/time'
+import { BookmarkToggle } from '../saved/BookmarkToggle'
+import { useSaveArticle } from '../saved/useSaveArticle'
 import { Highlighted } from './Highlighted'
 
 /**
- * Arama sonucundaki bir haber: görsel, kaynak ve yayın zamanı, başlık, iki satır özet (ekran akışları
- * 5.1). Arama ifadesi varsa başlık ve özetteki eşleşmeler vurgulanır (FG-AR-05).
+ * Arama sonucundaki bir haber: görsel, kaynak ve yayın zamanı, başlık, iki satır özet ve sağ üstte yer
+ * imi (ekran akışları 5.1). Arama ifadesi varsa başlık ve özetteki eşleşmeler vurgulanır (FG-AR-05).
  */
 export function ResultItem({ item }: { item: ArticleSearchItem }) {
   const { t } = useTranslation()
   const { locale } = useLocale()
   const location = useLocation()
+  const bookmark = useSaveArticle(item.id, item.saved)
   const title = item.highlights?.title?.[0]
   const summary = item.highlights?.summary?.[0]
 
@@ -47,16 +50,29 @@ export function ResultItem({ item }: { item: ArticleSearchItem }) {
             {t('search.moreSources', { count: item.otherSourcesCount })}
           </p>
         )}
+        {bookmark.isError && (
+          <p role="alert" className="mt-2 text-xs text-destructive">
+            {t('bookmark.failed')}
+          </p>
+        )}
       </div>
+      {/* Negatif üst boşluk: düğmenin ikonu kaynak satırıyla aynı hizada durur. */}
+      <BookmarkToggle
+        isSaved={bookmark.isSaved}
+        onChange={bookmark.setSaved}
+        isDisabled={bookmark.isPending}
+        title={item.title}
+        className="-mt-1.5 -mr-2"
+      />
     </article>
   )
 }
 
 /**
  * Haberin ana görseli; yoksa yer tutucu (FG-AR-08). Görsel başlığın hemen yanında olduğu için
- * alternatif metni boştur: ekran okuyucu başlığı iki kez okumaz.
+ * alternatif metni boştur: ekran okuyucu başlığı iki kez okumaz. Kaydedilenler sayfası da kullanır.
  */
-function Thumbnail({ image }: { image: ArticleImage | null }) {
+export function Thumbnail({ image }: { image: ArticleImage | null }) {
   const className = 'aspect-[4/3] w-24 shrink-0 rounded-sm bg-muted sm:w-36'
   if (!image) {
     return (

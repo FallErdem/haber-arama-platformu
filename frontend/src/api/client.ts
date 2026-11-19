@@ -30,6 +30,17 @@ export async function apiGet<T>(path: string, accessToken: string, query?: URLSe
 }
 
 /**
+ * API'ye token'la gövdesiz bir değiştirme isteği (`PUT`, `DELETE`) gönderir. Başarılı yanıt
+ * `204 No Content`'tir, okunacak bir şey yoktur; başarısız yanıtta {@link ApiError} fırlatır.
+ */
+export async function apiSend(method: 'PUT' | 'DELETE', path: string, accessToken: string): Promise<void> {
+  const response = await fetch(path, { method, headers: { Authorization: `Bearer ${accessToken}` } })
+  if (!response.ok) {
+    throw new ApiError(response.status, await readErrorCode(response))
+  }
+}
+
+/**
  * Başarısız bir isteğin yeniden denenip denenmeyeceği (TanStack Query'nin `retry` ayarı; bütün
  * isteklerin varsayılanı, bkz. main.tsx). Sunucu yanıt verdiyse (404, 503...) durumu bellidir:
  * yeniden denenmez, kullanıcı mesajı hemen görür ve isterse "Yeniden dene"ye basar. Yalnızca ağ

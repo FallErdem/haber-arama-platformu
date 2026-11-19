@@ -31,6 +31,7 @@ function article(overrides: Partial<ArticleSearchItem> = {}): ArticleSearchItem 
     url: 'https://www.trthaber.com/haber/1',
     image: null,
     otherSourcesCount: 0,
+    saved: false,
     ...overrides,
   }
 }
@@ -39,21 +40,32 @@ function page(items: ArticleSearchItem[], overrides: Partial<ArticleSearchRespon
   return { items, page: 0, size: 20, totalElements: items.length, totalPages: 1, totalRelation: 'eq', ...overrides }
 }
 
-/** API'yi taklit eder: kaynak ve kategori listeleri sabit, arama yanıtı testin verdiği fonksiyondan. */
-function stubApi(search: (params: URLSearchParams) => Response | ArticleSearchResponse) {
+/**
+ * API'yi taklit eder: kaynak ve kategori listeleri sabit, arama yanıtı testin verdiği fonksiyondan.
+ * Kaydetme istekleri (`PUT`/`DELETE`) `saving` yanıtını alır (varsayılan 204) ve `savings`'e yazılır.
+ */
+function stubApi(
+  search: (params: URLSearchParams) => Response | ArticleSearchResponse,
+  saving: () => Response = () => new Response(null, { status: 204 }),
+) {
   const searches: URLSearchParams[] = []
+  const savings: { method: string | undefined; path: string }[] = []
   vi.stubGlobal(
     'fetch',
-    vi.fn((input: string) => {
+    vi.fn((input: string, init?: RequestInit) => {
       const url = new URL(input, 'http://haber.localhost')
       if (url.pathname === '/api/v1/sources') return Promise.resolve(Response.json({ items: SOURCES }))
       if (url.pathname === '/api/v1/categories') return Promise.resolve(Response.json({ items: CATEGORIES }))
+      if (url.pathname.startsWith('/api/v1/me/saved-articles/')) {
+        savings.push({ method: init?.method, path: url.pathname })
+        return Promise.resolve(saving())
+      }
       searches.push(url.searchParams)
       const result = search(url.searchParams)
       return Promise.resolve(result instanceof Response ? result : Response.json(result))
     }),
   )
-  return { searches, lastSearch: () => searches[searches.length - 1] }
+  return { searches, savings, lastSearch: () => searches[searches.length - 1] }
 }
 
 function renderAt(path: string) {
@@ -344,5 +356,46 @@ describe('SearchPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Yeniden dene' }))
 
     expect(await screen.findByRole('link', { name: 'Deprem sonrası son durum' })).toBeInTheDocument()
+  })
+
+  it('sonuçtaki yer imi haberi kaydeder ve dolu görünür; arama yeniden istenmez', async () => {
+    const api = stubApi(() => page([article()]))
+    renderAt('/?q=deprem')
+    const bookmark = await screen.findByRole('button', { name: 'Kaydet: Deprem sonrası son durum' })
+    expect(bookmark).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.click(bookmark)
+
+    await waitFor(() => expect(bookmark).toHaveAttribute('aria-pressed', 'true'))
+    expect(api.savings).toEqual([
+      { method: 'PUT', path: '/api/v1/me/saved-articles/0193f1a2-0000-7000-8000-000000000001' },
+    ])
+    expect(api.searches).toHaveLength(1)
+  })
+
+  it('kaydedilmiş haberin yer imi basılıdır; basınca haber kayıttan çıkarılır', async () => {
+    const api = stubApi(() => page([article({ saved: true })]))
+    renderAt('/?q=deprem')
+    const bookmark = await screen.findByRole('button', { name: 'Kaydet: Deprem sonrası son durum' })
+    expect(bookmark).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(bookmark)
+
+    await waitFor(() => expect(bookmark).toHaveAttribute('aria-pressed', 'false'))
+    expect(api.savings.map((saving) => saving.method)).toEqual(['DELETE'])
+  })
+
+  it('kaydetme başarısız olursa yer imi eski haline döner ve mesaj gösterir', async () => {
+    stubApi(
+      () => page([article()]),
+      () => new Response('{}', { status: 500 }),
+    )
+    renderAt('/?q=deprem')
+    const bookmark = await screen.findByRole('button', { name: 'Kaydet: Deprem sonrası son durum' })
+
+    await userEvent.click(bookmark)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('İşlem tamamlanamadı.')
+    expect(bookmark).toHaveAttribute('aria-pressed', 'false')
   })
 })
