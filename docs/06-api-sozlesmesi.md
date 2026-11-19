@@ -159,7 +159,8 @@ Yanıttaki her öğe:
   "publishedAt": "2026-11-05T08:12:00Z",
   "url": "https://www.trthaber.com/...",
   "image": { "url": "/api/v1/media/0193...?exp=1793800800&sig=...", "width": 1200, "height": 675 },
-  "otherSourcesCount": 2
+  "otherSourcesCount": 2,
+  "saved": false
 }
 ```
 
@@ -167,6 +168,7 @@ Yanıttaki her öğe:
 - Vurgular yalnızca başlık ve özet için döner; alanın tamamı döner, parçalara bölünmez. Eşleşme yalnızca tam metindeyse `highlights` boş bir nesnedir.
 - `image`: Haberin ana görseli: indirilmiş görsellerinden sırası en küçük olanı (ana görsel indirilemediyse sıradaki). `url` imzalı görsel adresidir (bkz. 4.4). Görsel yoksa veya henüz indirilmemişse `null`, arayüz yer tutucu gösterir (FG-AR-08).
 - `otherSourcesCount`: Aynı gruptaki diğer kaynakların sayısı.
+- `saved`: Haberin isteği yapan kullanıcı tarafından kaydedilip kaydedilmediği (FG-KO-01); arayüz sonuçtan kaydetmeyi buna göre sunar. Bir sayfanın bütün sonuçları için tek sorguyla bulunur.
 - Yanıtın sayfalama alanlarına ek olarak `totalRelation` alanı bulunur (bkz. 2.4).
 - Başlık, kaynak, adres, kategoriler ve görsel asıl kayıttan (PostgreSQL), özet arama indeksinden okunur (ADR-0019). Gizlenmiş haberin belgesi indekste gizli olarak işaretlidir; sonuçta yer almaz ve toplam sayıya girmez. PostgreSQL'de gizlenmiş veya silinmiş ama indeksteki belgesi henüz güncellenmemiş bir haber de sonuçta yer almaz (FG-AR-09); bu durumda bir sayfa `size` değerinden az öğe taşıyabilir.
 - Arama indeksine ulaşılamıyorsa `503 SEARCH_UNAVAILABLE` döner.
@@ -207,7 +209,7 @@ Yanıttaki her öğe:
 - `media`: Yalnızca indirilmiş görseller, haberdeki sırasıyla listelenir; `url` imzalı görsel adresidir (bkz. 4.4). Görseli olmayan haberde boş listedir; arayüz yer tutucu gösterir (FG-AR-08). Mevcut kaynaklar altyazı ve fotoğrafçı bilgisi vermediğinden `caption` ve `credit` şimdilik `null`'dır.
 - `categories`: Arama sonuçlarındaki kuralla aynıdır; süresi dolan haberde `BREAKING` yer almaz (bkz. 4.1).
 - `otherSources`: Kaynaklar arası gruplama (FG-AR-10) gelene kadar boş listedir.
-- `saved`: Haberin bu kullanıcı tarafından kaydedilip kaydedilmediği. Kaydedilen haberler işleviyle (FG-KO-01) birlikte doldurulur; o zamana kadar `false`'tur.
+- `saved`: Haberin isteği yapan kullanıcı tarafından kaydedilip kaydedilmediği (FG-KO-01).
 - Arayüz, kaynağın koduna göre gerekli atıfı ve logoyu gösterir (FG-AR-07, ADR-0009).
 - Gizlenmiş veya kayıtlı olmayan bir haber için `404 NOT_FOUND`, kimlik geçerli bir UUID değilse `400 VALIDATION_FAILED`, arama indeksine ulaşılamıyorsa `503 SEARCH_UNAVAILABLE` döner.
 
@@ -265,6 +267,12 @@ Listedeki her öğe:
 ```
 
 Haber sonradan gizlenmişse `hidden` `true` olur ve `article` `null` döner; arayüz haberin kaldırıldığını gösterir (FG-KO-03).
+
+- Kullanıcı token'dan belirlenir; adreste kullanıcı kimliği yoktur ve her sorgu kullanıcıya göre süzülür. Bir kullanıcının başka birinin kayıtlarını görmesinin veya değiştirmesinin yolu yoktur.
+- Liste `page` ve `size` parametrelerini alır (bkz. 2.4). Aynı anda kaydedilen haberlerin sırası haber kimliğiyle sabitlenir; sayfalar arasında bir haber iki kez görünmez veya kaybolmaz.
+- `PUT` tekrarlanabilir: aynı istek ikinci kez gelirse kayıt ve kaydedilme zamanı (`savedAt`) değişmez.
+- Haberin başlığı, kaynağı ve görseli asıl kayıttan (PostgreSQL) okunur; listede özet yoktur. Gizlenmiş haber asıl kayıt sorgusunda dönmez; karşılığı gelmeyen kayıt gizlenmiş bir haberdir. Haberler silinmediğinden (kaynak içeriğinin silinmesi hariç; o zaman kayıtlar da silinir) başka bir nedeni yoktur.
+- Kaydetme ve kayıttan çıkarma audit'e yazılmaz (FG-AL-01'deki işlemlerden değildir).
 
 ### 5.2 Kaydedilmiş aramalar (FG-KO-04)
 

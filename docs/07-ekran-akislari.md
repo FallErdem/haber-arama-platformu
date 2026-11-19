@@ -86,7 +86,7 @@ Bu akışlar, uçtan uca testlerin senaryolarının temelidir.
 2. Sonuçlar ilgililiğe göre sıralanmış olarak gelir; eşleşen kelimeler vurgulanır.
 3. Kullanıcı kaynak ve kategori filtrelerini uygular; sonuçlar güncellenir ve filtreler adres çubuğuna yansır.
 4. Bir sonuca tıklayarak haber detayına geçer.
-5. "Kaydet" butonuna basar; buton "Kaydedildi" durumuna geçer.
+5. Kaydet düğmesine (yer imi) basar; düğme basılı duruma geçer. Haberi detaya geçmeden, sonuç kartındaki aynı düğmeyle de kaydedebilir.
 6. Kaydedilenler ekranında haberi görür.
 
 ### 4.3 Yöneticinin yeni bir kaynak eklemesi
@@ -141,7 +141,7 @@ Bu akışlar, uçtan uca testlerin senaryolarının temelidir.
   - Filtreler: kaynak (çoklu seçim), dil, kategori (çoklu seçim), tarih aralığı
   - Son Dakika için hızlı erişim düğmesi
   - Sıralama: İlgililik veya En yeni. Arama kutusu boşken yalnızca En yeni.
-  - Sonuç kartları: görsel, başlık, vurgulanmış özet, kaynak adı, yayın tarihi ve "N kaynak daha" bilgisi. Görsel başlığın hemen yanında olduğu için alternatif metni boştur; ekran okuyucu başlığı iki kez okumaz. Son 24 saatteki haberin zamanı göreli ("3 saat önce"), daha eskisininki tarih ve saattir.
+  - Sonuç kartları: görsel, başlık, vurgulanmış özet, kaynak adı, yayın tarihi, "N kaynak daha" bilgisi ve Kaydet düğmesi. Görsel başlığın hemen yanında olduğu için alternatif metni boştur; ekran okuyucu başlığı iki kez okumaz. Son 24 saatteki haberin zamanı göreli ("3 saat önce"), daha eskisininki tarih ve saattir.
   - Sayfalama: önceki/sonraki ve sayfa numaraları (`1 2 3 4 5 … 150`; her sayfada yedi yuva, bağlantılar kaymaz). Dar ekranda numaralar yerine "Sayfa 2 / 150". Listenin üstünde de kısa bir sayfa geçişi (`‹ 2 / 150 ›`) bulunur: yeni sayfaya geçince sayfanın başına dönülür, önceki/sonraki için en alta inmek gerekmez.
   - "Bu aramayı kaydet" butonu (İ-30)
 - **Davranışlar:**
@@ -149,8 +149,9 @@ Bu akışlar, uçtan uca testlerin senaryolarının temelidir.
   - Arama ifadesi, filtreler, sıralama ve sayfa adres çubuğunda tutulur; geri butonu ve sayfa yenileme aramayı korur.
   - Vurgulamada yalnızca `<mark>` etiketi işlenir.
   - 10.000 sonuç sınırının ötesindeki sayfalar sunulmaz; kullanıcıya aramayı daraltması önerilir.
+  - Kaydet düğmesi bir aç/kapa düğmesidir: basılıysa haber kayıtlıdır, basınca kayıttan çıkar. Durumu ekran okuyucuya `aria-pressed` ile bildirilir; adı durumla değişmez ("Kaydet, basılı"), listelerde adında haberin başlığı bulunur. Basınca yeni durum hemen gösterilir; istek başarısız olursa düğme eski durumuna döner ve hata mesajı gösterilir. Arama yeniden yapılmaz.
 - **Boş durumlar:** Sonuç yoksa "Aramanızla eşleşen haber bulunamadı" mesajı ve filtreleri temizleme seçeneği.
-- **Uç noktalar:** `GET /articles`, `GET /sources`, `GET /categories`, `POST /me/saved-searches`
+- **Uç noktalar:** `GET /articles`, `GET /sources`, `GET /categories`, `PUT` ve `DELETE /me/saved-articles/{articleId}`, `POST /me/saved-searches`
 
 #### Haber detayı
 
@@ -162,11 +163,11 @@ Bu akışlar, uçtan uca testlerin senaryolarının temelidir.
   - Kaynak adı, atıf bilgisi ve gerekiyorsa logo
   - "Haberin tamamını kaynağında oku" bağlantısı
   - "Aynı haberi veren diğer kaynaklar" listesi
-  - Kaydet ve kayıttan çıkar butonu
+  - Kaydet düğmesi (arama ekranındakiyle aynı aç/kapa düğmesi)
   - Yalnızca yöneticilere: "Gizle" butonu
 - **Davranışlar:**
   - Gizleme butonu, gerekçe alanı zorunlu olan bir onay penceresi açar.
-  - "Aramaya dön" bağlantısı, gelinen aramaya filtreleri ve sayfasıyla döner; detay doğrudan açıldıysa ana sayfaya gider.
+  - "Aramaya dön" bağlantısı, gelinen aramaya filtreleri ve sayfasıyla döner; detay doğrudan açıldıysa ana sayfaya gider. Detaya Kaydedilenler'den gelindiyse bağlantı "Kaydedilenlere dön" olur ve aynı sayfaya döner.
   - Tam metin, işçinin temizlediği HTML'dir ve tarayıcıda ikinci kez temizlenir (ADR-0018, 6. bölüm); metindeki bağlantılar yeni sekmede açılır.
   - Haber yeni kaydedildiyse ve metni arama indeksine henüz aktarılmadıysa (birkaç saniye) "metin henüz hazır değil" mesajı gösterilir. Arama indeksine ulaşılamıyorsa metinlerin alınamadığı söylenir ve yeniden deneme seçeneği sunulur.
 - **Uç noktalar:** `GET /articles/{id}`, `PUT` ve `DELETE /me/saved-articles/{articleId}`, `POST /admin/articles/{id}/hide`
@@ -174,9 +175,11 @@ Bu akışlar, uçtan uca testlerin senaryolarının temelidir.
 #### Kaydedilenler
 
 - **Amaç:** Kullanıcının kaydettiği haberleri listelemek (FG-KO-02, 03).
-- **İçerik:** Kaydedilme zamanına göre yeniden eskiye sıralı kartlar ve sayfalama. Her kartta "Kayıttan çıkar" butonu.
-- **Davranışlar:** Gizlenmiş bir haber, "Bu haber yönetici tarafından kaldırıldı" mesajıyla gösterilir; detayına geçilemez, yalnızca kayıttan çıkarılabilir.
-- **Boş durum:** "Henüz kaydettiğiniz bir haber yok" mesajı.
+- **İçerik:** Kaydedilme zamanına göre yeniden eskiye sıralı kartlar (görsel, kaynak adı, yayın tarihi, başlık) ve sayfalama. Her kartta basılı Kaydet düğmesi; basınca haber kayıttan çıkar ve liste yenilenir.
+- **Davranışlar:**
+  - Gizlenmiş bir haber, "Bu haber yönetici tarafından kaldırıldı" mesajıyla gösterilir; detayına geçilemez, yalnızca kayıttan çıkarılabilir.
+  - Sayfa numarası adres çubuğunda tutulur (`/saved?page=2`); geçersiz bir numara ilk sayfa sayılır.
+- **Boş durumlar:** Hiç kayıt yoksa "Henüz kaydettiğiniz bir haber yok" mesajı ve aramaya bağlantı. Kayıt olduğu hâlde sayfada kayıt yoksa (sayfanın son haberi çıkarıldı) ilk sayfaya dönüş bağlantısı.
 - **Uç noktalar:** `GET /me/saved-articles`, `DELETE /me/saved-articles/{articleId}`
 
 #### Kaydedilmiş aramalar (Could)
