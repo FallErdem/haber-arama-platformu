@@ -316,6 +316,26 @@ Haber sonradan gizlenmişse `hidden` `true` olur ve `article` `null` döner; ara
 - Sistemde aktif yönetici kalmamasına yol açacak bir değişiklik `409 LAST_ACTIVE_ADMIN` ile reddedilir (FG-YP-03). Bu kural, yöneticinin kendi rolünü veya durumunu değiştirmesi için de geçerlidir.
 - Durumu `PASSIVE` yapılan kullanıcının erişimi bir sonraki isteğinde kesilir (FOG-19).
 
+Listedeki her öğe ve işlemlerin yanıtı:
+
+```json
+{
+  "id": "0193f1a2-...",
+  "email": "kullanici@ornek.com",
+  "displayName": "Erdem",
+  "role": "USER",
+  "status": "PENDING",
+  "createdAt": "2026-11-05T10:00:00Z",
+  "version": 0
+}
+```
+
+- Liste kayıt zamanına göre yeniden eskiye sıralıdır. `q` en fazla 200 karakterdir; e-postada ve görünen adda, büyük/küçük harf ayrımı yapılmadan (Türkçe harfler dahil: `şahin` ile `ŞAHİN` eşleşir) aranır. `%` ve `_` joker değil, harfin kendisi olarak aranır.
+- `PATCH` gövdesi: `role` ve `status` isteğe bağlıdır, verilmeyen değişmez; `version` zorunludur (bkz. 2.5). `status` yalnızca `ACTIVE` veya `PASSIVE` olabilir. Onay bekleyen veya reddedilmiş kullanıcının rolü ve durumu değiştirilemez (`409 INVALID_STATE_TRANSITION`); onların durumu onay ve ret işlemleriyle değişir. İstenen değerler zaten kayıttakiyse hiçbir şey değişmez.
+- Onay, ret ve her değişiklik kullanıcının `version` değerini bir artırır.
+- Rol ve durum değişiklikleri sırayla işlenir: iki yönetici aynı anda birbirinin rolünü düşürmeye çalışırsa ikinci istek birincinin sonucunu görür ve son yönetici kuralı yine uygulanır.
+- Başarılı her işlem, işlemle aynı veritabanı işleminde audit log'a yazılır. İş kuralıyla reddedilen denemeler (`409`) de `FAILURE` sonucuyla ve ret nedeniyle yazılır; `404` ve `400` yanıtları yazılmaz (`05-veri-modeli.md`, 3.13).
+
 ### 6.2 Kaynaklar
 
 | Yöntem ve adres | Açıklama | Yanıt |
