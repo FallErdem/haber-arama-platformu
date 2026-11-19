@@ -1,5 +1,6 @@
 package com.erdemgural.newssearch.web.internal;
 
+import com.erdemgural.newssearch.web.RequestIds;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,20 +23,17 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 class RequestIdFilter extends OncePerRequestFilter {
 
-    static final String HEADER_NAME = "X-Request-Id";
-    static final String LOG_FIELD_NAME = "requestId";
-
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String requestId = UUID.randomUUID().toString();
-        MDC.put(LOG_FIELD_NAME, requestId);
-        response.setHeader(HEADER_NAME, requestId);
+        MDC.put(RequestIds.LOG_FIELD_NAME, requestId);
+        response.setHeader(RequestIds.HEADER_NAME, requestId);
         try {
             filterChain.doFilter(request, response);
         } finally {
             // İş parçacıkları yeniden kullanılır; kimlik bir sonraki isteğe taşınmamalı.
-            MDC.remove(LOG_FIELD_NAME);
+            MDC.remove(RequestIds.LOG_FIELD_NAME);
         }
     }
 }
