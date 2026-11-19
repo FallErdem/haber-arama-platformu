@@ -1,5 +1,7 @@
 package com.erdemgural.newssearch.search.internal;
 
+import com.erdemgural.newssearch.identity.CurrentUser;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,6 +24,7 @@ class ArticleSearchController {
      */
     @GetMapping
     ArticleSearchResponse search(
+            @AuthenticationPrincipal CurrentUser user,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String sources,
             @RequestParam(required = false) String language,
@@ -31,6 +34,7 @@ class ArticleSearchController {
             @RequestParam(required = false) String sort,
             @RequestParam(required = false) String page,
             @RequestParam(required = false) String size) {
-        return searchService.search(SearchCriteria.parse(q, sources, language, categories, from, to, sort, page, size));
+        return searchService.search(
+                SearchCriteria.parse(q, sources, language, categories, from, to, sort, page, size), user.id());
     }
 }

@@ -41,16 +41,21 @@ function SearchStub() {
   return <p>Arama sayfası: {useLocation().search}</p>
 }
 
-function renderDetail(id = ID, fromSearch?: string) {
+/** Kaydedilenler sayfasının yerine geçer. */
+function SavedStub() {
+  return <p>Kaydedilenler sayfası: {useLocation().search}</p>
+}
+
+/** `cameFrom`: detaya gelinen sayfanın bıraktığı bilgi (arama veya Kaydedilenler). */
+function renderDetail(id = ID, cameFrom?: { from?: 'saved'; search: string }) {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <AccessTokenContext value="test-token">
         <I18nProvider locale="tr-TR">
-          <MemoryRouter
-            initialEntries={[{ pathname: `/articles/${id}`, state: fromSearch ? { search: fromSearch } : null }]}
-          >
+          <MemoryRouter initialEntries={[{ pathname: `/articles/${id}`, state: cameFrom ?? null }]}>
             <Routes>
               <Route path="/" element={<SearchStub />} />
+              <Route path="/saved" element={<SavedStub />} />
               <Route path="/articles/:articleId" element={<ArticlePage />} />
             </Routes>
           </MemoryRouter>
@@ -194,11 +199,50 @@ describe('ArticlePage', () => {
 
   it('"Aramaya dön" gelinen aramaya, filtreleriyle birlikte döner', async () => {
     stubDetail(detail())
-    renderDetail(ID, '?q=deprem&sources=TRT')
+    renderDetail(ID, { search: '?q=deprem&sources=TRT' })
 
     await userEvent.click(await screen.findByRole('link', { name: 'Aramaya dön' }))
 
     expect(screen.getByText('Arama sayfası: ?q=deprem&sources=TRT')).toBeInTheDocument()
+  })
+
+  it('Kaydedilenlerden gelindiyse geri bağlantısı Kaydedilenlerin aynı sayfasına döner', async () => {
+    stubDetail(detail())
+    renderDetail(ID, { from: 'saved', search: '?page=2' })
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Kaydedilenlere dön' }))
+
+    expect(screen.getByText('Kaydedilenler sayfası: ?page=2')).toBeInTheDocument()
+  })
+
+  it('yer imine basınca haberi kaydeder ve yer imi basılı görünür', async () => {
+    const fetchMock = stubDetail(detail())
+    renderDetail()
+    const bookmark = await screen.findByRole('button', { name: 'Kaydet' })
+    expect(bookmark).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.click(bookmark)
+
+    await waitFor(() => expect(bookmark).toHaveAttribute('aria-pressed', 'true'))
+    expect(fetchMock).toHaveBeenCalledWith(`/api/v1/me/saved-articles/${ID}`, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer test-token' },
+    })
+  })
+
+  it('kaydedilmiş haberde yer imi basılıdır; basınca haber kayıttan çıkarılır', async () => {
+    const fetchMock = stubDetail(detail({ saved: true }))
+    renderDetail()
+    const bookmark = await screen.findByRole('button', { name: 'Kaydet' })
+    expect(bookmark).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(bookmark)
+
+    await waitFor(() => expect(bookmark).toHaveAttribute('aria-pressed', 'false'))
+    expect(fetchMock).toHaveBeenCalledWith(`/api/v1/me/saved-articles/${ID}`, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer test-token' },
+    })
   })
 
   it('gizlenmiş veya kayıtlı olmayan haberde bulunamadı sayfasını gösterir', async () => {

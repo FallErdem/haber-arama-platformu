@@ -14,8 +14,7 @@ import java.util.UUID;
  *     (FG-AR-08)
  * @param otherSources aynı haberi yayımlayan diğer kaynaklar; kaynaklar arası gruplama gelene kadar
  *     (İ-28) her zaman boş
- * @param saved haberin bu kullanıcı tarafından kaydedilip kaydedilmediği; kaydedilen haberler
- *     gelene kadar (İ-20) her zaman {@code false}
+ * @param saved haberin isteği yapan kullanıcı tarafından kaydedilip kaydedilmediği (FG-KO-01)
  */
 record ArticleDetailResponse(
         UUID id,

@@ -114,8 +114,8 @@ class ArticleDetailTests {
                 .containsEntry("language", "tr")
                 .containsEntry("itemType", "ARTICLE")
                 .containsEntry("publishedAt", "2026-11-05T08:12:00Z")
-                // Kaynaklar arası gruplama (İ-28) ve kaydedilen haberler (İ-20) henüz yok.
                 .containsEntry("saved", false);
+        // Kaynaklar arası gruplama (İ-28) henüz yok.
         assertThat(result).bodyJson().extractingPath("$.otherSources").asArray().isEmpty();
         assertThat(result).bodyJson().extractingPath("$.categories").asArray().containsExactly("GENERAL", "WORLD");
         assertThat(result).bodyJson().extractingPath("$.url").asString().startsWith("https://example.test/haber/");
@@ -129,6 +129,27 @@ class ArticleDetailTests {
                         Map.entry("name", "TRT Haber"),
                         Map.entry("homepageUrl", "https://www.trthaber.com"),
                         Map.entry("attributionText", "TRT Haber"));
+    }
+
+    @Test
+    @DisplayName("saved alanı isteği yapan kullanıcıya göredir: kaydeden true, başka kullanıcı false görür")
+    void savedFlagBelongsToTheRequestingUser() {
+        UUID id = articles.insertRow(Article.turkish("Kaydedilecek haber"));
+        TestUser other = users.create(UserRole.USER, UserStatus.ACTIVE);
+        assertThat(mvc.put()
+                        .uri("/api/v1/me/saved-articles/" + id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + user.token())
+                        .exchange())
+                .hasStatus(HttpStatus.NO_CONTENT);
+
+        assertThat(detail(id)).bodyJson().extractingPath("$.saved").isEqualTo(true);
+        assertThat(mvc.get()
+                        .uri("/api/v1/articles/" + id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + other.token())
+                        .exchange())
+                .bodyJson()
+                .extractingPath("$.saved")
+                .isEqualTo(false);
     }
 
     @Test

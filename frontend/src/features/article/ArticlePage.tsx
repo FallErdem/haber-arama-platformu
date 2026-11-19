@@ -10,14 +10,20 @@ import { useAccessToken } from '../../auth/accessToken'
 import { Button } from '../../components/ui/button'
 import { formatDateTime } from '../../lib/time'
 import { NotFoundPage } from '../errors/NotFoundPage'
+import { BookmarkToggle } from '../saved/BookmarkToggle'
+import { useSaveArticle } from '../saved/useSaveArticle'
 import { sanitizeContent } from './sanitize'
 import { SourceAttribution } from './SourceAttribution'
 
 /** Haber kimlikleri UUID'dir; başka bir değerle API'ye boşuna istek gönderilmez. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** Arama sayfası detaya giderken kendi adresini (`?q=...`) buraya bırakır; "Aramaya dön" oraya döner. */
-interface FromSearch {
+/**
+ * Detaya gelinen sayfa: arama veya Kaydedilenler kendi adres parametrelerini (`?q=...`, `?page=2`)
+ * buraya bırakır; geri bağlantısı aynı sayfaya, aynı filtrelerle döner.
+ */
+interface CameFrom {
+  from?: 'saved'
   search?: string
 }
 
@@ -31,7 +37,9 @@ export function ArticlePage() {
   const accessToken = useAccessToken()
   const { t } = useTranslation()
   const location = useLocation()
-  const backTo = `/${(location.state as FromSearch | null)?.search ?? ''}`
+  const cameFrom = location.state as CameFrom | null
+  const fromSaved = cameFrom?.from === 'saved'
+  const backTo = `${fromSaved ? '/saved' : '/'}${cameFrom?.search ?? ''}`
 
   const article = useQuery({
     queryKey: ['article', articleId],
@@ -50,7 +58,7 @@ export function ArticlePage() {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon aria-hidden className="size-4" />
-        {t('article.back')}
+        {fromSaved ? t('article.backToSaved') : t('article.back')}
       </Link>
 
       {article.isPending ? (
@@ -77,6 +85,7 @@ function ArticleView({ article }: { article: ArticleDetail }) {
   const { t } = useTranslation()
   const { locale } = useLocale()
   const content = useMemo(() => (article.content ? sanitizeContent(article.content) : null), [article.content])
+  const bookmark = useSaveArticle(article.id, article.saved)
   const [mainImage, ...otherImages] = article.media
 
   // Sekmede haberin başlığı görünür; sayfadan çıkınca uygulamanın adına döner.
@@ -91,11 +100,24 @@ function ArticleView({ article }: { article: ArticleDetail }) {
     // lang: İngilizce haberi ekran okuyucu İngilizce telaffuzla okur (WCAG 3.1.2).
     <article lang={article.language} className="mt-6">
       <header>
-        <p className="text-xs text-muted-foreground">
-          <span className="font-medium tracking-wide uppercase">{article.source.name}</span>
-          <span aria-hidden> · </span>
-          <time dateTime={article.publishedAt}>{formatDateTime(article.publishedAt, locale)}</time>
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium tracking-wide uppercase">{article.source.name}</span>
+            <span aria-hidden> · </span>
+            <time dateTime={article.publishedAt}>{formatDateTime(article.publishedAt, locale)}</time>
+          </p>
+          <BookmarkToggle
+            isSaved={bookmark.isSaved}
+            onChange={bookmark.setSaved}
+            isDisabled={bookmark.isPending}
+            className="-mr-2"
+          />
+        </div>
+        {bookmark.isError && (
+          <p role="alert" className="mt-1 text-right text-xs text-destructive">
+            {t('bookmark.failed')}
+          </p>
+        )}
         <h1 className="mt-2 text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">{article.title}</h1>
         {article.author && (
           <p className="mt-3 text-sm text-muted-foreground">{t('article.byAuthor', { author: article.author })}</p>

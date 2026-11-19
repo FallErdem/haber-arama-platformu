@@ -5,6 +5,7 @@ import com.erdemgural.newssearch.web.ErrorCode;
 import com.erdemgural.newssearch.web.FieldError;
 import com.erdemgural.newssearch.web.FieldError.Code;
 import com.erdemgural.newssearch.web.InvalidRequestException;
+import com.erdemgural.newssearch.web.PageParameters;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -33,8 +34,6 @@ record SearchCriteria(
         int size) {
 
     static final int MAX_QUERY_LENGTH = 200;
-    static final int DEFAULT_SIZE = 20;
-    static final int MAX_SIZE = 100;
 
     /**
      * Elasticsearch varsayılan olarak ilk 10.000 sonucun ötesine sayfalamaz (her sayfa için
@@ -81,8 +80,9 @@ record SearchCriteria(
         }
 
         SearchSort chosenSort = parseSort(sort, errors);
-        Integer pageNumber = parseInteger("page", page, 0, 0, Integer.MAX_VALUE, errors);
-        Integer pageSize = parseInteger("size", size, DEFAULT_SIZE, 1, MAX_SIZE, errors);
+        PageParameters pageParameters = PageParameters.parse(page, size, errors);
+        int pageNumber = pageParameters.page();
+        int pageSize = pageParameters.size();
 
         if (!errors.isEmpty()) {
             throw new InvalidRequestException(errors);
@@ -146,26 +146,5 @@ record SearchCriteria(
         }
         errors.add(new FieldError("sort", Code.INVALID_VALUE));
         return SearchSort.RELEVANCE;
-    }
-
-    private static Integer parseInteger(
-            String field, String value, int defaultValue, int min, int max, List<FieldError> errors) {
-        String text = blankToNull(value);
-        if (text == null) {
-            return defaultValue;
-        }
-        int number;
-        try {
-            number = Integer.parseInt(text);
-        } catch (NumberFormatException exception) {
-            errors.add(new FieldError(field, Code.INVALID_VALUE));
-            return defaultValue;
-        }
-        if (number < min) {
-            errors.add(new FieldError(field, Code.MIN_VALUE));
-        } else if (number > max) {
-            errors.add(new FieldError(field, Code.MAX_VALUE));
-        }
-        return number;
     }
 }

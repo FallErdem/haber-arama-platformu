@@ -274,6 +274,7 @@ Başlangıç verisi:
 
 - Birincil anahtar: `(user_id, article_id)`.
 - İndeksler: `(user_id, created_at)` ve bir haber silindiğinde kayıtlarının bulunması için `article_id`.
+- Kaydetme `INSERT ... ON CONFLICT DO NOTHING` ile yapılır: aynı haberi ikinci kez kaydetmek hata vermez ve `created_at` ilk kaydedildiği an olarak kalır. Liste `created_at DESC, article_id DESC` ile sıralanır (API sözleşmesi 5.1).
 
 ### 3.12 `saved_searches` (modül: library)
 

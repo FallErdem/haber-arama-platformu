@@ -69,6 +69,19 @@ describe('AuthenticatedApp', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Haberlerde ara' })).toBeInTheDocument()
   })
 
+  it('üst menü Arama ve Kaydedilenler sayfalarına götürür; bulunulan sayfa işaretlidir', async () => {
+    stubMeResponse(200, meWithStatus('ACTIVE'))
+    renderAt('/')
+    const menu = await screen.findByRole('navigation', { name: 'Ana menü' })
+    expect(within(menu).getByRole('link', { name: 'Arama' })).toHaveAttribute('aria-current', 'page')
+
+    await userEvent.click(within(menu).getByRole('link', { name: 'Kaydedilenler' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Kaydedilenler' })).toBeInTheDocument()
+    expect(within(menu).getByRole('link', { name: 'Kaydedilenler' })).toHaveAttribute('aria-current', 'page')
+    expect(within(menu).getByRole('link', { name: 'Arama' })).not.toHaveAttribute('aria-current')
+  })
+
   it('görünen adı olmayan kullanıcının e-posta adresini gösterir', async () => {
     stubMeResponse(200, meWithStatus('ACTIVE', null))
 

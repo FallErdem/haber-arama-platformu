@@ -29,6 +29,8 @@ export interface ArticleSearchItem {
   url: string
   image: ArticleImage | null
   otherSourcesCount: number
+  /** Haberin oturumdaki kullanıcı tarafından kaydedilip kaydedilmediği. */
+  saved: boolean
 }
 
 /** Arama yanıtı: sayfalı liste (API sözleşmesi 2.4). `page` 0'dan başlar. */

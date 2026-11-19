@@ -16,6 +16,28 @@
   "layout": {
     "skipToContent": "Skip to content"
   },
+  "nav": {
+    "label": "Main menu",
+    "search": "Search",
+    "saved": "Saved"
+  },
+  "bookmark": {
+    "save": "Save",
+    "saveWithTitle": "Save: {{title}}",
+    "failed": "The action could not be completed. Please try again."
+  },
+  "saved": {
+    "title": "Saved",
+    "loading": "Loading saved stories…",
+    "loadFailed": "Saved stories could not be loaded.",
+    "retry": "Try again",
+    "empty": "You have not saved any stories yet.",
+    "emptyHint": "Save stories by pressing the bookmark icon.",
+    "goToSearch": "Go to search",
+    "pageEmpty": "There are no saved stories on this page.",
+    "firstPage": "Back to the first page",
+    "hidden": "This story was removed by an administrator."
+  },
   "search": {
     "title": "Search the news",
     "queryLabel": "Search terms",
@@ -62,6 +84,7 @@
   },
   "article": {
     "back": "Back to search",
+    "backToSaved": "Back to saved",
     "byAuthor": "By {{author}}",
     "categories": "Categories",
     "readAtSource": "Read the full story at the source",

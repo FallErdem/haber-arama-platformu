@@ -124,11 +124,17 @@ flowchart TD
     admin --> ingestion
     admin --> search
     admin --> audit
-    library --> search
+    library --> ingestion
     search --> ingestion
+    search --> library
 ```
 
-Diyagram yalnızca başlıca bağımlılıkları gösterir. Bunlara ek olarak:
+Diyagram yalnızca başlıca bağımlılıkları gösterir:
+
+- `library`, kaydedilen haberlerin başlığını, kaynağını ve görselini `ingestion`'dan alır; listede özet olmadığı için arama indeksine ihtiyaç duymaz.
+- `search`, arama sonuçlarında ve haber detayında haberin kullanıcı tarafından kaydedilip kaydedilmediğini `library`'ye sorar. `library` `search`'ü kullanmadığından döngü oluşmaz; döngü olmadığını Spring Modulith testi her derlemede denetler.
+
+Bunlara ek olarak:
 
 - Bütün modüller, isteği yapan kullanıcının kimliğine ve rolüne erişmek için **identity** modülünü kullanır.
 - Denetlenen işlemleri yapan modüller, kayıt için **audit** modülünü kullanır (FG-AL-01).

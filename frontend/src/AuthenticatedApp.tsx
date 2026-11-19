@@ -11,6 +11,7 @@ import { AccountStatus } from './features/account/AccountStatus'
 import { ArticlePage } from './features/article/ArticlePage'
 import { NotFoundPage } from './features/errors/NotFoundPage'
 import { AppLayout } from './features/layout/AppLayout'
+import { SavedArticlesPage } from './features/saved/SavedArticlesPage'
 import { SearchPage } from './features/search/SearchPage'
 
 interface AuthenticatedAppProps {
@@ -70,6 +71,7 @@ export function AuthenticatedApp({ accessToken, onSignOut, onSessionExpired }: A
             <Route element={<AppLayout user={me.data} onSignOut={onSignOut} />}>
               <Route index element={<SearchPage />} />
               <Route path="articles/:articleId" element={<ArticlePage />} />
+              <Route path="saved" element={<SavedArticlesPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
