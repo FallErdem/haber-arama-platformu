@@ -9,8 +9,10 @@ import com.erdemgural.newssearch.web.ApiException;
 import com.erdemgural.newssearch.web.ErrorCode;
 import com.erdemgural.newssearch.web.PageParameters;
 import com.erdemgural.newssearch.web.PageResponse;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -61,6 +63,11 @@ class SavedArticleService implements SavedArticles {
     @Override
     public boolean isSaved(UUID userId, UUID articleId) {
         return repository.exists(userId, articleId);
+    }
+
+    @Override
+    public Set<UUID> findSaved(UUID userId, Collection<UUID> articleIds) {
+        return repository.findSavedAmong(userId, articleIds);
     }
 
     private static SavedArticleItem toItem(SavedArticleRow row, ArticleSummary summary) {

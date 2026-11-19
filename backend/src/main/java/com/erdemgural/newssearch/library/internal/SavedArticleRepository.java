@@ -1,7 +1,9 @@
 package com.erdemgural.newssearch.library.internal;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -54,6 +56,24 @@ class SavedArticleRepository {
                 .param("articleId", articleId)
                 .query(Boolean.class)
                 .single();
+    }
+
+    /** Verilen haberlerden kullanıcının kaydettikleri. */
+    Set<UUID> findSavedAmong(UUID userId, Collection<UUID> articleIds) {
+        if (articleIds.isEmpty()) {
+            return Set.of();
+        }
+        return Set.copyOf(jdbcClient
+                .sql("""
+				SELECT article_id
+				FROM saved_articles
+				WHERE user_id = :userId
+				  AND article_id IN (:articleIds)
+				""")
+                .param("userId", userId)
+                .param("articleIds", articleIds)
+                .query(UUID.class)
+                .list());
     }
 
     /**

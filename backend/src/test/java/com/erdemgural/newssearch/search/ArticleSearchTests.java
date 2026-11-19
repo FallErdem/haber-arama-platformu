@@ -462,7 +462,8 @@ class ArticleSearchTests {
                         "publishedAt",
                         "url",
                         "image",
-                        "otherSourcesCount")
+                        "otherSourcesCount",
+                        "saved")
                 .containsEntry("id", id.toString())
                 .containsEntry("title", "Deprem sonrası son durum")
                 .containsEntry("summary", "Bölgede çalışmalar sürüyor")
@@ -471,7 +472,8 @@ class ArticleSearchTests {
                 .containsEntry("publishedAt", "2026-11-05T08:12:00Z")
                 // Görseli yok; kaynaklar arası gruplama (İ-28) henüz yok.
                 .containsEntry("image", null)
-                .containsEntry("otherSourcesCount", 0);
+                .containsEntry("otherSourcesCount", 0)
+                .containsEntry("saved", false);
         assertThat(result)
                 .bodyJson()
                 .extractingPath("$.items[0].source")
@@ -655,6 +657,38 @@ class ArticleSearchTests {
         assertThat(result).bodyJson().extractingPath("$.items").asArray().isEmpty();
         assertThat(result).bodyJson().extractingPath("$.totalElements").isEqualTo(0);
         assertThat(result).bodyJson().extractingPath("$.totalPages").isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("sonuçlardaki saved alanı isteği yapan kullanıcıya göredir")
+    void savedFlagBelongsToTheRequestingUser() {
+        UUID saved = articles.add(Article.turkish("Kaydedilen deprem haberi"));
+        UUID notSaved = articles.add(Article.turkish("Diğer deprem haberi"));
+        assertThat(mvc.put()
+                        .uri("/api/v1/me/saved-articles/" + saved)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + user.token())
+                        .exchange())
+                .hasStatus(HttpStatus.NO_CONTENT);
+
+        MvcTestResult result = search("q=deprem");
+
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.items[?(@.id == '" + saved + "')].saved")
+                .asArray()
+                .containsExactly(true);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.items[?(@.id == '" + notSaved + "')].saved")
+                .asArray()
+                .containsExactly(false);
+        // Aynı aramayı başka bir kullanıcı yapar (search() alandaki kullanıcının token'ını kullanır).
+        user = users.create(UserRole.USER, UserStatus.ACTIVE);
+        assertThat(search("q=deprem"))
+                .bodyJson()
+                .extractingPath("$.items[*].saved")
+                .asArray()
+                .containsOnly(false);
     }
 
     // --- Erişim -----------------------------------------------------------------------------------

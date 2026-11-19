@@ -4,6 +4,7 @@ import com.erdemgural.newssearch.ingestion.ArticleCatalog;
 import com.erdemgural.newssearch.ingestion.ArticleSummary;
 import com.erdemgural.newssearch.ingestion.CategoryCatalog;
 import com.erdemgural.newssearch.ingestion.CategoryWindows;
+import com.erdemgural.newssearch.library.SavedArticles;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -11,13 +12,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
  * Arama akışı: eşleşen haberlerin kimlikleri, sırası, özetleri ve vurguları Elasticsearch'ten, meta
  * verisi (başlık, kaynak adı, adres, kategoriler, görsel) PostgreSQL'den gelir (veri modeli 5.2;
- * ADR-0019).
+ * ADR-0019). Hangi sonuçların kullanıcı tarafından kaydedildiği {@code library} modülünden sorulur.
  */
 @Service
 class ArticleSearchService {
@@ -25,26 +27,31 @@ class ArticleSearchService {
     private final ArticleSearchIndex searchIndex;
     private final ArticleCatalog articleCatalog;
     private final CategoryCatalog categoryCatalog;
+    private final SavedArticles savedArticles;
     private final Clock clock;
 
     ArticleSearchService(
             ArticleSearchIndex searchIndex,
             ArticleCatalog articleCatalog,
             CategoryCatalog categoryCatalog,
+            SavedArticles savedArticles,
             Clock clock) {
         this.searchIndex = searchIndex;
         this.articleCatalog = articleCatalog;
         this.categoryCatalog = categoryCatalog;
+        this.savedArticles = savedArticles;
         this.clock = clock;
     }
 
-    ArticleSearchResponse search(SearchCriteria criteria) {
+    /** {@code userId}: sonuçlardaki {@code saved} alanı isteği yapan kullanıcıya göredir. */
+    ArticleSearchResponse search(SearchCriteria criteria, UUID userId) {
         Map<String, Duration> categoryWindows = categoryCatalog.timeWindows();
         SearchHits hits = searchIndex.search(criteria, categoryWindows);
 
         List<UUID> articleIds =
                 hits.hits().stream().map(SearchHits.Hit::articleId).toList();
         Map<UUID, ArticleSummary> summaries = articleCatalog.findSummaries(articleIds);
+        Set<UUID> saved = savedArticles.findSaved(userId, summaries.keySet());
         Instant now = clock.instant();
 
         // Sıra Elasticsearch'in verdiği sıradır. İndekste olup asıl kayıtta bulunmayan veya gizlenmiş
@@ -52,7 +59,9 @@ class ArticleSearchService {
         List<ArticleSearchItem> items = hits.hits().stream()
                 .map(hit -> {
                     ArticleSummary summary = summaries.get(hit.articleId());
-                    return summary == null ? null : toItem(summary, hit, criteria, categoryWindows, now);
+                    return summary == null
+                            ? null
+                            : toItem(summary, hit, criteria, categoryWindows, now, saved.contains(summary.id()));
                 })
                 .filter(Objects::nonNull)
                 .toList();
@@ -67,7 +76,8 @@ class ArticleSearchService {
             SearchHits.Hit hit,
             SearchCriteria criteria,
             Map<String, Duration> categoryWindows,
-            Instant now) {
+            Instant now,
+            boolean saved) {
         return new ArticleSearchItem(
                 summary.id(),
                 summary.title(),
@@ -85,7 +95,8 @@ class ArticleSearchService {
                                 summary.image().url(),
                                 summary.image().width(),
                                 summary.image().height()),
-                0);
+                0,
+                saved);
     }
 
     /**

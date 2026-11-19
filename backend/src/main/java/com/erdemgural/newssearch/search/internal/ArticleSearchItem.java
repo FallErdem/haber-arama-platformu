@@ -15,6 +15,8 @@ import java.util.UUID;
  *     haberde {@code null}, arayüz yer tutucu gösterir (FG-AR-08)
  * @param otherSourcesCount aynı haberi yayımlayan diğer kaynakların sayısı; kaynaklar arası
  *     gruplama gelene kadar (İ-28) her zaman 0
+ * @param saved haberin isteği yapan kullanıcı tarafından kaydedilip kaydedilmediği (FG-KO-01); arayüz
+ *     sonuç kartındaki yer imini buna göre gösterir
  */
 record ArticleSearchItem(
         UUID id,
@@ -28,7 +30,8 @@ record ArticleSearchItem(
         Instant publishedAt,
         String url,
         Image image,
-        int otherSourcesCount) {
+        int otherSourcesCount,
+        boolean saved) {
 
     record Source(String code, String name) {}
 
