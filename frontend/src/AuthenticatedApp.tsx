@@ -4,10 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { fetchMe } from './api/me'
 import { AccessTokenContext } from './auth/accessToken'
+import { CurrentUserContext } from './auth/currentUser'
 import { useSessionErrors } from './auth/useSessionErrors'
 import { CenteredScreen } from './components/CenteredScreen'
 import { Button } from './components/ui/button'
 import { AccountStatus } from './features/account/AccountStatus'
+import { AdminUsersPage } from './features/admin/users/AdminUsersPage'
 import { ArticlePage } from './features/article/ArticlePage'
 import { NotFoundPage } from './features/errors/NotFoundPage'
 import { AppLayout } from './features/layout/AppLayout'
@@ -65,18 +67,21 @@ export function AuthenticatedApp({ accessToken, onSignOut, onSessionExpired }: A
   // biçimlerine dili verir: takvimde Türkçe ay adları, haftanın Pazartesi başlaması, "1.284".
   return (
     <AccessTokenContext value={accessToken}>
-      <I18nProvider locale={i18n.language === 'en' ? 'en-GB' : 'tr-TR'}>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<AppLayout user={me.data} onSignOut={onSignOut} />}>
-              <Route index element={<SearchPage />} />
-              <Route path="articles/:articleId" element={<ArticlePage />} />
-              <Route path="saved" element={<SavedArticlesPage />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </I18nProvider>
+      <CurrentUserContext value={me.data}>
+        <I18nProvider locale={i18n.language === 'en' ? 'en-GB' : 'tr-TR'}>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<AppLayout user={me.data} onSignOut={onSignOut} />}>
+                <Route index element={<SearchPage />} />
+                <Route path="articles/:articleId" element={<ArticlePage />} />
+                <Route path="saved" element={<SavedArticlesPage />} />
+                <Route path="admin/users" element={<AdminUsersPage />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </I18nProvider>
+      </CurrentUserContext>
     </AccessTokenContext>
   )
 }

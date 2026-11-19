@@ -41,6 +41,31 @@ export async function apiSend(method: 'PUT' | 'DELETE', path: string, accessToke
 }
 
 /**
+ * API'ye token'la, gövdesi JSON olabilen bir işlem isteği (`POST`, `PATCH`) gönderir ve JSON yanıtı
+ * döner. Başarısız yanıtta {@link ApiError} fırlatır; arayüz mesajı hata kodundan seçer
+ * (`LAST_ACTIVE_ADMIN` gibi).
+ */
+export async function apiSendJson<T>(
+  method: 'POST' | 'PATCH',
+  path: string,
+  accessToken: string,
+  body?: unknown,
+): Promise<T> {
+  const response = await fetch(path, {
+    method,
+    headers:
+      body === undefined
+        ? { Authorization: `Bearer ${accessToken}` }
+        : { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw new ApiError(response.status, await readErrorCode(response))
+  }
+  return (await response.json()) as T
+}
+
+/**
  * Başarısız bir isteğin yeniden denenip denenmeyeceği (TanStack Query'nin `retry` ayarı; bütün
  * isteklerin varsayılanı, bkz. main.tsx). Sunucu yanıt verdiyse (404, 503...) durumu bellidir:
  * yeniden denenmez, kullanıcı mesajı hemen görür ve isterse "Yeniden dene"ye basar. Yalnızca ağ

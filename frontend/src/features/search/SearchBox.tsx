@@ -10,13 +10,17 @@ interface SearchBoxProps {
   /** Adresteki arama ifadesi. Değişince bileşen yeniden kurulur (`key`), kutu adresteki değeri gösterir. */
   query: string
   onSearch: (query: string) => void
+  /** Kutunun erişilebilir adı ve yer tutucu metni; verilmezse haber aramasınınkiler. */
+  label?: string
+  placeholder?: string
 }
 
 /**
  * Arama kutusu. Yazılan metin "Ara" düğmesine veya Enter'a basılınca adrese yazılır; her harfte
- * arama yapılmaz (her harf bir API isteği ve bir geçmiş kaydı olurdu).
+ * arama yapılmaz (her harf bir API isteği ve bir geçmiş kaydı olurdu). Yönetim panelindeki kullanıcı
+ * araması da aynı kutuyu kullanır.
  */
-export function SearchBox({ query, onSearch }: SearchBoxProps) {
+export function SearchBox({ query, onSearch, label, placeholder }: SearchBoxProps) {
   const { t } = useTranslation()
   const [text, setText] = useState(query)
 
@@ -31,7 +35,7 @@ export function SearchBox({ query, onSearch }: SearchBoxProps) {
     >
       {/* SearchField: Escape kutuyu temizler; içindeki düğme kendiliğinden "temizle" düğmesi olur. */}
       <SearchField
-        aria-label={t('search.queryLabel')}
+        aria-label={label ?? t('search.queryLabel')}
         value={text}
         onChange={setText}
         onClear={() => onSearch('')}
@@ -42,7 +46,7 @@ export function SearchBox({ query, onSearch }: SearchBoxProps) {
           className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
         />
         <Input
-          placeholder={t('search.queryPlaceholder')}
+          placeholder={placeholder ?? t('search.queryPlaceholder')}
           maxLength={MAX_QUERY_LENGTH}
           className="h-11 bg-card pr-10 pl-9 text-base md:text-base [&::-webkit-search-cancel-button]:hidden"
         />

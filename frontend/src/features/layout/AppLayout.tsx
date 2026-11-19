@@ -13,8 +13,9 @@ interface AppLayoutProps {
  * Aktif kullanıcının bütün sayfalarının ortak çerçevesi: üst çubuk ve sayfanın içeriği. Sayfalar
  * `<Outlet />` yerine çizilir; üst çubuk sayfa değişince yeniden çizilmez.
  *
- * Uygulamanın adı ana sayfaya (aramaya) götürür. Üst menü (ekran akışları 3. bölüm): Arama ve
- * Kaydedilenler. Dar ekranda menü ikinci satıra iner; üst çubuk 360 piksele sığar (FOG-34).
+ * Uygulamanın adı ana sayfaya (aramaya) götürür. Üst menü (ekran akışları 3. bölüm): Arama,
+ * Kaydedilenler ve yalnızca yöneticiye Yönetim. Dar ekranda menü ikinci satıra iner; üst çubuk 360
+ * piksele sığar (FOG-34).
  */
 export function AppLayout({ user, onSignOut }: AppLayoutProps) {
   const { t } = useTranslation()
@@ -54,6 +55,14 @@ export function AppLayout({ user, onSignOut }: AppLayoutProps) {
                   {t('nav.saved')}
                 </NavLink>
               </li>
+              {/* Yalnızca yöneticiye görünür; yalnızca bir kolaylıktır, yetki kontrolü backend'dedir. */}
+              {user.role === 'ADMIN' && (
+                <li>
+                  <NavLink to="/admin/users" className={navClass}>
+                    {t('nav.admin')}
+                  </NavLink>
+                </li>
+              )}
             </ul>
           </nav>
 
