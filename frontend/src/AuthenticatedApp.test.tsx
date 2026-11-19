@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { shouldRetry } from './api/client'
@@ -80,6 +80,22 @@ describe('AuthenticatedApp', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Kaydedilenler' })).toBeInTheDocument()
     expect(within(menu).getByRole('link', { name: 'Kaydedilenler' })).toHaveAttribute('aria-current', 'page')
     expect(within(menu).getByRole('link', { name: 'Arama' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('Yönetim menüsü yalnızca yöneticiye görünür ve kullanıcılar ekranına götürür', async () => {
+    stubMeResponse(200, meWithStatus('ACTIVE'))
+    renderAt('/')
+    const userMenu = await screen.findByRole('navigation', { name: 'Ana menü' })
+    expect(within(userMenu).queryByRole('link', { name: 'Yönetim' })).not.toBeInTheDocument()
+    cleanup()
+
+    stubMeResponse(200, { ...meWithStatus('ACTIVE'), role: 'ADMIN' })
+    renderAt('/')
+    const adminMenu = await screen.findByRole('navigation', { name: 'Ana menü' })
+    await userEvent.click(within(adminMenu).getByRole('link', { name: 'Yönetim' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Kullanıcılar' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/admin/users')
   })
 
   it('görünen adı olmayan kullanıcının e-posta adresini gösterir', async () => {

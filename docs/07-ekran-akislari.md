@@ -209,9 +209,12 @@ Bulunamadı ekranı ve genel hata ekranı. İkisinde de arama ekranına dönüş
 - **Amaç:** Kullanıcıları yönetmek (FG-YP-01–03).
 - **İçerik:** Durum ve rol filtreleri, e-posta veya adla arama, liste ve sayfalama.
 - **Davranışlar:**
+  - Filtreler, arama ve sayfa adres çubuğunda tutulur (`/admin/users?status=PENDING`); filtre veya arama değişince ilk sayfaya dönülür.
   - Onay bekleyen kullanıcıda Onayla ve Reddet butonları; reddetme bir onay penceresi açar.
-  - Diğer kullanıcılarda rol ve durum değiştirme.
+  - Aktif ve pasif kullanıcılarda rol ve durum değiştirme; seçim yapılınca değişiklik kaydın sürümüyle gönderilir. Reddedilmiş kullanıcıda işlem yoktur.
   - Son aktif yöneticiyi kaldıracak değişikliklerde API'nin hatası "Sistemde en az bir aktif yönetici bulunmalıdır" mesajıyla gösterilir.
+  - Kullanıcı bu arada başka bir yönetici tarafından değiştirildiyse (`VERSION_CONFLICT`) veya durumu değiştiyse (`INVALID_STATE_TRANSITION`) bu söylenir ve liste yenilenir.
+  - Yönetici kendi rolünü düşürürse menü ve sayfa yeni rolüne göre yeniden çizilir. Adresi elle yazan yönetici olmayan kullanıcıya içerik gösterilmez.
 - **Uç noktalar:** `GET /admin/users`, `POST /admin/users/{id}/approve`, `POST /admin/users/{id}/reject`, `PATCH /admin/users/{id}`
 
 #### Kaynaklar

@@ -11,5 +11,13 @@ public enum AuditAction {
     /** Token'daki oturum kimliği ({@code sid}) kullanıcının son oturumundan farklı: yeni oturum. */
     SESSION_STARTED,
     /** Kimliği doğrulanmış kullanıcının isteği reddedildi (403). */
-    ACCESS_DENIED
+    ACCESS_DENIED,
+    /** Yönetici onay bekleyen kullanıcıyı onayladı (FG-YP-01). */
+    USER_APPROVED,
+    /** Yönetici onay bekleyen kullanıcıyı reddetti (FG-YP-01). */
+    USER_REJECTED,
+    /** Yönetici kullanıcının rolünü değiştirdi (FG-YP-02). */
+    USER_ROLE_CHANGED,
+    /** Yönetici kullanıcıyı aktif veya pasif yaptı (FG-YP-02). */
+    USER_STATUS_CHANGED
 }

@@ -19,7 +19,51 @@
   "nav": {
     "label": "Main menu",
     "search": "Search",
-    "saved": "Saved"
+    "saved": "Saved",
+    "admin": "Admin"
+  },
+  "admin": {
+    "users": {
+      "title": "Users",
+      "searchLabel": "Email or name",
+      "searchPlaceholder": "Search by email or name",
+      "statusFilter": "Status",
+      "allStatuses": "All statuses",
+      "roleFilter": "Role",
+      "allRoles": "All roles",
+      "loading": "Loading users…",
+      "loadFailed": "Users could not be loaded.",
+      "retry": "Try again",
+      "empty": "No users match these criteria.",
+      "registeredAt": "Registered: {{date}}",
+      "approve": "Approve",
+      "reject": "Reject",
+      "roleLabel": "Role: {{name}}",
+      "statusLabel": "Status: {{name}}",
+      "noPermission": "You do not have permission to view this page.",
+      "rejectDialog": {
+        "title": "Reject registration",
+        "text": "The registration request of {{name}} will be rejected. This user will not be able to use the application.",
+        "cancel": "Cancel",
+        "confirm": "Reject"
+      },
+      "errors": {
+        "LAST_ACTIVE_ADMIN": "There must be at least one active administrator.",
+        "VERSION_CONFLICT": "This user was changed by another administrator in the meantime. The list was refreshed; please try again.",
+        "INVALID_STATE_TRANSITION": "The user's status changed in the meantime. The list was refreshed.",
+        "failed": "The action could not be completed. Please try again."
+      }
+    }
+  },
+  "userRoles": {
+    "USER": "User",
+    "ADMIN": "Administrator"
+  },
+  "userStatuses": {
+    "PENDING": "Pending approval",
+    "ACTIVE": "Active",
+    "PASSIVE": "Inactive",
+    "REJECTED": "Rejected"
   },
   "bookmark": {
     "save": "Save",

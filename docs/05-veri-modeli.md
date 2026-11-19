@@ -321,9 +321,14 @@ Başlangıç verisi:
 | `USER_REGISTERED` | API, kullanıcının ilk isteğinde (ADR-0014) | `USER` (kaydı oluşan kullanıcı) | `USER` | `SUCCESS` | `role`, `status` |
 | `SESSION_STARTED` | API, token'daki `sid` kullanıcının `last_session_id` değerinden farklıysa | `USER` | `USER` | `SUCCESS` | — (oturum kimliği yazılmaz) |
 | `ACCESS_DENIED` | API, kimliği doğrulanmış kullanıcının isteği 403 aldığında | `USER` | — | `FAILURE` | `method`, `path` (sorgu metni olmadan, FG-AL-05), `code` (ret nedeni, örneğin `USER_PENDING_APPROVAL`) |
+| `USER_APPROVED` | API, yönetici onay bekleyen kullanıcıyı onayladığında (FG-YP-01) | `USER` (yönetici) | `USER` | `SUCCESS` veya `FAILURE` | — |
+| `USER_REJECTED` | API, yönetici onay bekleyen kullanıcıyı reddettiğinde | `USER` (yönetici) | `USER` | `SUCCESS` veya `FAILURE` | — |
+| `USER_ROLE_CHANGED` | API, yönetici kullanıcının rolünü değiştirdiğinde (FG-YP-02) | `USER` (yönetici) | `USER` | `SUCCESS` veya `FAILURE` | `from`, `to` |
+| `USER_STATUS_CHANGED` | API, yönetici kullanıcıyı aktif veya pasif yaptığında | `USER` (yönetici) | `USER` | `SUCCESS` veya `FAILURE` | `from`, `to` |
 | `FEED_AUTO_DISABLED` | İşçi (ADR-0017, 10. bölüm) | `SYSTEM` | `FEED` | `SUCCESS` | `consecutive_failures`, `last_error` |
 
 - `USER_REGISTERED` ve `SESSION_STARTED`, kullanıcı kaydı ve `last_session_id` güncellemesiyle aynı veritabanı işleminde yazılır. Aynı anda gelen iki istekten yalnızca eklemeyi veya koşullu güncellemeyi başaran istek kayıt yazar; kayıt bir kez oluşur. `ACCESS_DENIED` bir iş işlemine bağlı değildir, ayrı yazılır; yazılamazsa istek yine 403 alır ve hata uygulama loguna düşer.
+- Kullanıcı yönetimi işlemlerinin başarılı kaydı değişiklikle aynı veritabanı işleminde yazılır. İş kuralıyla reddedilen denemede (`409`: yanlış durum, sürüm çakışması, son aktif yönetici) değişiklik geri alınır; deneme bu yüzden işlem bittikten sonra ayrıca `FAILURE` sonucuyla yazılır. Ayrıntıda ret nedeni (`code`, örneğin `LAST_ACTIVE_ADMIN`) ve rol ile durum değişikliklerinde istenen değer (`to`) bulunur. Bir `PATCH` isteğinde rol ve durum birlikte istendiyse her biri ayrı kayıttır.
 
 ### 3.14 `feed_tests` (modül: ingestion)
 

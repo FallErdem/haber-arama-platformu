@@ -19,7 +19,51 @@
   "nav": {
     "label": "Ana menü",
     "search": "Arama",
-    "saved": "Kaydedilenler"
+    "saved": "Kaydedilenler",
+    "admin": "Yönetim"
+  },
+  "admin": {
+    "users": {
+      "title": "Kullanıcılar",
+      "searchLabel": "E-posta veya ad",
+      "searchPlaceholder": "E-posta veya adla ara",
+      "statusFilter": "Durum",
+      "allStatuses": "Tüm durumlar",
+      "roleFilter": "Rol",
+      "allRoles": "Tüm roller",
+      "loading": "Kullanıcılar yükleniyor…",
+      "loadFailed": "Kullanıcılar alınamadı.",
+      "retry": "Yeniden dene",
+      "empty": "Bu ölçütlere uyan kullanıcı yok.",
+      "registeredAt": "Kayıt: {{date}}",
+      "approve": "Onayla",
+      "reject": "Reddet",
+      "roleLabel": "Rol: {{name}}",
+      "statusLabel": "Durum: {{name}}",
+      "noPermission": "Bu sayfayı görüntüleme yetkiniz yok.",
+      "rejectDialog": {
+        "title": "Kayıt talebini reddet",
+        "text": "{{name}} kullanıcısının kayıt talebi reddedilecek. Bu kullanıcı uygulamayı kullanamayacak.",
+        "cancel": "Vazgeç",
+        "confirm": "Reddet"
+      },
+      "errors": {
+        "LAST_ACTIVE_ADMIN": "Sistemde en az bir aktif yönetici bulunmalıdır.",
+        "VERSION_CONFLICT": "Kullanıcı bu arada başka bir yönetici tarafından değiştirildi. Liste yenilendi; yeniden deneyin.",
+        "INVALID_STATE_TRANSITION": "Kullanıcının durumu bu arada değişti. Liste yenilendi.",
+        "failed": "İşlem tamamlanamadı. Lütfen yeniden deneyin."
+      }
+    }
+  },
+  "userRoles": {
+    "USER": "Kullanıcı",
+    "ADMIN": "Yönetici"
+  },
+  "userStatuses": {
+    "PENDING": "Onay bekliyor",
+    "ACTIVE": "Aktif",
+    "PASSIVE": "Pasif",
+    "REJECTED": "Reddedildi"
   },
   "bookmark": {
     "save": "Kaydet",
