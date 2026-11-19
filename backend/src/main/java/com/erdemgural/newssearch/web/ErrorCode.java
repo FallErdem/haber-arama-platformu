@@ -15,6 +15,12 @@ public enum ErrorCode {
     FORBIDDEN,
     MEDIA_URL_INVALID,
     NOT_FOUND,
+    /** İyimser kilitleme çakışması: kayıt, istemcinin gördüğü sürümden sonra değişmiş (sözleşme 2.5). */
+    VERSION_CONFLICT,
+    /** İşlem kaydın mevcut durumunda yapılamıyor (örneğin onay bekleyen olmayan kullanıcıyı onaylamak). */
+    INVALID_STATE_TRANSITION,
+    /** İşlem sistemdeki son aktif yöneticiyi kaldıracak (FG-YP-03). */
+    LAST_ACTIVE_ADMIN,
     SEARCH_UNAVAILABLE,
     MEDIA_UNAVAILABLE,
     INTERNAL_ERROR

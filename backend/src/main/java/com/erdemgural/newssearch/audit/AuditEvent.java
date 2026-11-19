@@ -9,6 +9,8 @@ import java.util.UUID;
  * ve IP adresi kaydı yazan modülce eklenir; çağıranın vermesi gerekmez.
  *
  * @param actorUserId işlemi yapan kullanıcı; API'nin yazdığı her kayıtta bir kullanıcı vardır
+ * @param success işlem yapıldıysa {@code true}; reddedilen istek veya iş kuralı nedeniyle yapılamayan
+ *     işlemde {@code false}
  * @param targetType işlemin yapıldığı nesnenin türü; nesnesi olmayan işlemde (reddedilen istek) {@code null}
  * @param targetId işlemin yapıldığı nesnenin kimliği; nesnesi yoksa {@code null}
  * @param details işleme özgü, önceden belirlenmiş alanlar. İstek gövdesi, başlıklar, token, parola veya
@@ -41,5 +43,15 @@ public record AuditEvent(
     /** Nesnesi olmayan, başarısız bir işlem (örneğin reddedilen istek). */
     public static AuditEvent failure(UUID actorUserId, AuditAction action, Map<String, Object> details) {
         return new AuditEvent(actorUserId, action, null, null, false, details);
+    }
+
+    /** Bir nesne üzerinde denenip iş kuralı nedeniyle yapılamamış işlem (örneğin son yöneticinin rolünü düşürmek). */
+    public static AuditEvent failure(
+            UUID actorUserId,
+            AuditAction action,
+            AuditTargetType targetType,
+            UUID targetId,
+            Map<String, Object> details) {
+        return new AuditEvent(actorUserId, action, targetType, targetId, false, details);
     }
 }

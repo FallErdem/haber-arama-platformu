@@ -89,9 +89,9 @@ class AccessControlTests {
         TestUser user = users.create(UserRole.USER, UserStatus.ACTIVE);
         TestUser admin = users.create(UserRole.ADMIN, UserStatus.ACTIVE);
 
-        // Adresler henüz yok; 403 yerine 404 gelmesi yetki kontrolünün geçildiğini gösterir.
+        // PROTECTED_PATH var olmayan bir adres: 403 yerine 404 gelmesi yetki kontrolünün geçildiğini gösterir.
         assertThat(get(PROTECTED_PATH, user)).hasStatus(HttpStatus.NOT_FOUND);
-        assertThat(get(ADMIN_PATH, admin)).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(get(ADMIN_PATH, admin)).hasStatusOk();
     }
 
     @Test
