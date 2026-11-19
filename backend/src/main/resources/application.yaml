@@ -31,6 +31,14 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URL:http://haber.localhost/auth/realms/haber}
           audiences: haber-api
 
+# API, Traefik'in arkasındadır. İsteği yapanın adresi (audit kayıtlarındaki ip_address) Traefik'in yazdığı
+# X-Forwarded-For başlığından okunur. Tomcat bu başlığı yalnızca iç ağ adreslerinden gelen isteklerde
+# kullanır (server.tomcat.remoteip.internal-proxies, varsayılanı 10.0.0.0/8 dahil iç ağlar); Traefik de
+# güvenmediği kaynaktan gelen X-Forwarded-* başlıklarını siler. İstemci adresini kendisi uyduramaz
+# (ADR-0016 6. bölüm).
+server:
+  forward-headers-strategy: native
+
 # Loglar her ortamda JSON olarak yazılır (FOG-39); istek kimliği her satırda bulunur.
 logging:
   structured:

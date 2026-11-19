@@ -313,6 +313,17 @@ Başlangıç verisi:
 - Kısıt: `actor_type` `USER` ise `actor_user_id` dolu, `SYSTEM` ise boş olmalıdır.
 - Kayıtlar başka tablolara yabancı anahtarla bağlanmaz: Bölümlenmiş tabloda yabancı anahtarlar yazma maliyetini artırır ve audit kaydı, bağlı olduğu nesne değişse de olduğu gibi kalmalıdır.
 - Tabloda `updated_at` bulunmaz; kayıtlar hiç güncellenmez.
+- `occurred_at` veritabanının saatiyle dolar. `request_id`, yanıttaki `X-Request-Id` değeridir (API sözleşmesi 2.7). `ip_address`, API'de Traefik'in yazdığı `X-Forwarded-For` başlığından okunur: Traefik güvenmediği kaynaktan gelen `X-Forwarded-*` başlıklarını siler, Spring Boot (Tomcat) da başlığı yalnızca iç ağ adreslerinden gelen isteklerde kullanır (`server.forward-headers-strategy: native`); istemci adresini kendisi uyduramaz (ADR-0016, 6. bölüm). İşçinin yazdığı kayıtlarda `request_id` ve `ip_address` boştur.
+- İşlem kodları (yeni denetlenen işlemler aynı biçimde eklenir):
+
+| `action` | Yazan | `actor_type` | `target_type` | `result` | `details` |
+|---|---|---|---|---|---|
+| `USER_REGISTERED` | API, kullanıcının ilk isteğinde (ADR-0014) | `USER` (kaydı oluşan kullanıcı) | `USER` | `SUCCESS` | `role`, `status` |
+| `SESSION_STARTED` | API, token'daki `sid` kullanıcının `last_session_id` değerinden farklıysa | `USER` | `USER` | `SUCCESS` | — (oturum kimliği yazılmaz) |
+| `ACCESS_DENIED` | API, kimliği doğrulanmış kullanıcının isteği 403 aldığında | `USER` | — | `FAILURE` | `method`, `path` (sorgu metni olmadan, FG-AL-05), `code` (ret nedeni, örneğin `USER_PENDING_APPROVAL`) |
+| `FEED_AUTO_DISABLED` | İşçi (ADR-0017, 10. bölüm) | `SYSTEM` | `FEED` | `SUCCESS` | `consecutive_failures`, `last_error` |
+
+- `USER_REGISTERED` ve `SESSION_STARTED`, kullanıcı kaydı ve `last_session_id` güncellemesiyle aynı veritabanı işleminde yazılır. Aynı anda gelen iki istekten yalnızca eklemeyi veya koşullu güncellemeyi başaran istek kayıt yazar; kayıt bir kez oluşur. `ACCESS_DENIED` bir iş işlemine bağlı değildir, ayrı yazılır; yazılamazsa istek yine 403 alır ve hata uygulama loguna düşer.
 
 ### 3.14 `feed_tests` (modül: ingestion)
 
