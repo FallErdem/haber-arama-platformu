@@ -23,6 +23,119 @@
     "admin": "Admin"
   },
   "admin": {
+    "noPermission": "You do not have permission to view this page.",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "save": "Save",
+    "nav": {
+      "label": "Admin menu",
+      "users": "Users",
+      "sources": "Sources",
+      "runs": "Collection history"
+    },
+    "errors": {
+      "VERSION_CONFLICT": "This record was changed by another administrator in the meantime. The page was refreshed; please try again.",
+      "ALREADY_EXISTS": "This code, name or address is already used by another record.",
+      "INVALID_STATE_TRANSITION": "This action is not possible in the record's current state. The page was refreshed.",
+      "LAST_ACTIVE_ADMIN": "There must be at least one active administrator.",
+      "VALIDATION_FAILED": "Please correct the highlighted fields.",
+      "failed": "The action could not be completed. Please try again."
+    },
+    "sources": {
+      "title": "Sources",
+      "add": "Add source",
+      "loading": "Loading sources…",
+      "loadFailed": "Sources could not be loaded.",
+      "detailLoadFailed": "The source could not be loaded.",
+      "back": "Back to sources",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "feedCount_one": "{{count}} feed",
+      "feedCount_other": "{{count}} feeds",
+      "failingFeedCount_one": "{{count}} failing",
+      "failingFeedCount_other": "{{count}} failing",
+      "lastSuccess": "Last successful collection: {{time}}",
+      "neverSucceeded": "No successful collection yet",
+      "createTitle": "Add source",
+      "createText": "The source is added disabled; enable it after adding its feeds. The code, reader type and language cannot be changed later.",
+      "create": "Add",
+      "fetchNow": "Collect now",
+      "fetchRequested_one": "{{count}} feed was queued for reading; it will be read within a few seconds.",
+      "fetchRequested_other": "{{count}} feeds were queued for reading; they will be read within a few seconds.",
+      "enable": "Enable",
+      "disable": "Disable",
+      "enabledNotice": "The source was enabled.",
+      "disabledNotice": "The source was disabled.",
+      "history": "Collection history",
+      "settings": "Settings",
+      "fields": {
+        "code": "Code",
+        "codeHint": "Capital letters, digits and underscores (e.g. TRT).",
+        "name": "Name",
+        "homepageUrl": "Homepage address",
+        "readerType": "Reader type",
+        "language": "Language",
+        "requestIntervalSeconds": "Request interval (seconds)",
+        "requestIntervalHint": "Time to wait between two requests to the same source.",
+        "dailyRequestLimit": "Daily request limit",
+        "dailyRequestLimitHint": "Leave empty for no limit.",
+        "license": "License",
+        "attributionText": "Attribution text",
+        "feedTimeZone": "Feed time zone",
+        "feedTimeZoneHint": "Only if the source writes times with the wrong time zone (e.g. Europe/Istanbul)."
+      }
+    },
+    "feeds": {
+      "title": "Feeds",
+      "add": "Add feed",
+      "empty": "This source has no feeds yet.",
+      "addTitle": "Add feed",
+      "editTitle": "Edit feed",
+      "dialogText": "Once saved, the feed is read immediately if the source is enabled.",
+      "edit": "Edit",
+      "enable": "Enable",
+      "disable": "Disable",
+      "noCategory": "No default category",
+      "itemCategories": "item categories",
+      "everyMinutes_one": "every minute",
+      "everyMinutes_other": "every {{count}} minutes",
+      "failures_one": "{{count}} consecutive failure",
+      "failures_other": "{{count}} consecutive failures",
+      "fetchPending": "Manual collection pending",
+      "status": {
+        "enabled": "Enabled",
+        "manual": "Disabled",
+        "auto": "Disabled automatically"
+      },
+      "fields": {
+        "name": "Name",
+        "url": "Feed address",
+        "defaultCategory": "Default category",
+        "useItemCategories": "Use the items' own categories",
+        "fetchIntervalMinutes": "Read interval (minutes)"
+      }
+    },
+    "runs": {
+      "title": "Collection history",
+      "sourceFilter": "Source",
+      "allSources": "All sources",
+      "statusFilter": "Result",
+      "allStatuses": "All results",
+      "loading": "Loading collection history…",
+      "loadFailed": "Collection history could not be loaded.",
+      "empty": "No reads match these criteria.",
+      "counts": "New {{newCount}} · duplicate {{duplicate}} · skipped {{failed}}",
+      "trigger": {
+        "SCHEDULED": "Scheduled",
+        "MANUAL": "Manual"
+      },
+      "status": {
+        "RUNNING": "Running",
+        "SUCCEEDED": "Succeeded",
+        "NOT_MODIFIED": "Not modified",
+        "FAILED": "Failed"
+      }
+    },
     "users": {
       "title": "Users",
       "searchLabel": "Email or name",
@@ -40,7 +153,6 @@
       "reject": "Reject",
       "roleLabel": "Role: {{name}}",
       "statusLabel": "Status: {{name}}",
-      "noPermission": "You do not have permission to view this page.",
       "rejectDialog": {
         "title": "Reject registration",
         "text": "The registration request of {{name}} will be rejected. This user will not be able to use the application.",

@@ -1,13 +1,18 @@
-/** API'nin hata yanıtı: HTTP durumu ve sözleşmedeki makine tarafından okunan kod (API sözleşmesi 2.6). */
+/**
+ * API'nin hata yanıtı: HTTP durumu, sözleşmedeki makine tarafından okunan kod ve doğrulama hatasında
+ * geçersiz alanların adları (API sözleşmesi 2.6). Formlar geçersiz alanı bu adlarla işaretler.
+ */
 export class ApiError extends Error {
   readonly status: number
   readonly code: string | undefined
+  readonly fields: string[]
 
-  constructor(status: number, code: string | undefined) {
+  constructor(status: number, code: string | undefined, fields: string[] = []) {
     super(`API isteği başarısız oldu: ${status} ${code ?? ''}`.trim())
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.fields = fields
   }
 }
 
@@ -24,7 +29,7 @@ export async function apiGet<T>(path: string, accessToken: string, query?: URLSe
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (!response.ok) {
-    throw new ApiError(response.status, await readErrorCode(response))
+    throw await toApiError(response)
   }
   return (await response.json()) as T
 }
@@ -36,7 +41,7 @@ export async function apiGet<T>(path: string, accessToken: string, query?: URLSe
 export async function apiSend(method: 'PUT' | 'DELETE', path: string, accessToken: string): Promise<void> {
   const response = await fetch(path, { method, headers: { Authorization: `Bearer ${accessToken}` } })
   if (!response.ok) {
-    throw new ApiError(response.status, await readErrorCode(response))
+    throw await toApiError(response)
   }
 }
 
@@ -60,7 +65,7 @@ export async function apiSendJson<T>(
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!response.ok) {
-    throw new ApiError(response.status, await readErrorCode(response))
+    throw await toApiError(response)
   }
   return (await response.json()) as T
 }
@@ -76,14 +81,28 @@ export function shouldRetry(failureCount: number, error: unknown): boolean {
   return !(error instanceof ApiError) && failureCount < 2
 }
 
-async function readErrorCode(response: Response): Promise<string | undefined> {
+/** Başarısız yanıttan hata nesnesini üretir. */
+async function toApiError(response: Response): Promise<ApiError> {
   try {
     const body: unknown = await response.json()
-    if (typeof body === 'object' && body !== null && 'code' in body && typeof body.code === 'string') {
-      return body.code
+    if (typeof body === 'object' && body !== null) {
+      const code = 'code' in body && typeof body.code === 'string' ? body.code : undefined
+      return new ApiError(response.status, code, invalidFields(body))
     }
   } catch {
     // Gövde JSON değilse (örneğin ağ geçidinden gelen bir hata sayfası) kod yoktur.
   }
-  return undefined
+  return new ApiError(response.status, undefined)
+}
+
+/** Doğrulama hatasındaki `errors` listesinden alan adları (`[{ "field": "code", ... }]` → `['code']`). */
+function invalidFields(body: object): string[] {
+  if (!('errors' in body) || !Array.isArray(body.errors)) {
+    return []
+  }
+  return body.errors.flatMap((error: unknown) =>
+    typeof error === 'object' && error !== null && 'field' in error && typeof error.field === 'string'
+      ? [error.field]
+      : [],
+  )
 }

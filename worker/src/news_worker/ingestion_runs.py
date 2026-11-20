@@ -8,6 +8,13 @@ import psycopg
 from psycopg.rows import TupleRow
 
 
+class RunTrigger(StrEnum):
+    """`ingestion_runs.trigger`: okumayı zamanlayıcı mı başlattı, yönetici mi istedi (FG-YP-08)."""
+
+    SCHEDULED = "SCHEDULED"
+    MANUAL = "MANUAL"
+
+
 class RunStatus(StrEnum):
     """`ingestion_runs.status` sütununun, okuma bittiğinde alabildiği değerler."""
 
@@ -31,11 +38,9 @@ class RunResult:
     error_message: str | None = None
 
 
-# Elle başlatılan toplamayı zamanlanmış olandan ayırt etmek yönetim ekranıyla birlikte
-# gelecek (İ-22); o zamana kadar bütün okumalar SCHEDULED olarak kaydedilir.
 _START_QUERY = """
     INSERT INTO ingestion_runs (feed_id, trigger, status, started_at)
-    VALUES (%(feed_id)s, 'SCHEDULED', 'RUNNING', now())
+    VALUES (%(feed_id)s, %(trigger)s, 'RUNNING', now())
     RETURNING id
 """
 
@@ -55,9 +60,9 @@ _FINISH_QUERY = """
 
 
 class IngestionRunRepository:
-    async def start(self, connection: psycopg.AsyncConnection[TupleRow], feed_id: UUID) -> UUID:
+    async def start(self, connection: psycopg.AsyncConnection[TupleRow], feed_id: UUID, trigger: RunTrigger) -> UUID:
         """Okumanın başladığını kaydeder ve kaydın kimliğini döner."""
-        cursor = await connection.execute(_START_QUERY, {"feed_id": feed_id})
+        cursor = await connection.execute(_START_QUERY, {"feed_id": feed_id, "trigger": trigger.value})
         row = await cursor.fetchone()
         assert row is not None  # INSERT ... RETURNING her zaman bir satır döner.
         run_id: UUID = row[0]

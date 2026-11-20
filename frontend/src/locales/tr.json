@@ -23,6 +23,119 @@
     "admin": "Yönetim"
   },
   "admin": {
+    "noPermission": "Bu sayfayı görüntüleme yetkiniz yok.",
+    "retry": "Yeniden dene",
+    "cancel": "Vazgeç",
+    "save": "Kaydet",
+    "nav": {
+      "label": "Yönetim menüsü",
+      "users": "Kullanıcılar",
+      "sources": "Kaynaklar",
+      "runs": "Toplama geçmişi"
+    },
+    "errors": {
+      "VERSION_CONFLICT": "Kayıt bu arada başka bir yönetici tarafından değiştirildi. Ekran yenilendi; yeniden deneyin.",
+      "ALREADY_EXISTS": "Bu kod, ad veya adres başka bir kayıtta kullanılıyor.",
+      "INVALID_STATE_TRANSITION": "İşlem kaydın şu anki durumunda yapılamıyor. Ekran yenilendi.",
+      "LAST_ACTIVE_ADMIN": "Sistemde en az bir aktif yönetici bulunmalıdır.",
+      "VALIDATION_FAILED": "İşaretli alanları düzeltin.",
+      "failed": "İşlem tamamlanamadı. Lütfen yeniden deneyin."
+    },
+    "sources": {
+      "title": "Kaynaklar",
+      "add": "Kaynak ekle",
+      "loading": "Kaynaklar yükleniyor…",
+      "loadFailed": "Kaynaklar alınamadı.",
+      "detailLoadFailed": "Kaynak alınamadı.",
+      "back": "Kaynaklara dön",
+      "enabled": "Etkin",
+      "disabled": "Devre dışı",
+      "feedCount_one": "{{count}} besleme",
+      "feedCount_other": "{{count}} besleme",
+      "failingFeedCount_one": "{{count}} hatalı",
+      "failingFeedCount_other": "{{count}} hatalı",
+      "lastSuccess": "Son başarılı toplama: {{time}}",
+      "neverSucceeded": "Henüz başarılı toplama yok",
+      "createTitle": "Kaynak ekle",
+      "createText": "Kaynak devre dışı olarak eklenir; beslemelerini ekledikten sonra etkinleştirin. Kod, okuyucu türü ve dil sonradan değiştirilemez.",
+      "create": "Ekle",
+      "fetchNow": "Şimdi topla",
+      "fetchRequested_one": "{{count}} besleme okuma sırasına alındı; birkaç saniye içinde okunur.",
+      "fetchRequested_other": "{{count}} besleme okuma sırasına alındı; birkaç saniye içinde okunur.",
+      "enable": "Etkinleştir",
+      "disable": "Devre dışı bırak",
+      "enabledNotice": "Kaynak etkinleştirildi.",
+      "disabledNotice": "Kaynak devre dışı bırakıldı.",
+      "history": "Toplama geçmişi",
+      "settings": "Ayarlar",
+      "fields": {
+        "code": "Kod",
+        "codeHint": "Büyük harf, rakam ve alt çizgi (örnek: TRT).",
+        "name": "Ad",
+        "homepageUrl": "Ana sayfa adresi",
+        "readerType": "Okuyucu türü",
+        "language": "Dil",
+        "requestIntervalSeconds": "İstek aralığı (saniye)",
+        "requestIntervalHint": "Aynı kaynağa iki istek arasında beklenecek süre.",
+        "dailyRequestLimit": "Günlük istek sınırı",
+        "dailyRequestLimitHint": "Boş bırakılırsa sınır yoktur.",
+        "license": "Lisans",
+        "attributionText": "Atıf metni",
+        "feedTimeZone": "Beslemenin saat dilimi",
+        "feedTimeZoneHint": "Yalnızca kaynak saatleri yanlış saat dilimiyle yazıyorsa (örnek: Europe/Istanbul)."
+      }
+    },
+    "feeds": {
+      "title": "Beslemeler",
+      "add": "Besleme ekle",
+      "empty": "Bu kaynağın henüz beslemesi yok.",
+      "addTitle": "Besleme ekle",
+      "editTitle": "Beslemeyi düzenle",
+      "dialogText": "Besleme kaydedilince, kaynak etkinse hemen okunur.",
+      "edit": "Düzenle",
+      "enable": "Etkinleştir",
+      "disable": "Devre dışı bırak",
+      "noCategory": "Varsayılan kategori yok",
+      "itemCategories": "haberlerin kategorileri",
+      "everyMinutes_one": "{{count}} dakikada bir",
+      "everyMinutes_other": "{{count}} dakikada bir",
+      "failures_one": "Art arda {{count}} hata",
+      "failures_other": "Art arda {{count}} hata",
+      "fetchPending": "Elle toplama bekliyor",
+      "status": {
+        "enabled": "Etkin",
+        "manual": "Devre dışı",
+        "auto": "Kendiliğinden kapandı"
+      },
+      "fields": {
+        "name": "Ad",
+        "url": "Besleme adresi",
+        "defaultCategory": "Varsayılan kategori",
+        "useItemCategories": "Haberlerin kendi kategorilerini kullan",
+        "fetchIntervalMinutes": "Okuma sıklığı (dakika)"
+      }
+    },
+    "runs": {
+      "title": "Toplama geçmişi",
+      "sourceFilter": "Kaynak",
+      "allSources": "Tüm kaynaklar",
+      "statusFilter": "Sonuç",
+      "allStatuses": "Tüm sonuçlar",
+      "loading": "Toplama geçmişi yükleniyor…",
+      "loadFailed": "Toplama geçmişi alınamadı.",
+      "empty": "Bu ölçütlere uyan okuma yok.",
+      "counts": "Yeni {{newCount}} · tekrar {{duplicate}} · atlanan {{failed}}",
+      "trigger": {
+        "SCHEDULED": "Zamanlanmış",
+        "MANUAL": "Elle"
+      },
+      "status": {
+        "RUNNING": "Sürüyor",
+        "SUCCEEDED": "Başarılı",
+        "NOT_MODIFIED": "Değişmemiş",
+        "FAILED": "Başarısız"
+      }
+    },
     "users": {
       "title": "Kullanıcılar",
       "searchLabel": "E-posta veya ad",
@@ -40,7 +153,6 @@
       "reject": "Reddet",
       "roleLabel": "Rol: {{name}}",
       "statusLabel": "Durum: {{name}}",
-      "noPermission": "Bu sayfayı görüntüleme yetkiniz yok.",
       "rejectDialog": {
         "title": "Kayıt talebini reddet",
         "text": "{{name}} kullanıcısının kayıt talebi reddedilecek. Bu kullanıcı uygulamayı kullanamayacak.",

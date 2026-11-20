@@ -21,6 +21,8 @@ public enum ErrorCode {
     INVALID_STATE_TRANSITION,
     /** İşlem sistemdeki son aktif yöneticiyi kaldıracak (FG-YP-03). */
     LAST_ACTIVE_ADMIN,
+    /** Benzersiz olması gereken bir değer (kaynak kodu veya adı, besleme adresi veya adı) zaten var. */
+    ALREADY_EXISTS,
     SEARCH_UNAVAILABLE,
     MEDIA_UNAVAILABLE,
     INTERNAL_ERROR

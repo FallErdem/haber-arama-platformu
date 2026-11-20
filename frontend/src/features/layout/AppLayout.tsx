@@ -58,7 +58,8 @@ export function AppLayout({ user, onSignOut }: AppLayoutProps) {
               {/* Yalnızca yöneticiye görünür; yalnızca bir kolaylıktır, yetki kontrolü backend'dedir. */}
               {user.role === 'ADMIN' && (
                 <li>
-                  <NavLink to="/admin/users" className={navClass}>
+                  {/* /admin altındaki her ekranda (kullanıcılar, kaynaklar, geçmiş) etkin görünür. */}
+                  <NavLink to="/admin" className={navClass}>
                     {t('nav.admin')}
                   </NavLink>
                 </li>

@@ -91,6 +91,7 @@ erDiagram
 | `use_item_categories` | `boolean` | Zorunlu | Haber düzeyinde eşleme uygulanır mı |
 | `fetch_interval_minutes` | `integer` | Zorunlu, varsayılan 15 | |
 | `next_fetch_at` | `timestamptz` | Zorunlu | Bir sonraki okuma zamanı |
+| `manual_fetch_requested_at` | `timestamptz` | | Yönetici elle toplama istediyse isteğin zamanı (V16); okuma bitince işçi boşaltır |
 | `etag`, `last_modified` | `text` | | Koşullu istek için |
 | `consecutive_failures` | `integer` | Zorunlu, varsayılan 0 | |
 | `last_success_at` | `timestamptz` | | |
@@ -103,8 +104,10 @@ erDiagram
 - Benzersiz: `(source_id, name)`.
 - Kısıt: `enabled` `false` ise `disabled_reason` dolu, `true` ise boş olmalıdır.
 - İndeks: `(enabled, next_fetch_at)`.
-- Zamanlama ve sağlık alanları işçi tarafından, sürüm kontrolü yapılmadan güncellenir (ADR-0015).
+- Zamanlama ve sağlık alanları işçi tarafından, sürüm kontrolü yapılmadan güncellenir (ADR-0015). `version` yalnızca yöneticinin değişikliklerinde artar; işçiyle aynı anda yazmayı satır kilidi (`FOR UPDATE`) sıraya sokar.
 - İşçi, kaynağı devre dışı olan beslemeleri okumaz.
+- **Elle toplama (FG-YP-08):** API, kaynağın etkin beslemelerinde `manual_fetch_requested_at` ve `next_fetch_at` değerlerini şimdiye çeker. İşçi okumayı `ingestion_runs.trigger = 'MANUAL'` olarak kaydeder. Okumanın sonucunu yazarken sütundaki değer okumanın başında okunanla aynıysa sütunu boşaltır; farklıysa okuma sürerken yeni bir istek gelmiştir: sütun kalır ve besleme hemen yeniden okunur (istek kaybolmaz).
+- Yönetici beslemenin adresini değiştirirse `etag` ve `last_modified` silinir; devre dışı bir beslemeyi etkinleştirirse besleme hemen okunur, otomatik kapanmışsa (`AUTO`) `consecutive_failures` da sıfırlanır.
 
 ### 3.4 `categories` (modül: ingestion)
 
@@ -325,10 +328,17 @@ Başlangıç verisi:
 | `USER_REJECTED` | API, yönetici onay bekleyen kullanıcıyı reddettiğinde | `USER` (yönetici) | `USER` | `SUCCESS` veya `FAILURE` | — |
 | `USER_ROLE_CHANGED` | API, yönetici kullanıcının rolünü değiştirdiğinde (FG-YP-02) | `USER` (yönetici) | `USER` | `SUCCESS` veya `FAILURE` | `from`, `to` |
 | `USER_STATUS_CHANGED` | API, yönetici kullanıcıyı aktif veya pasif yaptığında | `USER` (yönetici) | `USER` | `SUCCESS` veya `FAILURE` | `from`, `to` |
+| `SOURCE_CREATED` | API, yönetici kaynak eklediğinde (FG-YP-04) | `USER` (yönetici) | `SOURCE` (başarısız denemede boş) | `SUCCESS` veya `FAILURE` | `code` |
+| `SOURCE_UPDATED` | API, kaynağın ayarları değiştiğinde | `USER` (yönetici) | `SOURCE` | `SUCCESS` veya `FAILURE` | `fields` (değişen alanların adları; değerler yazılmaz) |
+| `SOURCE_ENABLED`, `SOURCE_DISABLED` | API, kaynak etkinleştirildiğinde veya devre dışı bırakıldığında | `USER` (yönetici) | `SOURCE` | `SUCCESS` veya `FAILURE` | — |
+| `FETCH_REQUESTED` | API, yönetici elle toplama başlattığında (FG-YP-08) | `USER` (yönetici) | `SOURCE` | `SUCCESS` veya `FAILURE` | `feedCount` |
+| `FEED_CREATED` | API, yönetici besleme eklediğinde | `USER` (yönetici) | `FEED` (başarısız denemede boş) | `SUCCESS` veya `FAILURE` | `sourceId`, `name` |
+| `FEED_UPDATED` | API, beslemenin ayarları değiştiğinde | `USER` (yönetici) | `FEED` | `SUCCESS` veya `FAILURE` | `fields` |
+| `FEED_ENABLED`, `FEED_DISABLED` | API, besleme etkinleştirildiğinde veya devre dışı bırakıldığında | `USER` (yönetici) | `FEED` | `SUCCESS` veya `FAILURE` | `FEED_ENABLED`'da `previousReason` (`MANUAL`, `AUTO`) |
 | `FEED_AUTO_DISABLED` | İşçi (ADR-0017, 10. bölüm) | `SYSTEM` | `FEED` | `SUCCESS` | `consecutive_failures`, `last_error` |
 
 - `USER_REGISTERED` ve `SESSION_STARTED`, kullanıcı kaydı ve `last_session_id` güncellemesiyle aynı veritabanı işleminde yazılır. Aynı anda gelen iki istekten yalnızca eklemeyi veya koşullu güncellemeyi başaran istek kayıt yazar; kayıt bir kez oluşur. `ACCESS_DENIED` bir iş işlemine bağlı değildir, ayrı yazılır; yazılamazsa istek yine 403 alır ve hata uygulama loguna düşer.
-- Kullanıcı yönetimi işlemlerinin başarılı kaydı değişiklikle aynı veritabanı işleminde yazılır. İş kuralıyla reddedilen denemede (`409`: yanlış durum, sürüm çakışması, son aktif yönetici) değişiklik geri alınır; deneme bu yüzden işlem bittikten sonra ayrıca `FAILURE` sonucuyla yazılır. Ayrıntıda ret nedeni (`code`, örneğin `LAST_ACTIVE_ADMIN`) ve rol ile durum değişikliklerinde istenen değer (`to`) bulunur. Bir `PATCH` isteğinde rol ve durum birlikte istendiyse her biri ayrı kayıttır.
+- Kullanıcı, kaynak ve besleme yönetimi işlemlerinin başarılı kaydı değişiklikle aynı veritabanı işleminde yazılır. İş kuralıyla reddedilen denemede (`409`: yanlış durum, sürüm çakışması, son aktif yönetici) değişiklik geri alınır; deneme bu yüzden işlem bittikten sonra ayrıca `FAILURE` sonucuyla yazılır. Ayrıntıda ret nedeni (`code`, örneğin `LAST_ACTIVE_ADMIN`) ve rol ile durum değişikliklerinde istenen değer (`to`) bulunur. Bir `PATCH` isteğinde rol ve durum birlikte istendiyse her biri ayrı kayıttır.
 
 ### 3.14 `feed_tests` (modül: ingestion)
 

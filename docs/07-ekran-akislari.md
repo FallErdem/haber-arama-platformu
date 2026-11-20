@@ -221,7 +221,7 @@ Bulunamadı ekranı ve genel hata ekranı. İkisinde de arama ekranına dönüş
 
 - **Amaç:** Kaynakları ve sağlık durumlarını göstermek (FG-YP-04, 06).
 - **İçerik:** Kaynakların listesi: ad, etkin olup olmadığı, besleme sayısı, hatalı besleme sayısı ve son başarılı toplama zamanı. "Kaynak ekle" butonu.
-- **Davranışlar:** Hatalı beslemesi olan kaynaklar dikkat çekecek şekilde işaretlenir.
+- **Davranışlar:** Hatalı beslemesi olan kaynaklar dikkat çekecek şekilde işaretlenir; hatalı besleme sayısı da yazılır (renk tek başına bilgi taşımaz). "Kaynak ekle" bir pencere açar; eklenen kaynak devre dışıdır ve detayına geçilir.
 - **Uç noktalar:** `GET /admin/sources`, `POST /admin/sources`
 
 #### Kaynak detayı
@@ -233,8 +233,10 @@ Bulunamadı ekranı ve genel hata ekranı. İkisinde de arama ekranına dönüş
   - Butonlar: Şimdi topla, Besleme ekle, Devre dışı bırak veya Etkinleştir, İçeriği sil
   - Kaynağın toplama geçmişine bağlantı
 - **Davranışlar:**
-  - Otomatik olarak devre dışı kalmış beslemeler ayrıca işaretlenir.
-  - "Şimdi topla" kaynak devre dışıyken kullanılamaz.
+  - Otomatik olarak devre dışı kalmış beslemeler ayrıca işaretlenir ("Kendiliğinden kapandı").
+  - "Şimdi topla" kaynak devre dışıyken kullanılamaz; basılınca kaç beslemenin okuma sırasına alındığı söylenir. Okunmayı bekleyen beslemede "Elle toplama bekliyor" yazar.
+  - Ayarlar formu yalnızca değişen alanları gönderir; boşaltılan alan (örneğin lisans) boşaltılır. Kayıt bu arada başka bir yönetici tarafından değiştirildiyse bu söylenir ve ekran yenilenir.
+  - Beslemelerin düzenleme ve açma/kapama düğmelerinin erişilebilir adında beslemenin adı bulunur ("Devre dışı bırak: gundem"); ekran okuyucu listedeki aynı adlı düğmeleri ayırt eder.
   - "İçeriği sil" yalnızca kaynak devre dışıyken kullanılabilir; kaynağın kodunun yazılmasını isteyen bir onay penceresi açar. Silme sürerken "İçerik siliniyor" durumu gösterilir.
 - **Uç noktalar:** `GET` ve `PATCH /admin/sources/{id}`, `POST /admin/sources/{id}/fetch`, `POST /admin/sources/{id}/purge`, `POST /admin/sources/{id}/feeds`, `PATCH /admin/feeds/{id}`
 
@@ -249,7 +251,8 @@ Bulunamadı ekranı ve genel hata ekranı. İkisinde de arama ekranına dönüş
 #### Toplama geçmişi
 
 - **Amaç:** Besleme okumalarının sonuçlarını göstermek (FG-YP-05).
-- **İçerik:** Kaynak, besleme, durum ve tarih filtreleri; zaman, besleme, durum, HTTP kodu, gelen, yeni, tekrar eden ve hatalı haber sayıları ve hata mesajı sütunlarıyla liste.
+- **İçerik:** Kaynak, besleme, durum ve tarih filtreleri; zaman, besleme, durum, HTTP kodu, gelen, yeni, tekrar eden ve hatalı haber sayıları ve hata mesajı sütunlarıyla liste. Her okumada zamanlanmış mı elle mi başlatıldığı gösterilir.
+- **Davranışlar:** Filtreler ve sayfa adres çubuğunda tutulur; kaynak detayındaki "Toplama geçmişi" bağlantısı geçmişi o kaynağa süzülmüş açar. Arayüzde şimdilik kaynak ve sonuç filtreleri vardır; besleme ve tarih filtreleri API'de bulunur.
 - **Uç nokta:** `GET /admin/ingestion-runs`
 
 #### Gizlenen haberler
