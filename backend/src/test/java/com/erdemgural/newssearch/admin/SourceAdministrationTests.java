@@ -16,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.assertj.core.api.InstanceOfAssertFactories;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,7 @@ import tools.jackson.databind.json.JsonMapper;
  * ve bu işlemlerin audit kayıtları (FG-AL-01). Gerçek PostgreSQL ile.
  *
  * <p>Testler başlangıç verisindeki kaynaklara (TRT, NTV…) dokunmaz; diğer test sınıfları onların etkin
- * olmasına güvenir. Her test kendi kaynağını rastgele bir kodla oluşturur.
+ * olmasına güvenir. Her test kendi kaynağını rastgele bir kodla oluşturur ve test bitince siler.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -76,6 +77,26 @@ class SourceAdministrationTests {
                 .param("sub", admin.keycloakSub())
                 .query(UUID.class)
                 .single();
+    }
+
+    /**
+     * Testin eklediği kaynakları, beslemelerini ve okuma kayıtlarını siler. Test sınıfları aynı veritabanını
+     * paylaşır; etkin kalan bir test kaynağı kullanıcıların kaynak listesinde (SourceAndCategoryListTests)
+     * görünürdü. Rastgele kodlar "T" + 8 onaltılık rakamdır; TRT bu kalıba uymaz.
+     */
+    @AfterEach
+    void deleteTestSources() {
+        String testSourceIds = "SELECT id FROM sources WHERE code ~ '^T[0-9A-F]{8}$'";
+        jdbcClient
+                .sql("DELETE FROM ingestion_runs WHERE feed_id IN (SELECT id FROM feeds WHERE source_id IN ("
+                        + testSourceIds + "))")
+                .update();
+        jdbcClient
+                .sql("DELETE FROM feeds WHERE source_id IN (" + testSourceIds + ")")
+                .update();
+        jdbcClient
+                .sql("DELETE FROM sources WHERE id IN (" + testSourceIds + ")")
+                .update();
     }
 
     // --- Yardımcılar --------------------------------------------------------------------------------
