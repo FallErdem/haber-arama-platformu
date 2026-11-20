@@ -570,3 +570,68 @@ async def test_request_waits_for_the_source_rate_limit(
 
     # Global Voices'ın istek aralığı 10 saniyedir (robots.txt: Crawl-delay: 10).
     assert sleeps == [10]
+
+
+# --- Elle toplama (FG-YP-08) ------------------------------------------------------------------------
+
+
+def request_manual_fetch(admin: psycopg.Connection, feed: DueFeed, requested_at: str = "now()") -> None:
+    """API'nin elle toplama isteğinde yaptığını yapar: isteğin zamanını yazar, okuma zamanını şimdiye çeker."""
+    admin.execute(
+        f"UPDATE feeds SET manual_fetch_requested_at = {requested_at}, next_fetch_at = now() WHERE id = %s",
+        (feed.id,),
+    )
+
+
+def manual_request_is_pending(admin: psycopg.Connection, feed: DueFeed) -> bool:
+    row = admin.execute("SELECT manual_fetch_requested_at IS NOT NULL FROM feeds WHERE id = %s", (feed.id,)).fetchone()
+    assert row is not None
+    pending: bool = row[0]
+    return pending
+
+
+async def test_manual_fetch_is_recorded_as_manual_and_the_request_is_consumed(
+    service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
+) -> None:
+    """Elle istenen okuma MANUAL olarak kaydedilir; okuma bitince istek silinir ve sıklık normale döner."""
+    feed = await due_feed(database, "TRT", "gundem")
+    request_manual_fetch(admin, feed)
+    respx_mock.get(feed.url).respond(200, content=fixture_body("trt-gundem.xml"))
+
+    await service.ingest(await due_feed(database, "TRT", "gundem"))
+
+    assert last_run(admin, feed)["trigger"] == "MANUAL"
+    assert manual_request_is_pending(admin, feed) is False
+    assert feed_state(admin, feed)["next_fetch_in_minutes"] == 15
+
+
+async def test_manual_request_is_consumed_by_a_failed_read(
+    service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
+) -> None:
+    """Başarısız okuma da isteği karşılar: istek silinir, besleme normal yeniden deneme kuralına girer."""
+    feed = await due_feed(database, "TRT", "gundem")
+    request_manual_fetch(admin, feed)
+    respx_mock.get(feed.url).respond(500)
+
+    await service.ingest(await due_feed(database, "TRT", "gundem"))
+
+    assert last_run(admin, feed)["trigger"] == "MANUAL"
+    assert manual_request_is_pending(admin, feed) is False
+    assert feed_state(admin, feed)["next_fetch_in_minutes"] == 1
+
+
+async def test_manual_request_arriving_during_a_read_is_not_lost(
+    service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
+) -> None:
+    """Okuma sürerken gelen yeni istek kaybolmaz: istek kalır ve besleme hemen yeniden okunur."""
+    request_manual_fetch(admin, await due_feed(database, "TRT", "gundem"), "now() - interval '1 minute'")
+    feed = await due_feed(database, "TRT", "gundem")
+    # Okuma başladıktan sonra yönetici yeniden "Şimdi topla"ya basar.
+    request_manual_fetch(admin, feed)
+    respx_mock.get(feed.url).respond(200, content=fixture_body("trt-gundem.xml"))
+
+    await service.ingest(feed)
+
+    assert manual_request_is_pending(admin, feed) is True
+    assert feed_state(admin, feed)["next_fetch_in_minutes"] == 0
+    assert (await due_feed(database, "TRT", "gundem")).manual_fetch_requested_at is not None

@@ -22,7 +22,7 @@ from news_worker.database import Database
 from news_worker.feed_fetcher import FailureKind, FeedFetcher, FeedNotModified, FetchedFeed
 from news_worker.feed_reader import FeedParseError, FeedReader
 from news_worker.feeds import DueFeed, FeedRepository
-from news_worker.ingestion_runs import IngestionRunRepository, RunResult, RunStatus
+from news_worker.ingestion_runs import IngestionRunRepository, RunResult, RunStatus, RunTrigger
 from news_worker.parsed_article import ParsedArticle
 from news_worker.rate_limiter import SourceRateLimiter
 
@@ -73,7 +73,9 @@ class IngestionService:
             # gereken komutlar açıkça `connection.transaction()` bloğuna alınır. Böylece okumanın
             # "başladı" kaydı, indirme sürerken de veritabanında görünür.
             await connection.set_autocommit(True)
-            run_id = await self._runs.start(connection, feed.id)
+            # Yönetici bu besleme için elle toplama istediyse okuma MANUAL olarak kaydedilir (FG-YP-08).
+            trigger = RunTrigger.SCHEDULED if feed.manual_fetch_requested_at is None else RunTrigger.MANUAL
+            run_id = await self._runs.start(connection, feed.id, trigger)
             try:
                 await self._collect(connection, feed, run_id)
             except Exception as error:
@@ -89,7 +91,7 @@ class IngestionService:
 
         if isinstance(fetched, FeedNotModified):
             async with connection.transaction():
-                await self._feeds.record_not_modified(connection, feed.id)
+                await self._feeds.record_not_modified(connection, feed.id, feed.manual_fetch_requested_at)
                 await self._runs.finish(
                     connection,
                     run_id,
@@ -104,7 +106,11 @@ class IngestionService:
                 # ve hata sayacı artmaz.
                 async with connection.transaction():
                     await self._feeds.record_postponed(
-                        connection, feed.id, fetched.message, fetched.retry_after_seconds
+                        connection,
+                        feed.id,
+                        fetched.message,
+                        fetched.retry_after_seconds,
+                        feed.manual_fetch_requested_at,
                     )
                     await self._runs.finish(
                         connection,
@@ -131,7 +137,9 @@ class IngestionService:
         counts = await self._save_articles(connection, feed, read.articles)
         items_failed = read.skipped_count + counts.failed
         async with connection.transaction():
-            await self._feeds.record_success(connection, feed.id, fetched.etag, fetched.last_modified)
+            await self._feeds.record_success(
+                connection, feed.id, fetched.etag, fetched.last_modified, feed.manual_fetch_requested_at
+            )
             await self._runs.finish(
                 connection,
                 run_id,
@@ -210,7 +218,13 @@ class IngestionService:
             retry_delay_minutes = RETRY_DELAYS_MINUTES[min(consecutive_failures, len(RETRY_DELAYS_MINUTES)) - 1]
 
             await self._feeds.record_failure(
-                connection, feed.id, message, consecutive_failures, retry_delay_minutes, disable
+                connection,
+                feed.id,
+                message,
+                consecutive_failures,
+                retry_delay_minutes,
+                disable,
+                feed.manual_fetch_requested_at,
             )
             if disable:
                 await self._audit.insert_system_event(
