@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { fetchAdminUsers } from '../../../api/adminUsers'
 import { useAccessToken } from '../../../auth/accessToken'
-import { useCurrentUser } from '../../../auth/currentUser'
 import { Button } from '../../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Pagination } from '../../search/Pagination'
@@ -25,19 +24,10 @@ import { UserRow } from './UserRow'
 const ALL = 'ALL'
 
 /**
- * Yönetim paneli: Kullanıcılar (ekran akışları 5.2; FG-YP-01 – 03). Menüde yalnızca yöneticiye görünür;
- * adres elle yazılırsa da yönetici olmayana içerik gösterilmez. Asıl yetki kontrolü backend'dedir.
+ * Yönetim paneli: Kullanıcılar (ekran akışları 5.2; FG-YP-01 – 03). Yönetici olmayan kullanıcıyı yönetim
+ * panelinin çerçevesi (AdminLayout) durdurur.
  */
 export function AdminUsersPage() {
-  const { t } = useTranslation()
-  const currentUser = useCurrentUser()
-  if (currentUser.role !== 'ADMIN') {
-    return <p className="mx-auto max-w-5xl px-4 py-10 text-muted-foreground sm:px-6">{t('admin.users.noPermission')}</p>
-  }
-  return <AdminUsersContent />
-}
-
-function AdminUsersContent() {
   const { t } = useTranslation()
   const accessToken = useAccessToken()
   const [params, setParams] = useSearchParams()
@@ -56,7 +46,7 @@ function AdminUsersContent() {
   })
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+    <div>
       <h1 className="mb-5 text-3xl font-semibold tracking-tight">{t('admin.users.title')}</h1>
       <SearchBox
         key={state.q}

@@ -230,13 +230,4 @@ describe('AdminUsersPage', () => {
 
     expect(await screen.findByText('Bu ölçütlere uyan kullanıcı yok.')).toBeInTheDocument()
   })
-
-  it("yönetici olmayan kullanıcıya içerik göstermez ve API'ye sormaz", () => {
-    const api = stubApi()
-
-    renderAt('/admin/users', { ...ADMIN, role: 'USER' })
-
-    expect(screen.getByText('Bu sayfayı görüntüleme yetkiniz yok.')).toBeInTheDocument()
-    expect(api.requests).toEqual([])
-  })
 })

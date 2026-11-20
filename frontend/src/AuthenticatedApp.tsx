@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { I18nProvider } from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { fetchMe } from './api/me'
 import { AccessTokenContext } from './auth/accessToken'
 import { CurrentUserContext } from './auth/currentUser'
@@ -9,6 +9,10 @@ import { useSessionErrors } from './auth/useSessionErrors'
 import { CenteredScreen } from './components/CenteredScreen'
 import { Button } from './components/ui/button'
 import { AccountStatus } from './features/account/AccountStatus'
+import { AdminLayout } from './features/admin/AdminLayout'
+import { IngestionRunsPage } from './features/admin/runs/IngestionRunsPage'
+import { SourceDetailPage } from './features/admin/sources/SourceDetailPage'
+import { SourcesPage } from './features/admin/sources/SourcesPage'
 import { AdminUsersPage } from './features/admin/users/AdminUsersPage'
 import { ArticlePage } from './features/article/ArticlePage'
 import { NotFoundPage } from './features/errors/NotFoundPage'
@@ -75,7 +79,13 @@ export function AuthenticatedApp({ accessToken, onSignOut, onSessionExpired }: A
                 <Route index element={<SearchPage />} />
                 <Route path="articles/:articleId" element={<ArticlePage />} />
                 <Route path="saved" element={<SavedArticlesPage />} />
-                <Route path="admin/users" element={<AdminUsersPage />} />
+                <Route path="admin" element={<AdminLayout />}>
+                  <Route index element={<Navigate to="users" replace />} />
+                  <Route path="users" element={<AdminUsersPage />} />
+                  <Route path="sources" element={<SourcesPage />} />
+                  <Route path="sources/:sourceId" element={<SourceDetailPage />} />
+                  <Route path="ingestion-runs" element={<IngestionRunsPage />} />
+                </Route>
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Routes>
