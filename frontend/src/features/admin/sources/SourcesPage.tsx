@@ -66,15 +66,18 @@ function SourceRow({ source }: { source: SourceOverview }) {
           {source.code} · {t(`languages.${source.language}`)} · {source.readerType}
         </p>
       </div>
-      <span
-        className={cn(
-          'rounded-full border px-2.5 py-0.5 text-xs',
-          source.enabled ? 'border-border' : 'border-dashed text-muted-foreground',
-        )}
-      >
-        {source.enabled ? t('admin.sources.enabled') : t('admin.sources.disabled')}
-      </span>
-      <div className="text-sm">
+      {/* Sabit genişlikli sütunlar: metinlerin uzunluğu değişse de ("1 besleme", "10 besleme") satırlar hizalı kalır. */}
+      <div className="w-24">
+        <span
+          className={cn(
+            'rounded-full border px-2.5 py-0.5 text-xs',
+            source.enabled ? 'border-border' : 'border-dashed text-muted-foreground',
+          )}
+        >
+          {source.enabled ? t('admin.sources.enabled') : t('admin.sources.disabled')}
+        </span>
+      </div>
+      <div className="w-28 text-sm">
         <p>{t('admin.sources.feedCount', { count: source.feedCount })}</p>
         {/* Hatalı besleme: renk tek başına bilgi taşımaz, sayı da yazılır (WCAG 1.4.1). */}
         <p className={cn('text-xs', hasFailures ? 'font-medium text-destructive' : 'text-muted-foreground')}>

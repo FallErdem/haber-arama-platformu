@@ -20,12 +20,12 @@ export function AdminLayout() {
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-muted',
+      'block rounded-md px-3 py-2 text-base transition-colors hover:bg-muted',
       isActive ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground',
     )
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 sm:py-10 md:grid-cols-[11rem_minmax(0,1fr)] md:gap-10">
+    <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 sm:py-10 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-10">
       <nav aria-label={t('admin.nav.label')}>
         <ul className="flex flex-wrap gap-1 md:flex-col">
           <li>
