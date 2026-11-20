@@ -231,12 +231,15 @@ sequenceDiagram
     participant T as Python işçisi
 
     Y->>A: Toplamayı başlat
-    A->>PG: Beslemelerin bir sonraki okuma zamanını "şimdi" yap
+    A->>PG: Etkin beslemelerin okuma zamanını "şimdi" yap ve isteğin zamanını yaz
     A->>PG: Audit kaydı
-    A-->>Y: Kabul edildi
-    T->>PG: Okuma zamanı gelmiş beslemeleri sorgula (birkaç saniye içinde)
-    T->>T: 5.1'deki toplama akışı
+    A-->>Y: Kabul edildi (202)
+    T->>PG: Okuma zamanı gelmiş beslemeleri sorgula (en fazla 30 saniye içinde)
+    T->>T: 5.1'deki toplama akışı; okuma MANUAL olarak kaydedilir
+    T->>PG: Sonuç yazılırken istek tüketilir
 ```
+
+İki uygulama doğrudan konuşmadığı için istek tabloda taşınır (`feeds.manual_fetch_requested_at`; ayrıntılar `05-veri-modeli.md`, 3.3).
 
 ### 5.5 Haberin gizlenmesi
 

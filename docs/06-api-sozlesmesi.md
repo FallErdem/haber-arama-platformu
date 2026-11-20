@@ -347,7 +347,12 @@ Listedeki her öğe ve işlemlerin yanıtı:
 | `POST /api/v1/admin/sources/{id}/fetch` | Kaynağın etkin bütün beslemelerinin bir sonraki okuma zamanını şimdiye çeker (FG-YP-08). Kaynak devre dışıysa `409 INVALID_STATE_TRANSITION`. | 202 |
 | `POST /api/v1/admin/sources/{id}/purge` | Kaynağın bütün içeriğinin silinmesini ister (FG-YP-14) | 202 |
 
-- `code`, `readerType` ve `language` kaynak eklendikten sonra değiştirilemez: Değişmeleri, kaynağa ait mevcut haberlerle ve kategori eşlemeleriyle tutarsızlık oluşturur.
+- `code`, `readerType` ve `language` kaynak eklendikten sonra değiştirilemez: Değişmeleri, kaynağa ait mevcut haberlerle ve kategori eşlemeleriyle tutarsızlık oluşturur. `PATCH` gövdesinde bulunurlarsa istek `400 VALIDATION_FAILED` ile reddedilir.
+- **Liste** (`GET /admin/sources`) sayfalanmaz, ada göre sıralıdır; her öğe: `id`, `code`, `name`, `readerType`, `language`, `enabled`, `feedCount`, `failingFeedCount`, `lastSuccessAt`, `purgeRequestedAt`. Hatalı besleme: etkin olup son okuması başarısız olan (`consecutiveFailures > 0`) ya da kendiliğinden kapanmış (`AUTO`) besleme; elle kapatılmış beslemenin eski hataları sayılmaz.
+- **Detay** (`GET`, `POST` ve `PATCH` yanıtı): kaynağın bütün ayarları (`homepageUrl`, `requestIntervalSeconds`, `dailyRequestLimit`, `license`, `attributionText`, `feedTimeZone`), `enabled`, `purgeRequestedAt`, `version` ve ada göre sıralı `feeds` (bkz. 6.3).
+- **Ekleme** gövdesi: `code` (büyük harfle başlar; büyük harf, rakam ve alt çizgi, en fazla 40 karakter), `name`, `homepageUrl` (`http` veya `https`), `readerType`, `language` (`tr`, `en`), `requestIntervalSeconds` (1–3600); isteğe bağlı `dailyRequestLimit`, `license`, `attributionText`, `feedTimeZone` (IANA saat dilimi adı, örnek `Europe/Istanbul`). Kaynak devre dışı eklenir. `readerType` şimdilik `RSS` veya `ATOM`'dur; NYT okuyucusu İ-13 ile eklenecek. Kod veya ad başka bir kaynakta varsa `409 ALREADY_EXISTS`.
+- **Düzenleme:** Gövdede bulunmayan alan değişmez; boş bırakılabilen bir alana (`dailyRequestLimit`, `license`, `attributionText`, `feedTimeZone`) `null` gönderilirse alan boşaltılır. `enabled` ile kaynak etkinleştirilir veya devre dışı bırakılır.
+- **Elle toplama** yanıtı: `{ "feedCount": 2 }`, okunacak etkin besleme sayısı. Okumayı işçi bir sonraki turunda (en fazla 30 saniye içinde) yapar ve `MANUAL` olarak kaydeder.
 - **İçerik silme:** Kaynak önce devre dışı bırakılmış olmalıdır (`409 SOURCE_MUST_BE_DISABLED`); aksi halde silme sırasında yeni haberler eklenebilir. Geri alınamaz bir işlem olduğundan, istek gövdesi kaynağın kodunu onay olarak içermelidir (`{ "confirmationCode": "NYT" }`). Silme tamamlanana kadar kaynağın `purgeRequestedAt` alanı doludur.
 
 ### 6.3 Beslemeler
@@ -357,8 +362,13 @@ Listedeki her öğe ve işlemlerin yanıtı:
 | `POST /api/v1/admin/sources/{id}/feeds` | Kaynağa besleme ekler (FG-YP-04). Besleme ilk olarak hemen okunur. | 201 |
 | `PATCH /api/v1/admin/feeds/{id}` | Beslemeyi düzenler veya devre dışı bırakır | 200 |
 
-- Varsayılan kategori, kategori koduyla verilir (`defaultCategoryCode`).
-- Otomatik olarak devre dışı kalmış (`AUTO`) bir besleme yönetici tarafından yeniden etkinleştirildiğinde, art arda hata sayısı sıfırlanır ve besleme hemen okunur.
+- Varsayılan kategori, kategori koduyla verilir (`defaultCategoryCode`); tanınmayan kod `400 VALIDATION_FAILED` alır. Karışık içerikli beslemede `null`'dır.
+- Otomatik olarak devre dışı kalmış (`AUTO`) bir besleme yönetici tarafından yeniden etkinleştirildiğinde, art arda hata sayısı sıfırlanır ve besleme hemen okunur. Elle kapatılmış (`MANUAL`) besleme etkinleştirildiğinde de hemen okunur. Yöneticinin kapattığı beslemenin nedeni `MANUAL` olur.
+- **Besleme** (`POST` ve `PATCH` yanıtı, kaynak detayındaki `feeds` öğeleri): `id`, `sourceId`, `name`, `url`, `defaultCategoryCode`, `useItemCategories`, `fetchIntervalMinutes`, `enabled`, `disabledReason` (`MANUAL`, `AUTO`), `consecutiveFailures`, `lastSuccessAt`, `lastError`, `nextFetchAt`, `manualFetchRequestedAt`, `version`.
+- **Ekleme** gövdesi: `name`, `url` (`http` veya `https`), `useItemCategories`, `fetchIntervalMinutes` (1–1440); isteğe bağlı `defaultCategoryCode`. Besleme etkin eklenir. Adres başka bir beslemede veya ad aynı kaynağın başka bir beslemesinde varsa `409 ALREADY_EXISTS`.
+- **Düzenleme:** Gövdede bulunmayan alan değişmez; `defaultCategoryCode`'a `null` gönderilirse boşaltılır. Adres değişirse eski adresin koşullu istek değerleri (ETag, Last-Modified) silinir.
+- Kaynak ve besleme düzenlemelerinde `version` zorunludur (bkz. 2.5). `version` yalnızca yöneticinin değişikliklerinde artar; işçinin yazdığı sağlık alanları (hata sayısı, son okuma, otomatik kapanma) sürümü değiştirmez.
+- Kaynak ve besleme işlemleri, başarılı olsun olmasın, audit log'a yazılır; iş kuralıyla reddedilen denemeler (`409`) `FAILURE` sonucuyla ve ret nedeniyle yazılır (`05-veri-modeli.md`, 3.13).
 
 ### 6.4 Besleme testi (FG-YP-13)
 
@@ -393,6 +403,9 @@ Listedeki her öğe ve işlemlerin yanıtı:
 ### 6.5 Toplama geçmişi
 
 `GET /api/v1/admin/ingestion-runs`: `sourceId`, `feedId`, `status`, `from` ve `to` filtreleriyle, en yeniden eskiye sayfalı liste (FG-YP-05).
+
+- `status`: `RUNNING`, `SUCCEEDED`, `NOT_MODIFIED`, `FAILED`. `from` ve `to` okumanın başlangıç zamanına uygulanır (ISO 8601, UTC; sınırlar dahil).
+- Her öğe: `id`, `feedId`, `feedName`, `sourceId`, `sourceCode`, `sourceName`, `trigger` (`SCHEDULED`, `MANUAL`), `status`, `startedAt`, `finishedAt`, `httpStatus`, `itemsReceived`, `itemsNew`, `itemsDuplicate`, `itemsFailed`, `errorMessage`. Haber sayıları başarısız okumada `null`'dır.
 
 ### 6.6 Haber yönetimi
 
