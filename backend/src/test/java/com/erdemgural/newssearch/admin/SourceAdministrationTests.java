@@ -80,13 +80,16 @@ class SourceAdministrationTests {
     }
 
     /**
-     * Testin eklediği kaynakları, beslemelerini ve okuma kayıtlarını siler. Test sınıfları aynı veritabanını
+     * Testin eklediği kaynakları, haberlerini, beslemelerini ve okuma kayıtlarını siler. Test sınıfları aynı veritabanını
      * paylaşır; etkin kalan bir test kaynağı kullanıcıların kaynak listesinde (SourceAndCategoryListTests)
      * görünürdü. Rastgele kodlar "T" + 8 onaltılık rakamdır; TRT bu kalıba uymaz.
      */
     @AfterEach
     void deleteTestSources() {
         String testSourceIds = "SELECT id FROM sources WHERE code ~ '^T[0-9A-F]{8}$'";
+        jdbcClient
+                .sql("DELETE FROM articles WHERE source_id IN (" + testSourceIds + ")")
+                .update();
         jdbcClient
                 .sql("DELETE FROM ingestion_runs WHERE feed_id IN (SELECT id FROM feeds WHERE source_id IN ("
                         + testSourceIds + "))")
@@ -206,7 +209,9 @@ class SourceAdministrationTests {
                 .containsEntry("enabled", false)
                 .containsEntry("version", 0)
                 .containsEntry("dailyRequestLimit", null)
-                .containsEntry("feedTimeZone", null);
+                .containsEntry("feedTimeZone", null)
+                .containsEntry("purgeRequestedAt", null)
+                .containsEntry("articleCount", 0);
         assertThat(result).bodyJson().extractingPath("$.feeds").asArray().isEmpty();
         UUID sourceId = UUID.fromString(
                 assertThat(result).bodyJson().extractingPath("$.id").asString().actual());
@@ -546,6 +551,117 @@ class SourceAdministrationTests {
                 .last()
                 .isEqualTo(new Event(
                         "FETCH_REQUESTED", "SOURCE", sourceId, "FAILURE", Map.of("code", "INVALID_STATE_TRANSITION")));
+    }
+
+    // --- İçerik silme -------------------------------------------------------------------------------------
+
+    /** Kaynağa, işçinin kaydettiği gibi bir haber satırı ekler (yalnızca PostgreSQL). */
+    private void insertArticle(UUID sourceId) {
+        String key = UUID.randomUUID().toString();
+        sql("""
+				INSERT INTO articles (
+				    source_id, external_id, url, normalized_url, title,
+				    language, item_type, published_at, fetched_at, lifecycle_state)
+				VALUES (:sourceId, :key, :url, :url, 'Haber', 'tr', 'ARTICLE', now(), now(), 'HOT')
+				""", Map.of("sourceId", sourceId, "key", key, "url", "https://example.test/haber/" + key));
+    }
+
+    private MvcTestResult purge(UUID sourceId, String confirmationCode) {
+        return send(
+                "POST",
+                SOURCES + "/" + sourceId + "/purge",
+                "{\"confirmationCode\": \"%s\"}".formatted(confirmationCode));
+    }
+
+    @Test
+    @DisplayName("devre dışı kaynağın içeriğinin silinmesi istenir; detayda istek ve haber sayısı görünür (FG-YP-14)")
+    void purgeIsRequestedForDisabledSource() {
+        String code = randomCode();
+        UUID sourceId = createSource(code);
+        insertArticle(sourceId);
+        insertArticle(sourceId);
+
+        MvcTestResult result = purge(sourceId, code);
+
+        assertThat(result).hasStatus(HttpStatus.ACCEPTED);
+        assertThat(result).bodyJson().extractingPath("$.articleCount").isEqualTo(2);
+        // Silmeyi işçi yapar; istek detayda görünür, haberler henüz durur.
+        MvcTestResult detail = get(SOURCES + "/" + sourceId);
+        assertThat(detail).bodyJson().extractingPath("$.purgeRequestedAt").isNotNull();
+        assertThat(detail).bodyJson().extractingPath("$.articleCount").isEqualTo(2);
+        assertThat(detail).bodyJson().extractingPath("$.version").isEqualTo(1);
+        assertThat(adminEvents())
+                .last()
+                .isEqualTo(new Event(
+                        "SOURCE_PURGE_REQUESTED",
+                        "SOURCE",
+                        sourceId,
+                        "SUCCESS",
+                        Map.of("code", code, "articleCount", 2)));
+    }
+
+    @Test
+    @DisplayName("etkin kaynağın içeriği silinemez: 409 SOURCE_MUST_BE_DISABLED; deneme yazılır")
+    void purgeOfEnabledSourceIsRejected() {
+        String code = randomCode();
+        UUID sourceId = createSource(code);
+        enableSource(sourceId);
+
+        MvcTestResult result = purge(sourceId, code);
+
+        assertThat(result).hasStatus(HttpStatus.CONFLICT);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("SOURCE_MUST_BE_DISABLED");
+        assertThat(get(SOURCES + "/" + sourceId))
+                .bodyJson()
+                .extractingPath("$.purgeRequestedAt")
+                .isNull();
+        assertThat(adminEvents())
+                .last()
+                .isEqualTo(new Event(
+                        "SOURCE_PURGE_REQUESTED",
+                        "SOURCE",
+                        sourceId,
+                        "FAILURE",
+                        Map.of("code", "SOURCE_MUST_BE_DISABLED")));
+    }
+
+    @Test
+    @DisplayName("onay kodu kaynağın kodu değilse veya yoksa 400; girdi hatası audit'e yazılmaz")
+    void wrongConfirmationCodeIsRejected() {
+        UUID sourceId = createSource(randomCode());
+
+        MvcTestResult wrong = purge(sourceId, "TRT");
+        MvcTestResult missing = send("POST", SOURCES + "/" + sourceId + "/purge", "{}");
+
+        for (MvcTestResult result : List.of(wrong, missing)) {
+            assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+            assertThat(result).bodyJson().extractingPath("$.errors[0].field").isEqualTo("confirmationCode");
+        }
+        assertThat(get(SOURCES + "/" + sourceId))
+                .bodyJson()
+                .extractingPath("$.purgeRequestedAt")
+                .isNull();
+        assertThat(adminEvents()).extracting(Event::action).doesNotContain("SOURCE_PURGE_REQUESTED");
+    }
+
+    @Test
+    @DisplayName("silme sürerken yeniden silme istenemez ve kaynak etkinleştirilemez: 409 INVALID_STATE_TRANSITION")
+    void purgingSourceCannotBeEnabledOrPurgedAgain() {
+        String code = randomCode();
+        UUID sourceId = createSource(code);
+        assertThat(purge(sourceId, code)).hasStatus(HttpStatus.ACCEPTED);
+
+        MvcTestResult again = purge(sourceId, code);
+        MvcTestResult enable = send("PATCH", SOURCES + "/" + sourceId, "{\"enabled\": true, \"version\": 1}");
+
+        assertThat(again).hasStatus(HttpStatus.CONFLICT);
+        assertThat(again).bodyJson().extractingPath("$.code").isEqualTo("INVALID_STATE_TRANSITION");
+        assertThat(enable).hasStatus(HttpStatus.CONFLICT);
+        assertThat(enable).bodyJson().extractingPath("$.code").isEqualTo("INVALID_STATE_TRANSITION");
+        assertThat(get(SOURCES + "/" + sourceId))
+                .bodyJson()
+                .extractingPath("$.enabled")
+                .isEqualTo(false);
     }
 
     // --- Toplama geçmişi ---------------------------------------------------------------------------------

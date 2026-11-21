@@ -25,6 +25,8 @@ public enum ErrorCode {
     LAST_ACTIVE_ADMIN,
     /** Benzersiz olması gereken bir değer (kaynak kodu veya adı, besleme adresi veya adı) zaten var. */
     ALREADY_EXISTS,
+    /** Kaynak içeriğinin silinmesi için kaynağın önce devre dışı bırakılması gerekiyor (FG-YP-14). */
+    SOURCE_MUST_BE_DISABLED,
     SEARCH_UNAVAILABLE,
     MEDIA_UNAVAILABLE,
     INTERNAL_ERROR

@@ -42,6 +42,8 @@ class SourceAdminController {
     /** Kaynak kodu: büyük harfle başlar; büyük harf, rakam ve alt çizgi ({@code TRT}, {@code GLOBALVOICES}). */
     private static final Pattern CODE = Pattern.compile("[A-Z][A-Z0-9_]{1,39}");
 
+    private static final int MAX_CODE_LENGTH = 40;
+
     /** NYT okuyucusu ({@code NYT_TOP_STORIES}) İ-13 ile gelecek; işçi şimdilik yalnızca bunları okuyabilir. */
     private static final List<String> READER_TYPES = List.of("RSS", "ATOM");
 
@@ -74,7 +76,7 @@ class SourceAdminController {
     @ResponseStatus(HttpStatus.CREATED)
     ManagedSource create(@AuthenticationPrincipal CurrentUser admin, @RequestBody JsonNode body) {
         JsonFields fields = new JsonFields(body);
-        String code = fields.requiredText("code", 40);
+        String code = fields.requiredText("code", MAX_CODE_LENGTH);
         if (code != null && !CODE.matcher(code).matches()) {
             fields.addError("code", Code.INVALID_VALUE);
         }
@@ -160,6 +162,20 @@ class SourceAdminController {
         return new FetchResponse(sourceAdministration.requestFetch(admin.id(), id));
     }
 
+    /**
+     * Kaynağın bütün içeriğinin silinmesini ister (FG-YP-14); silmeyi işçi yapar, 202 döner. Gövde onay
+     * olarak kaynağın kodunu içerir: {@code { "confirmationCode": "TRT" }}.
+     */
+    @PostMapping("/{id}/purge")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    PurgeResponse purge(@AuthenticationPrincipal CurrentUser admin, @PathVariable UUID id, @RequestBody JsonNode body) {
+        JsonFields fields = new JsonFields(body);
+        String confirmationCode = fields.requiredText("confirmationCode", MAX_CODE_LENGTH);
+        fields.throwIfInvalid();
+
+        return new PurgeResponse(sourceAdministration.requestPurge(admin.id(), id, confirmationCode));
+    }
+
     /** Kaynağa besleme ekler; besleme kaynak etkinse hemen okunur. */
     @PostMapping("/{id}/feeds")
     @ResponseStatus(HttpStatus.CREATED)
@@ -191,4 +207,7 @@ class SourceAdminController {
 
     /** @param feedCount okunacak besleme sayısı (kaynağın etkin beslemeleri) */
     record FetchResponse(int feedCount) {}
+
+    /** @param articleCount silinecek haber sayısı (istek anında) */
+    record PurgeResponse(long articleCount) {}
 }

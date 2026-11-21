@@ -336,6 +336,7 @@ Başlangıç verisi:
 | `FEED_UPDATED` | API, beslemenin ayarları değiştiğinde | `USER` (yönetici) | `FEED` | `SUCCESS` veya `FAILURE` | `fields` |
 | `FEED_ENABLED`, `FEED_DISABLED` | API, besleme etkinleştirildiğinde veya devre dışı bırakıldığında | `USER` (yönetici) | `FEED` | `SUCCESS` veya `FAILURE` | `FEED_ENABLED`'da `previousReason` (`MANUAL`, `AUTO`) |
 | `FEED_AUTO_DISABLED` | İşçi (ADR-0017, 10. bölüm) | `SYSTEM` | `FEED` | `SUCCESS` | `consecutive_failures`, `last_error` |
+| `SOURCE_PURGE_REQUESTED` | API, yönetici kaynağın içeriğinin silinmesini istediğinde (FG-YP-14) | `USER` (yönetici) | `SOURCE` | `SUCCESS` veya `FAILURE` | `code`, `articleCount` (istek anındaki haber sayısı) |
 | `SOURCE_PURGED` | İşçi, kaynağın içeriğini silmeyi bitirdiğinde (FG-YP-14) | `SYSTEM` | `SOURCE` | `SUCCESS` | `article_count`, `media_count` (silmeyi bitiren turda silinen haber ve görsel dosyası sayıları) |
 | `AUDIT_EXPORTED` | API, yönetici audit kayıtlarını CSV olarak dışa aktardığında (FG-YP-11) | `USER` (yönetici) | — | `SUCCESS` | Kullanılan filtreler (`actorUserId`, `action`, `targetType`, `targetId`, `result`; verilenler), `from`, `to` (uygulanan aralık), `rowCount` |
 
