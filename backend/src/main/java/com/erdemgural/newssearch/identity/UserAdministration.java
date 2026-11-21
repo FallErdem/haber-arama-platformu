@@ -2,6 +2,8 @@ package com.erdemgural.newssearch.identity;
 
 import com.erdemgural.newssearch.web.PageParameters;
 import com.erdemgural.newssearch.web.PageResponse;
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -18,6 +20,12 @@ public interface UserAdministration {
 
     /** Kullanıcılar, kayıt zamanına göre yeniden eskiye. */
     PageResponse<ManagedUser> list(UserFilter filter, PageParameters page);
+
+    /**
+     * Verilen kullanıcıların e-posta adresleri, kimliğe göre. Audit kayıtlarında kullanıcı kimliği yerine
+     * e-posta göstermek için; bulunmayan kimlik sonuçta yer almaz.
+     */
+    Map<UUID, String> findEmails(Collection<UUID> userIds);
 
     /** Onay bekleyen kullanıcıyı aktif yapar; rolü {@code USER} olur. */
     ManagedUser approve(UUID adminId, UUID userId);

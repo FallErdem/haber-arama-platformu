@@ -8,6 +8,8 @@ package com.erdemgural.newssearch.web;
 public enum ErrorCode {
     VALIDATION_FAILED,
     PAGE_LIMIT_EXCEEDED,
+    /** Dışa aktarılacak kayıt sayısı sınırı aşıyor (audit CSV'sinde 100.000). */
+    EXPORT_TOO_LARGE,
     UNAUTHENTICATED,
     USER_PENDING_APPROVAL,
     USER_REJECTED,

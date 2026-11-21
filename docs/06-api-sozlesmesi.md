@@ -450,7 +450,10 @@ Zaten gizli bir haberi gizleme veya gizli olmayan bir haberin gizlemesini geri a
 | `GET /api/v1/admin/audit-events` | `actorUserId`, `action`, `targetType`, `targetId`, `result`, `from` ve `to` filtreleriyle sayfalı liste (FG-YP-10). Tarih aralığı verilmezse son 30 gün. | 200 |
 | `GET /api/v1/admin/audit-events/export` | Aynı filtrelerle CSV dosyası (`text/csv`) (FG-YP-11) | 200 |
 
-- Dışa aktarma en fazla 100.000 kayıtla sınırlıdır; aşan istekler `400 EXPORT_TOO_LARGE` döner.
+- **Filtreler:** `actorUserId` ve `targetId` UUID; `action` işlem kodu `targetType` `USER`, `SOURCE` veya `FEED`; `result` `SUCCESS` veya `FAILURE`; `from` ve `to` ISO 8601 zaman (ikisi de dahil). Tarih aralığı verilmezse son 30 gün; yalnızca `to` verilirse ondan önceki 30 gün.
+- Liste zamana göre yeniden eskiye sıralıdır. Öğenin alanları: `id`, `occurredAt`, `actorType` (`USER`, `SYSTEM`), `actorUserId`, `actorEmail`, `action`, `targetType`, `targetId`, `result`, `requestId`, `ipAddress`, `details` (işleme özgü alanlar; yoksa boş nesne). Sistem kayıtlarında kullanıcı, istek kimliği ve IP adresi `null`'dır.
+- Dışa aktarma en fazla 100.000 kayıtla sınırlıdır; aşan istekler `400 EXPORT_TOO_LARGE` döner. Üst sınır dışa aktarmanın başladığı ana sabitlenir; dışa aktarma sürerken yazılan kayıtlar (dışa aktarmanın kendi kaydı dahil) dosyaya girmez.
+- CSV sütunları: `id`, `occurred_at`, `actor_type`, `actor_user_id`, `actor_email`, `action`, `target_type`, `target_id`, `result`, `request_id`, `ip_address`, `details` (JSON metni). Zamanlar UTC'dir.
 - CSV dosyası, Türkçe karakterlerin Excel'de doğru görünmesi için UTF-8 imza baytıyla (BOM) başlar.
-- **CSV enjeksiyonuna karşı:** `=`, `+`, `-`, `@` ile başlayan değerlerin başına `'` karakteri eklenir. Aksi halde bu değerler dosya bir hesap tablosu programında açıldığında formül olarak çalıştırılabilir.
-- Dışa aktarma işleminin kendisi de audit log'a kaydedilir.
+- **CSV enjeksiyonuna karşı:** `=`, `+`, `-`, `@`, sekme, satır başı veya satır sonu karakteriyle ya da `＝`, `＋`, `－`, `＠` (bazı dillerde formül başlatan tam genişlikli karşılıklar) ile başlayan değerlerin başına `'` karakteri eklenir (OWASP "CSV Injection" listesi). Aksi halde bu değerler dosya bir hesap tablosu programında açıldığında formül olarak çalıştırılabilir. Kayıtlarda dışarıdan gelen değerler bulunur: kullanıcının seçtiği e-posta, besleme adı, kaynak sitenin hata metni.
+- Dışa aktarma işleminin kendisi de audit log'a kaydedilir (`AUDIT_EXPORTED`; veri modeli 3.13). Sınırı aşan istek bir doğrulama hatasıdır ve kaydedilmez.

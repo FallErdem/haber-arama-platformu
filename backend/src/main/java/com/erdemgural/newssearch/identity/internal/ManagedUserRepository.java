@@ -6,9 +6,12 @@ import com.erdemgural.newssearch.identity.UserRole;
 import com.erdemgural.newssearch.identity.UserStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -64,6 +67,21 @@ class ManagedUserRepository {
         return withFilter(jdbcClient.sql("SELECT count(*) FROM users " + FILTER), filter)
                 .query(Long.class)
                 .single();
+    }
+
+    /** Verilen kimliklerin e-postaları; bulunmayan kimlik sonuçta yer almaz. */
+    Map<UUID, String> findEmails(Collection<UUID> userIds) {
+        // Boş listeyle "IN ()" geçersiz SQL olurdu.
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return jdbcClient
+                .sql("SELECT id, email FROM users WHERE id IN (:userIds)")
+                .param("userIds", userIds)
+                .query((row, rowNumber) -> Map.entry(row.getObject("id", UUID.class), row.getString("email")))
+                .list()
+                .stream()
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     /**
