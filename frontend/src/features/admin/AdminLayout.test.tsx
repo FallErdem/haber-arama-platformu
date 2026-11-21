@@ -37,6 +37,7 @@ describe('AdminLayout', () => {
       ['Kullanıcılar', '/admin/users'],
       ['Kaynaklar', '/admin/sources'],
       ['Toplama geçmişi', '/admin/ingestion-runs'],
+      ['Audit kayıtları', '/admin/audit-events'],
     ])
     expect(within(menu).getByRole('link', { name: 'Kaynaklar' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByText('Kaynaklar ekranı')).toBeInTheDocument()

@@ -1,6 +1,5 @@
-import { parseDate } from '@internationalized/date'
 import { z } from 'zod'
-import { TIME_ZONE } from '../../lib/time'
+import { endOfDay, isIsoDay, startOfDay } from '../../lib/time'
 
 /**
  * Arama ekranının durumu adres çubuğunda tutulur (ekran akışları 5.1): adres paylaşıldığında aynı
@@ -62,17 +61,7 @@ const codeList = z
   .catch([])
 
 /** Takvimde var olan bir gün (`2026-11-05`); `2026-02-30` veya `05-11-2026` reddedilir. */
-const isoDate = z
-  .string()
-  .refine((value) => {
-    try {
-      return parseDate(value).toString() === value
-    } catch {
-      return false
-    }
-  })
-  .optional()
-  .catch(undefined)
+const isoDate = z.string().refine(isIsoDay).optional().catch(undefined)
 
 const searchParamsSchema = z.object({
   // Sınırdan uzun ifade atılmaz, kısaltılır: kullanıcının aradığı şeye en yakın sonuç gösterilir.
@@ -150,14 +139,4 @@ export function toApiParams(state: SearchState): URLSearchParams {
   params.set('page', String(state.page - 1))
   params.set('size', String(PAGE_SIZE))
   return params
-}
-
-/** Türkiye saatinde günün ilk anı. Saat farkı sabit yazılmaz; saat dilimi kurallarından hesaplanır. */
-function startOfDay(day: string): Date {
-  return parseDate(day).toDate(TIME_ZONE)
-}
-
-/** Türkiye saatinde günün son anı: ertesi günün ilk anından bir milisaniye önce. */
-function endOfDay(day: string): Date {
-  return new Date(parseDate(day).add({ days: 1 }).toDate(TIME_ZONE).getTime() - 1)
 }

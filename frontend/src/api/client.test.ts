@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiGet, shouldRetry } from './client'
+import { ApiError, apiDownload, apiGet, shouldRetry } from './client'
 
 describe('shouldRetry', () => {
   it('sunucunun verdiği hatayı yeniden denemez', () => {
@@ -64,5 +64,42 @@ describe('apiGet', () => {
     const error = await apiGet('/api/v1/articles', 'test-token').catch((caught: unknown) => caught)
 
     expect(error).toMatchObject({ status: 502, code: undefined })
+  })
+})
+
+describe('apiDownload', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("token'ı başlıkta gönderir; dosyanın içeriğini ve sunucunun önerdiği adı döner", async () => {
+    const fetchMock = stubResponse(
+      new Response('"id"\r\n', {
+        status: 200,
+        headers: { 'Content-Disposition': 'attachment; filename="audit-events-20261121-101500.csv"' },
+      }),
+    )
+
+    const file = await apiDownload(
+      '/api/v1/admin/audit-events/export',
+      'test-token',
+      new URLSearchParams({ result: 'FAILURE' }),
+    )
+
+    expect(file.filename).toBe('audit-events-20261121-101500.csv')
+    expect(await file.blob.text()).toBe('"id"\r\n')
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/admin/audit-events/export?result=FAILURE', {
+      headers: { Authorization: 'Bearer test-token' },
+    })
+  })
+
+  it('hata yanıtında sözleşmedeki kodu taşıyan ApiError fırlatır', async () => {
+    stubResponse(Response.json({ status: 400, code: 'EXPORT_TOO_LARGE' }, { status: 400 }))
+
+    const error = await apiDownload('/api/v1/admin/audit-events/export', 'test-token').catch(
+      (caught: unknown) => caught,
+    )
+
+    expect(error).toMatchObject({ status: 400, code: 'EXPORT_TOO_LARGE' })
   })
 })

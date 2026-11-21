@@ -10,6 +10,7 @@ import { CenteredScreen } from './components/CenteredScreen'
 import { Button } from './components/ui/button'
 import { AccountStatus } from './features/account/AccountStatus'
 import { AdminLayout } from './features/admin/AdminLayout'
+import { AuditEventsPage } from './features/admin/audit/AuditEventsPage'
 import { IngestionRunsPage } from './features/admin/runs/IngestionRunsPage'
 import { SourceDetailPage } from './features/admin/sources/SourceDetailPage'
 import { SourcesPage } from './features/admin/sources/SourcesPage'
@@ -85,6 +86,7 @@ export function AuthenticatedApp({ accessToken, onSignOut, onSessionExpired }: A
                   <Route path="sources" element={<SourcesPage />} />
                   <Route path="sources/:sourceId" element={<SourceDetailPage />} />
                   <Route path="ingestion-runs" element={<IngestionRunsPage />} />
+                  <Route path="audit-events" element={<AuditEventsPage />} />
                 </Route>
                 <Route path="*" element={<NotFoundPage />} />
               </Route>

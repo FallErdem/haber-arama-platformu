@@ -264,6 +264,6 @@ Bulunamadı ekranı ve genel hata ekranı. İkisinde de arama ekranına dönüş
 #### Audit kayıtları
 
 - **Amaç:** Audit kayıtlarını aramak ve dışa aktarmak (FG-YP-10, 11).
-- **İçerik:** Kullanıcı, işlem türü, hedef, sonuç ve tarih filtreleri; zaman, kullanıcı, işlem, hedef, sonuç ve IP adresi sütunlarıyla liste. Bir kayda tıklandığında ayrıntıları gösterilir. "CSV olarak dışa aktar" butonu.
+- **İçerik:** İşlem türü, hedef türü, sonuç ve tarih filtreleri; zaman, kullanıcı, işlem, hedef, sonuç ve IP adresi sütunlarıyla liste. Kullanıcı ve hedef filtreleri listeden seçilir: bir kayıttaki kullanıcıya veya hedefe tıklanınca liste onun kayıtlarına süzülür; seçili filtre kaldırılabilir bir etiketle gösterilir. Bir kaydın "Ayrıntılar" düğmesi istek kimliğini ve işleme özgü alanları açar. "CSV olarak dışa aktar" butonu ekrandaki filtrelerle dosya indirir.
 - **Davranışlar:** Tarih aralığı varsayılan olarak son 30 gündür. Dışa aktarma sınırı aşılırsa kullanıcıya tarih aralığını daraltması önerilir.
 - **Uç noktalar:** `GET /admin/audit-events`, `GET /admin/audit-events/export`

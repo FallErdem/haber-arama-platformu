@@ -31,7 +31,8 @@
       "label": "Yönetim menüsü",
       "users": "Kullanıcılar",
       "sources": "Kaynaklar",
-      "runs": "Toplama geçmişi"
+      "runs": "Toplama geçmişi",
+      "audit": "Audit kayıtları"
     },
     "errors": {
       "VERSION_CONFLICT": "Kayıt bu arada başka bir yönetici tarafından değiştirildi. Ekran yenilendi; yeniden deneyin.",
@@ -134,6 +135,66 @@
         "SUCCEEDED": "Başarılı",
         "NOT_MODIFIED": "Değişmemiş",
         "FAILED": "Başarısız"
+      }
+    },
+    "audit": {
+      "title": "Audit kayıtları",
+      "actionFilter": "İşlem",
+      "allActions": "Tüm işlemler",
+      "targetTypeFilter": "Hedef türü",
+      "allTargetTypes": "Tüm hedefler",
+      "resultFilter": "Sonuç",
+      "allResults": "Tüm sonuçlar",
+      "lastThirtyDays": "Son 30 gün",
+      "loading": "Audit kayıtları yükleniyor…",
+      "loadFailed": "Audit kayıtları alınamadı.",
+      "empty": "Bu ölçütlere uyan kayıt yok.",
+      "system": "Sistem",
+      "actorFilter": "Kullanıcı: {{name}}",
+      "targetFilter": "Hedef: {{name}}",
+      "removeFilter": "Filtreyi kaldır: {{name}}",
+      "showActorEvents": "{{name}}: bu kullanıcının kayıtlarını göster",
+      "showTargetEvents": "{{name}}: bu nesnenin kayıtlarını göster",
+      "details": "Ayrıntılar",
+      "detailsFor": "Ayrıntılar: {{action}}, {{time}}",
+      "export": "CSV olarak dışa aktar",
+      "exporting": "Hazırlanıyor…",
+      "exportTooLarge": "Dışa aktarılacak kayıt sayısı 100.000'i aşıyor. Tarih aralığını daraltın.",
+      "exportFailed": "Dosya hazırlanamadı. Lütfen tekrar deneyin.",
+      "fields": {
+        "id": "Kayıt kimliği",
+        "requestId": "İstek kimliği",
+        "actorUserId": "Kullanıcı kimliği",
+        "targetId": "Hedef kimliği"
+      },
+      "actions": {
+        "USER_REGISTERED": "Kullanıcı kaydı oluştu",
+        "SESSION_STARTED": "Oturum açıldı",
+        "ACCESS_DENIED": "Erişim reddedildi",
+        "USER_APPROVED": "Kullanıcı onaylandı",
+        "USER_REJECTED": "Kullanıcı reddedildi",
+        "USER_ROLE_CHANGED": "Rol değiştirildi",
+        "USER_STATUS_CHANGED": "Durum değiştirildi",
+        "SOURCE_CREATED": "Kaynak eklendi",
+        "SOURCE_UPDATED": "Kaynak düzenlendi",
+        "SOURCE_ENABLED": "Kaynak etkinleştirildi",
+        "SOURCE_DISABLED": "Kaynak devre dışı bırakıldı",
+        "FETCH_REQUESTED": "Elle toplama başlatıldı",
+        "FEED_CREATED": "Besleme eklendi",
+        "FEED_UPDATED": "Besleme düzenlendi",
+        "FEED_ENABLED": "Besleme etkinleştirildi",
+        "FEED_DISABLED": "Besleme devre dışı bırakıldı",
+        "FEED_AUTO_DISABLED": "Besleme kendiliğinden kapandı",
+        "AUDIT_EXPORTED": "Audit kayıtları dışa aktarıldı"
+      },
+      "targetTypes": {
+        "USER": "Kullanıcı",
+        "SOURCE": "Kaynak",
+        "FEED": "Besleme"
+      },
+      "results": {
+        "SUCCESS": "Başarılı",
+        "FAILURE": "Başarısız"
       }
     },
     "users": {

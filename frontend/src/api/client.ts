@@ -70,6 +70,33 @@ export async function apiSendJson<T>(
   return (await response.json()) as T
 }
 
+/** İndirilen bir dosya: içeriği ve sunucunun önerdiği ad (`Content-Disposition`; yoksa `null`). */
+export interface DownloadedFile {
+  blob: Blob
+  filename: string | null
+}
+
+/**
+ * API'den token'la bir dosya (örneğin CSV) indirir. Basit bir bağlantı (`<a href>`) kullanılamaz: token
+ * bellekte tutulur ve başlıkta gönderilmelidir. Başarısız yanıtta {@link ApiError} fırlatır.
+ */
+export async function apiDownload(path: string, accessToken: string, query?: URLSearchParams): Promise<DownloadedFile> {
+  const queryString = query?.toString()
+  const response = await fetch(queryString ? `${path}?${queryString}` : path, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) {
+    throw await toApiError(response)
+  }
+  return { blob: await response.blob(), filename: filenameOf(response.headers.get('Content-Disposition')) }
+}
+
+/** `attachment; filename="audit-events-20261121-101500.csv"` → `audit-events-20261121-101500.csv`. */
+function filenameOf(contentDisposition: string | null): string | null {
+  const match = contentDisposition?.match(/filename="([^"]+)"/)
+  return match ? match[1] : null
+}
+
 /**
  * Başarısız bir isteğin yeniden denenip denenmeyeceği (TanStack Query'nin `retry` ayarı; bütün
  * isteklerin varsayılanı, bkz. main.tsx). Sunucu yanıt verdiyse (404, 503...) durumu bellidir:
