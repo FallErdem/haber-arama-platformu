@@ -139,6 +139,28 @@ async def test_files_articles_and_index_documents_of_the_source_are_deleted(
     ]
 
 
+async def test_feed_validators_are_cleared_so_the_next_read_is_unconditional(
+    database: Database, admin: psycopg.Connection, trt_feed: tuple[UUID, UUID], storage: ObjectStorage
+) -> None:
+    """Silme bitince beslemelerin ETag ve Last-Modified değerleri silinir: kaynak yeniden açılınca sunucu
+    "değişmedi" (304) diyemez, beslemede duran haberler geri gelir. Başka kaynağın beslemelerine dokunulmaz."""
+    await add_article(database, trt_feed, images=0)
+    admin.execute("UPDATE feeds SET etag = '\"abc\"', last_modified = 'Sat, 21 Nov 2026 18:02:14 GMT'")
+    request_purge(admin, trt_feed[0])
+
+    await build_purger(database, storage).purge_requested(asyncio.Event())
+
+    trt = admin.execute(
+        "SELECT count(*) FROM feeds WHERE source_id = %s AND (etag IS NOT NULL OR last_modified IS NOT NULL)",
+        (trt_feed[0],),
+    ).fetchone()
+    others = admin.execute(
+        "SELECT count(*) FROM feeds WHERE source_id <> %s AND etag IS NULL", (trt_feed[0],)
+    ).fetchone()
+    assert trt == (0,)
+    assert others == (0,)
+
+
 async def test_articles_are_deleted_in_batches(
     database: Database,
     admin: psycopg.Connection,

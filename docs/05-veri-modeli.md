@@ -364,7 +364,7 @@ Başlangıç verisi:
 
 | Silinen | Etki |
 |---|---|
-| Haber | `article_categories`, `media` ve `saved_articles` satırları da silinir. Haberlerin silindiği tek yol kaynak içeriğinin silinmesidir (FG-YP-14): Önce MinIO'daki dosyalar, ardından satırlar silinir; Elasticsearch için `DELETE` outbox kayıtları aynı işlemde yazılır. |
+| Haber | `article_categories`, `media` ve `saved_articles` satırları da silinir. Haberlerin silindiği tek yol kaynak içeriğinin silinmesidir (FG-YP-14): Önce MinIO'daki dosyalar, ardından satırlar silinir; Elasticsearch için `DELETE` outbox kayıtları aynı işlemde yazılır. Silme bitince kaynağın beslemelerinin `etag` ve `last_modified` değerleri de silinir: kaynak yeniden açılınca ilk okuma koşulsuz yapılır ve beslemede duran haberler yeniden toplanır. |
 | Kullanıcı, kaynak, besleme, kategori | Silinmez; kullanıcıların durumu değiştirilir, kaynaklar ve beslemeler devre dışı bırakılır. Bu tablolara bağlanan yabancı anahtarlar silmeyi engelleyecek şekilde tanımlanır. |
 
 ## 5. Elasticsearch

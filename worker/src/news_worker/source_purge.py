@@ -14,7 +14,10 @@ bildiği için haber bir sonraki turda yeniden ele alınır (olmayan dosyayı si
 sırada satır silinip dosya silinemeseydi anahtar da kaybolurdu; kimsenin bulup silemeyeceği sahipsiz
 dosyalar MinIO'da birikirdi. İşçi yarıda dursa da silme bir sonraki turda kaldığı yerden devam eder.
 
-Haber kalmayınca aynı işlemde istek boşaltılır ve audit'e `SOURCE_PURGED` yazılır.
+Haber kalmayınca aynı işlemde istek boşaltılır, kaynağın beslemelerinin `etag` ve `last_modified` değerleri
+silinir ve audit'e `SOURCE_PURGED` yazılır. Bu değerler, beslemeyi bir sonraki okumada "değiştiyse gönder"
+diye sormak içindir; silinmiş içeriğe aittirler. Kalsalardı, kaynak yeniden açılınca sunucu "değişmedi"
+(304) der ve beslemede duran haberler beslemenin kendisi değişene kadar geri gelmezdi.
 """
 
 import asyncio
@@ -98,6 +101,13 @@ _FINISH_QUERY = """
       AND NOT EXISTS (SELECT 1 FROM articles WHERE source_id = %(source_id)s)
 """
 
+# Bir sonraki okuma koşulsuz yapılsın: saklı doğrulayıcılar silinmiş içeriğe aittir.
+_RESET_FEED_VALIDATORS_QUERY = """
+    UPDATE feeds
+    SET etag = NULL, last_modified = NULL
+    WHERE source_id = %(source_id)s
+"""
+
 
 class SourcePurgeRepository:
     async def find_requested(self, connection: psycopg.AsyncConnection[TupleRow]) -> list[PurgeRequest]:
@@ -127,12 +137,15 @@ class SourcePurgeRepository:
         return cursor.rowcount
 
     async def finish(self, connection: psycopg.AsyncConnection[TupleRow], request: PurgeRequest) -> bool:
-        """Silme isteğini boşaltır; boşalttıysa `True`."""
+        """Silme isteğini boşaltır ve beslemelerin saklı doğrulayıcılarını siler; boşalttıysa `True`."""
         cursor = await connection.execute(
             _FINISH_QUERY,
             {"source_id": request.source_id, "purge_requested_at": request.purge_requested_at},
         )
-        return cursor.rowcount == 1
+        if cursor.rowcount != 1:
+            return False
+        await connection.execute(_RESET_FEED_VALIDATORS_QUERY, {"source_id": request.source_id})
+        return True
 
 
 class SourcePurger:
