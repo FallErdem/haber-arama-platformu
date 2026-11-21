@@ -41,6 +41,10 @@ class Settings:
     # Görsel indirme döngüsünün iki turu arasındaki süre ve bir turda alınan en fazla görsel sayısı.
     media_interval_seconds: float = 10.0
     media_batch_size: int = 100
+    # Kaynak içeriği silme döngüsünün iki turu arasındaki süre ve bir seferde silinen en fazla haber sayısı
+    # (FG-YP-14). Silme seyrek istenir; sık bakmaya gerek yoktur.
+    purge_interval_seconds: float = 60.0
+    purge_batch_size: int = 500
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str] | None = None) -> Settings:
@@ -84,6 +88,8 @@ class Settings:
             media_bucket=env.get("MEDIA_BUCKET") or cls.media_bucket,
             media_interval_seconds=_positive_float(env, "MEDIA_INTERVAL_SECONDS", cls.media_interval_seconds),
             media_batch_size=_positive_int(env, "MEDIA_BATCH_SIZE", cls.media_batch_size),
+            purge_interval_seconds=_positive_float(env, "PURGE_INTERVAL_SECONDS", cls.purge_interval_seconds),
+            purge_batch_size=_positive_int(env, "PURGE_BATCH_SIZE", cls.purge_batch_size),
         )
 
 

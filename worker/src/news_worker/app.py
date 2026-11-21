@@ -5,6 +5,7 @@ import logging
 import signal
 
 from news_worker.articles import ArticleRepository
+from news_worker.audit import AuditRepository
 from news_worker.config import ConfigurationError, Settings
 from news_worker.database import Database
 from news_worker.feed_fetcher import FeedFetcher, create_http_client
@@ -22,6 +23,7 @@ from news_worker.outbox_relay import OutboxRelay
 from news_worker.rate_limiter import SourceRateLimiter
 from news_worker.scheduler import Scheduler
 from news_worker.search_index import SearchIndex, create_search_client
+from news_worker.source_purge import SourcePurger, SourcePurgeRepository
 
 log = logging.getLogger(__name__)
 
@@ -29,8 +31,8 @@ log = logging.getLogger(__name__)
 async def run(settings: Settings, stop: asyncio.Event) -> None:
     """Sağlık adresini açar, tabloları bekler ve durdurma istenene kadar işleri çalıştırır.
 
-    Üç iş yan yana çalışır: zamanlayıcı (haber toplama), outbox aktarımı (Elasticsearch) ve görsel
-    indirme (MinIO).
+    Dört iş yan yana çalışır: zamanlayıcı (haber toplama), outbox aktarımı (Elasticsearch), görsel
+    indirme (MinIO) ve kaynak içeriğinin silinmesi.
     """
     database = Database(settings)
     # Bütün indirmeler tek bir HTTP istemcisini paylaşır; blok bitince istemci ve açık bağlantıları kapanır.
@@ -60,22 +62,32 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             settings.outbox_interval_seconds,
             settings.outbox_batch_size,
         )
+        # Görsel indirme ve içerik silme aynı MinIO istemcisini paylaşır.
+        storage = ObjectStorage(
+            create_storage_client(
+                settings.minio_url,
+                settings.minio_access_key,
+                settings.minio_secret_key,
+                settings.http_timeout_seconds,
+            ),
+            settings.media_bucket,
+        )
         media_downloader = MediaDownloader(
             database,
             MediaRepository(),
             ImageDownloader(http_client, settings.http_total_timeout_seconds),
-            ObjectStorage(
-                create_storage_client(
-                    settings.minio_url,
-                    settings.minio_access_key,
-                    settings.minio_secret_key,
-                    settings.http_timeout_seconds,
-                ),
-                settings.media_bucket,
-            ),
+            storage,
             rate_limiter,
             settings.media_interval_seconds,
             settings.media_batch_size,
+        )
+        source_purger = SourcePurger(
+            database,
+            SourcePurgeRepository(),
+            AuditRepository(),
+            storage,
+            settings.purge_interval_seconds,
+            settings.purge_batch_size,
         )
         # Hazır olma yalnızca zamanlayıcıya bakar: Elasticsearch veya MinIO kapalıyken de haber toplama
         # sürer; notlar ve görseller PostgreSQL'de bekler (FOG-09). İşçi bu yüzden sağlıksız sayılmaz.
@@ -90,7 +102,9 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             if not stop.is_set():
                 log.info("Tablolar hazır; zamanlayıcı başlıyor")
                 # gather: döngüler aynı anda çalışır; durdurma istenince hepsi elindeki işi bitirip döner.
-                await asyncio.gather(scheduler.run(stop), outbox_relay.run(stop), media_downloader.run(stop))
+                await asyncio.gather(
+                    scheduler.run(stop), outbox_relay.run(stop), media_downloader.run(stop), source_purger.run(stop)
+                )
         finally:
             await health_server.stop()
             log.info("İşçi durdu")
