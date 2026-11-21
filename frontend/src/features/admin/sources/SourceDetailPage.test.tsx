@@ -57,6 +57,7 @@ function source(overrides: Partial<ManagedSource> = {}): ManagedSource {
     enabled: true,
     purgeRequestedAt: null,
     version: 2,
+    articleCount: 1240,
     feeds: [FAILING, AUTO_DISABLED],
     ...overrides,
   }
@@ -225,6 +226,79 @@ describe('SourceDetailPage', () => {
         },
       ]),
     )
+  })
+
+  it('kaynağın haber sayısını gösterir; etkin kaynakta "İçeriği sil" önce devre dışı bırakmayı söyler', async () => {
+    const api = stubApi()
+    renderPage()
+    expect(await screen.findByText(/1240 haber$/)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'İçeriği sil' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('İçeriği silmek için önce kaynağı devre dışı bırakın.')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(api.actions()).toEqual([])
+  })
+
+  it('devre dışı kaynağın içeriği, kodu tam yazılınca silinmek üzere istenir (FG-YP-14)', async () => {
+    const api = stubApi(
+      () => Response.json(source({ enabled: false })),
+      () => Response.json({ articleCount: 1240 }, { status: 202 }),
+    )
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'İçeriği sil' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Kaynağın içeriğini sil' })
+    expect(dialog).toHaveTextContent('TRT Haber kaynağının 1240 haberi ve görselleri kalıcı olarak silinecek')
+    const confirm = within(dialog).getByRole('button', { name: 'Kalıcı olarak sil' })
+    const code = within(dialog).getByLabelText(/^Onaylamak için kaynağın kodunu yazın: TRT/)
+    expect(confirm).toBeDisabled()
+    // Kod büyük-küçük harf dahil aynen yazılmalıdır.
+    await userEvent.type(code, 'trt')
+    expect(confirm).toBeDisabled()
+    await userEvent.clear(code)
+    await userEvent.type(code, 'TRT')
+    await userEvent.click(confirm)
+
+    expect(await screen.findByRole('status')).toHaveTextContent('İçerik silme başladı')
+    expect(api.actions()).toEqual([
+      { method: 'POST', url: `/api/v1/admin/sources/${SOURCE_ID}/purge`, body: { confirmationCode: 'TRT' } },
+    ])
+  })
+
+  it('silme sürerken durumu gösterir; kaynak etkinleştirilemez ve yeniden silinemez', async () => {
+    stubApi(() => Response.json(source({ enabled: false, purgeRequestedAt: '2026-11-21T11:02:10Z' })))
+    renderPage()
+
+    expect(await screen.findByRole('status')).toHaveTextContent('İçerik siliniyor')
+    expect(screen.getByRole('button', { name: 'Etkinleştir' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'İçeriği sil' })).toBeDisabled()
+  })
+
+  it('silme sürerken detay aralıklarla yeniden istenir; silme bitince durum kalkar ve haber sayısı 0 olur', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      let calls = 0
+      const api = stubApi(() =>
+        Response.json(
+          calls++ === 0
+            ? source({ enabled: false, purgeRequestedAt: '2026-11-21T11:02:10Z' })
+            : source({ enabled: false, articleCount: 0 }),
+        ),
+      )
+      renderPage()
+      await screen.findByText('İçerik siliniyor. Bu sayfa kendiliğinden yenilenir.')
+
+      await vi.advanceTimersByTimeAsync(5000)
+
+      await waitFor(() => expect(screen.queryByText(/İçerik siliniyor/)).not.toBeInTheDocument())
+      expect(screen.getByText(/0 haber$/)).toBeInTheDocument()
+      // Silme bitince yenileme durur.
+      await vi.advanceTimersByTimeAsync(15000)
+      expect(api.detailRequests()).toHaveLength(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('kaynak yoksa bulunamadı sayfasını gösterir', async () => {

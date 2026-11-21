@@ -7,6 +7,7 @@ const KNOWN_CODES = [
   'ALREADY_EXISTS',
   'INVALID_STATE_TRANSITION',
   'LAST_ACTIVE_ADMIN',
+  'SOURCE_MUST_BE_DISABLED',
   'VALIDATION_FAILED',
 ]
 
@@ -20,8 +21,10 @@ export function adminErrorMessage(error: unknown, t: TFunction): string {
 }
 
 /** Kaydın bu arada değiştiğini söyleyen hatalar: ekrandaki veri yenilenmeli. */
+const STALE_CODES = ['VERSION_CONFLICT', 'INVALID_STATE_TRANSITION', 'SOURCE_MUST_BE_DISABLED']
+
 export function isStaleError(error: unknown): boolean {
-  return error instanceof ApiError && (error.code === 'VERSION_CONFLICT' || error.code === 'INVALID_STATE_TRANSITION')
+  return error instanceof ApiError && error.code !== undefined && STALE_CODES.includes(error.code)
 }
 
 /** API'nin geçersiz bulduğu alanlar; formlar bu alanları işaretler. */
