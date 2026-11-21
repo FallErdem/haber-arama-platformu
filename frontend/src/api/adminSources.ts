@@ -51,8 +51,11 @@ export interface ManagedSource {
   attributionText: string | null
   feedTimeZone: string | null
   enabled: boolean
+  /** İçeriğin silinmesi istendiyse istenme zamanı; işçi silmeyi bitirince `null` olur. */
   purgeRequestedAt: string | null
   version: number
+  /** Kaynağın haber sayısı (gizlenenler dahil); içerik silinince 0 olur. */
+  articleCount: number
   feeds: ManagedFeed[]
 }
 
@@ -140,6 +143,23 @@ export function updateSource(accessToken: string, sourceId: string, change: Sour
 /** Elle toplama (FG-YP-08); okumayı işçi yapar. Yanıt: okunacak besleme sayısı. */
 export function requestFetch(accessToken: string, sourceId: string): Promise<{ feedCount: number }> {
   return apiSendJson<{ feedCount: number }>('POST', `${SOURCES}/${encodeURIComponent(sourceId)}/fetch`, accessToken)
+}
+
+/**
+ * Kaynağın bütün içeriğinin silinmesini ister (FG-YP-14); silmeyi işçi yapar. Onay olarak kaynağın kodu
+ * gönderilir. Yanıt: silinecek haber sayısı.
+ */
+export function requestPurge(
+  accessToken: string,
+  sourceId: string,
+  confirmationCode: string,
+): Promise<{ articleCount: number }> {
+  return apiSendJson<{ articleCount: number }>(
+    'POST',
+    `${SOURCES}/${encodeURIComponent(sourceId)}/purge`,
+    accessToken,
+    { confirmationCode },
+  )
 }
 
 export function createFeed(accessToken: string, sourceId: string, feed: FeedSettings): Promise<ManagedFeed> {

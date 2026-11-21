@@ -76,6 +76,33 @@ async def test_uploaded_file_can_be_read_back(storage: ObjectStorage) -> None:
     assert await storage.get(key) == b"icerik"
 
 
+async def test_files_are_deleted_and_missing_ones_are_not_an_error(
+    storage: ObjectStorage, storage_client: S3Client
+) -> None:
+    """Dosyalar toplu silinir; var olmayan bir anahtar hata değildir (yarıda kalan silme tekrarlanabilir)."""
+    first = storage_key_for(ARTICLE_ID, MEDIA_ID)
+    second = storage_key_for(ARTICLE_ID, UUID("019a0000-0000-7000-8000-0000000000bb"))
+    await storage.put(first, b"bir", "image/webp")
+    await storage.put(second, b"iki", "image/webp")
+
+    await storage.delete_many([first, second, "articles/olmayan/dosya"])
+
+    assert storage_client.list_objects_v2(Bucket=MEDIA_BUCKET, Prefix="articles/").get("Contents", []) == []
+
+
+async def test_deleting_nothing_sends_no_request() -> None:
+    """Silinecek dosya yoksa (görselsiz haberler) depolamaya hiç istek gitmez."""
+    client = create_storage_client("http://127.0.0.1:9", STORAGE_WORKER_USER, "x", timeout_seconds=1)
+
+    await ObjectStorage(client, MEDIA_BUCKET).delete_many([])
+
+
+async def test_files_outside_the_bucket_cannot_be_deleted(storage_client: S3Client) -> None:
+    """İşçinin silme yetkisi de yalnızca kendi kovasındadır."""
+    with pytest.raises(StorageUnavailableError):
+        await ObjectStorage(storage_client, "baska-kova").delete_many(["dosya"])
+
+
 async def test_reading_a_missing_file_is_reported(storage: ObjectStorage) -> None:
     """Olmayan dosya okunmak istenirse anlaşılır bir hata fırlatılır."""
     with pytest.raises(StorageUnavailableError, match="NoSuchKey"):

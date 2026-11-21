@@ -31,6 +31,8 @@ def test_defaults_are_used_when_only_password_is_given() -> None:
     assert settings.media_bucket == "media"
     assert settings.media_interval_seconds == 10.0
     assert settings.media_batch_size == 100
+    assert settings.purge_interval_seconds == 60.0
+    assert settings.purge_batch_size == 500
 
 
 def test_environment_variables_override_defaults() -> None:
@@ -50,6 +52,8 @@ def test_environment_variables_override_defaults() -> None:
             "MEDIA_BUCKET": "gorseller",
             "MEDIA_INTERVAL_SECONDS": "3",
             "MEDIA_BATCH_SIZE": "20",
+            "PURGE_INTERVAL_SECONDS": "15",
+            "PURGE_BATCH_SIZE": "50",
             "DB_HOST": "postgres-rw",
             "DB_PORT": "6432",
             "DB_NAME": "haberler",
@@ -79,6 +83,8 @@ def test_environment_variables_override_defaults() -> None:
     assert settings.media_bucket == "gorseller"
     assert settings.media_interval_seconds == 3.0
     assert settings.media_batch_size == 20
+    assert settings.purge_interval_seconds == 15.0
+    assert settings.purge_batch_size == 50
 
 
 @pytest.mark.parametrize(
@@ -114,6 +120,8 @@ def test_missing_password_raises_a_clear_error(environment: dict[str, str], miss
         ("OUTBOX_BATCH_SIZE", "2.5"),
         ("MEDIA_INTERVAL_SECONDS", "0"),
         ("MEDIA_BATCH_SIZE", "yuz"),
+        ("PURGE_INTERVAL_SECONDS", "0"),
+        ("PURGE_BATCH_SIZE", "bes"),
     ],
 )
 def test_invalid_numeric_setting_is_rejected(name: str, value: str) -> None:

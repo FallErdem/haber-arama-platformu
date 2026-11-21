@@ -78,7 +78,7 @@ class SourceAdministrationService implements SourceAdministration {
     @Override
     public ManagedSource findSource(UUID sourceId) {
         ManagedSource source = sources.findById(sourceId).orElseThrow(SourceAdministrationService::notFound);
-        return withFeeds(source);
+        return withDetails(source);
     }
 
     @Override
@@ -111,6 +111,10 @@ class SourceAdministrationService implements SourceAdministration {
                     optionalOr(change.attributionText(), current.attributionText()),
                     optionalOr(change.feedTimeZone(), current.feedTimeZone()),
                     valueOr(change.enabled(), current.enabled()));
+            // İçerik silinirken kaynak etkinleştirilemez: silme sürerken yeni haberler eklenirdi (FG-YP-14).
+            if (next.enabled() && !current.enabled() && current.purgeRequestedAt() != null) {
+                throw conflict(ErrorCode.INVALID_STATE_TRANSITION);
+            }
             List<String> changedFields = changedFields(current, next);
             boolean enabledChanged = next.enabled() != current.enabled();
             if (changedFields.isEmpty() && !enabledChanged) {
@@ -152,6 +156,36 @@ class SourceAdministrationService implements SourceAdministration {
                     sourceId,
                     Map.of("feedCount", feedCount));
             return feedCount;
+        });
+    }
+
+    @Override
+    public long requestPurge(UUID adminId, UUID sourceId, String confirmationCode) {
+        Attempt attempt = new Attempt(AuditAction.SOURCE_PURGE_REQUESTED, AuditTargetType.SOURCE, sourceId, Map.of());
+        return audited(adminId, List.of(attempt), () -> {
+            ManagedSource source = sources.findForUpdate(sourceId).orElseThrow(SourceAdministrationService::notFound);
+            // Geri alınamaz işlem: yönetici kaynağın kodunu yazarak onaylar (sözleşme 6.2). Yanlış kod bir
+            // girdi hatasıdır (400); deneme sayılmaz, audit'e yazılmaz.
+            if (!source.code().equals(confirmationCode)) {
+                throw new InvalidRequestException(
+                        List.of(new FieldError("confirmationCode", FieldError.Code.INVALID_VALUE)));
+            }
+            // Etkin kaynakta silme sürerken yeni haberler eklenebilirdi.
+            if (source.enabled()) {
+                throw conflict(ErrorCode.SOURCE_MUST_BE_DISABLED);
+            }
+            if (source.purgeRequestedAt() != null) {
+                throw conflict(ErrorCode.INVALID_STATE_TRANSITION);
+            }
+            long articleCount = sources.countArticles(sourceId);
+            sources.requestPurge(sourceId);
+            recordSuccess(
+                    adminId,
+                    AuditAction.SOURCE_PURGE_REQUESTED,
+                    AuditTargetType.SOURCE,
+                    sourceId,
+                    Map.of("code", source.code(), "articleCount", articleCount));
+            return articleCount;
         });
     }
 
@@ -362,7 +396,8 @@ class SourceAdministrationService implements SourceAdministration {
         }
     }
 
-    private ManagedSource withFeeds(ManagedSource source) {
+    /** Detay: kaynağın satırına haber sayısı ve beslemeleri eklenir. */
+    private ManagedSource withDetails(ManagedSource source) {
         return new ManagedSource(
                 source.id(),
                 source.code(),
@@ -378,6 +413,7 @@ class SourceAdministrationService implements SourceAdministration {
                 source.enabled(),
                 source.purgeRequestedAt(),
                 source.version(),
+                sources.countArticles(source.id()),
                 feeds.findBySource(source.id()));
     }
 

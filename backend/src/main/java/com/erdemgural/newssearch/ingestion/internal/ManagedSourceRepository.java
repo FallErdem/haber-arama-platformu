@@ -148,6 +148,26 @@ class ManagedSourceRepository {
                 .update();
     }
 
+    /** Kaynağın haber sayısı ({@code articles_source_id_published_at_idx} indeksinden sayılır). */
+    long countArticles(UUID sourceId) {
+        return jdbcClient
+                .sql("SELECT count(*) FROM articles WHERE source_id = :sourceId")
+                .param("sourceId", sourceId)
+                .query(Long.class)
+                .single();
+    }
+
+    /**
+     * İçeriğin silinmesini ister: işçi {@code purge_requested_at} dolu kaynakların haberlerini siler ve
+     * bitirince alanı boşaltır (FG-YP-14). Kaynağın durumu değiştiği için sürüm de artar.
+     */
+    void requestPurge(UUID sourceId) {
+        jdbcClient
+                .sql("UPDATE sources SET purge_requested_at = now(), version = version + 1 WHERE id = :sourceId")
+                .param("sourceId", sourceId)
+                .update();
+    }
+
     private static ManagedSource mapRow(ResultSet row, int rowNumber) throws SQLException {
         return new ManagedSource(
                 row.getObject("id", UUID.class),
@@ -164,6 +184,8 @@ class ManagedSourceRepository {
                 row.getBoolean("enabled"),
                 instant(row, "purge_requested_at"),
                 row.getInt("version"),
+                // Haber sayısı ve beslemeler detayda ayrı sorgularla doldurulur (SourceAdministrationService).
+                0,
                 List.of());
     }
 

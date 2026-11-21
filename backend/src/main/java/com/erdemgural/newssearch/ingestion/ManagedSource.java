@@ -14,7 +14,9 @@ import java.util.UUID;
  * @param dailyRequestLimit son 24 saatteki en fazla istek sayısı; {@code null} ise sınır yok
  * @param feedTimeZone beslemedeki saatlerin gerçekte yazıldığı saat dilimi (ör. {@code Europe/Istanbul});
  *     {@code null} ise beslemede yazan saat dilimine güvenilir
+ * @param purgeRequestedAt içeriğin silinmesi istendiyse istenme zamanı; işçi silmeyi bitirince {@code null}
  * @param version iyimser kilitleme sürümü (sözleşme 2.5)
+ * @param articleCount kaynağın haber sayısı (gizlenenler dahil); içerik silinince 0 olur
  * @param feeds beslemeleri, adlarına göre sıralı
  */
 public record ManagedSource(
@@ -32,4 +34,5 @@ public record ManagedSource(
         boolean enabled,
         Instant purgeRequestedAt,
         int version,
+        long articleCount,
         List<ManagedFeed> feeds) {}

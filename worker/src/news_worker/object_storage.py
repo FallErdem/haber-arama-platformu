@@ -5,6 +5,7 @@ başka bir S3 uyumlu depolamaya geçilirse kod değişmez (R-35).
 """
 
 import asyncio
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
@@ -19,6 +20,10 @@ if TYPE_CHECKING:
 
 class StorageUnavailableError(Exception):
     """Nesne depolamaya yazılamadı (erişilemiyor, yetki veya başka bir hata)."""
+
+
+# S3'ün tek bir toplu silme isteğinde kabul ettiği en fazla anahtar sayısı.
+_MAX_KEYS_PER_DELETE = 1000
 
 
 def storage_key_for(article_id: UUID, media_id: UUID) -> str:
@@ -79,3 +84,27 @@ class ObjectStorage:
             )
         except (BotoCoreError, ClientError) as error:
             raise StorageUnavailableError(f"Nesne depolamaya yazılamadı: {type(error).__name__}") from error
+
+    async def delete_many(self, keys: Sequence[str]) -> None:
+        """Dosyaları siler; 1000'erli toplu isteklerle. Var olmayan dosyayı silmek hata değildir (S3 böyle
+        davranır): yarıda kalmış bir silme baştan tekrarlanabilir.
+
+        Toplu silme isteği başarılı dönse bile tek tek dosyalar silinememiş olabilir; yanıttaki `Errors`
+        listesi bu yüzden ayrıca denetlenir.
+        """
+
+        def delete(chunk: Sequence[str]) -> None:
+            response = self._client.delete_objects(
+                Bucket=self._bucket,
+                # Quiet: yanıtta yalnızca silinemeyenler döner.
+                Delete={"Objects": [{"Key": key} for key in chunk], "Quiet": True},
+            )
+            errors = response.get("Errors", [])
+            if errors:
+                raise StorageUnavailableError(f"{len(errors)} dosya silinemedi: {errors[0].get('Code')}")
+
+        try:
+            for start in range(0, len(keys), _MAX_KEYS_PER_DELETE):
+                await asyncio.to_thread(delete, keys[start : start + _MAX_KEYS_PER_DELETE])
+        except (BotoCoreError, ClientError) as error:
+            raise StorageUnavailableError(f"Nesne depolamadan silinemedi: {type(error).__name__}") from error

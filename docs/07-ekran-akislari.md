@@ -228,7 +228,7 @@ Bulunamadı ekranı ve genel hata ekranı. İkisinde de arama ekranına dönüş
 
 - **Amaç:** Bir kaynağı ve beslemelerini yönetmek (FG-YP-04, 06–08, 14).
 - **İçerik:**
-  - Kaynağın ayarları ve düzenleme formu
+  - Kaynağın ayarları ve düzenleme formu; kaynağın haber sayısı
   - Beslemelerin listesi: ad, varsayılan kategori, toplama sıklığı, etkin olup olmadığı, devre dışı kalma nedeni, son başarılı okuma, art arda hata sayısı ve son hata
   - Butonlar: Şimdi topla, Besleme ekle, Devre dışı bırak veya Etkinleştir, İçeriği sil
   - Kaynağın toplama geçmişine bağlantı
@@ -237,7 +237,7 @@ Bulunamadı ekranı ve genel hata ekranı. İkisinde de arama ekranına dönüş
   - "Şimdi topla" kaynak devre dışıyken kullanılamaz; basılınca kaç beslemenin okuma sırasına alındığı söylenir. Okunmayı bekleyen beslemede "Elle toplama bekliyor" yazar.
   - Ayarlar formu yalnızca değişen alanları gönderir; boşaltılan alan (örneğin lisans) boşaltılır. Kayıt bu arada başka bir yönetici tarafından değiştirildiyse bu söylenir ve ekran yenilenir.
   - Beslemelerin düzenleme ve açma/kapama düğmelerinin erişilebilir adında beslemenin adı bulunur ("Devre dışı bırak: gundem"); ekran okuyucu listedeki aynı adlı düğmeleri ayırt eder.
-  - "İçeriği sil" yalnızca kaynak devre dışıyken kullanılabilir; kaynağın kodunun yazılmasını isteyen bir onay penceresi açar. Silme sürerken "İçerik siliniyor" durumu gösterilir.
+  - "İçeriği sil" yalnızca kaynak devre dışıyken kullanılabilir. Düğme her zaman görünür; kaynak etkinken basılırsa önce kaynağın devre dışı bırakılması gerektiği söylenir. Devre dışı kaynakta kaynağın kodunun yazılmasını isteyen bir onay penceresi açar. Pencere kaç haberin silineceğini söyler; kod büyük-küçük harf dahil aynen yazılmadan onay düğmesi çalışmaz. Silme sürerken "İçerik siliniyor" durumu gösterilir, kaynak etkinleştirilemez ve detay birkaç saniyede bir yenilenir; silme bitince durum kalkar ve haber sayısı 0 olur.
 - **Uç noktalar:** `GET` ve `PATCH /admin/sources/{id}`, `POST /admin/sources/{id}/fetch`, `POST /admin/sources/{id}/purge`, `POST /admin/sources/{id}/feeds`, `PATCH /admin/feeds/{id}`
 
 #### Kaynak ve besleme formları

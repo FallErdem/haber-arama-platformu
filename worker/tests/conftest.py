@@ -58,7 +58,7 @@ RESET_DATA_SQL = """
     DELETE FROM articles;
     DELETE FROM users;
     DELETE FROM ingestion_runs;
-    UPDATE sources SET enabled = true;
+    UPDATE sources SET enabled = true, purge_requested_at = NULL;
     UPDATE feeds
     SET enabled = true, disabled_reason = NULL, next_fetch_at = now(), etag = NULL, last_modified = NULL,
         consecutive_failures = 0, last_success_at = NULL, last_error = NULL;

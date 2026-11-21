@@ -20,7 +20,11 @@ import { formatPublishedAt } from '../../../lib/time'
 import { NotFoundPage } from '../../errors/NotFoundPage'
 import { adminErrorMessage, isStaleError } from '../adminErrors'
 import { FeedDialog } from './FeedDialog'
+import { PurgeDialog } from './PurgeDialog'
 import { SourceSettingsForm } from './SourceSettingsForm'
+
+/** İçerik silinirken detayın yeniden istenme aralığı: silme bitince durum kendiliğinden kalkar. */
+const PURGE_POLL_MS = 5000
 
 /** İşlemin sonucu: başarı veya hata mesajı; ekranın üstünde tek yerde duyurulur. */
 interface Notice {
@@ -29,15 +33,20 @@ interface Notice {
 }
 
 /**
- * Yönetim paneli: kaynak detayı (ekran akışları 5.2; FG-YP-04, FG-YP-06 – 08). Kaynağın ayarları,
- * etkinleştirme, "Şimdi topla" ve beslemeleri sağlık durumlarıyla. Her değişiklik kaydın sürümüyle gönderilir;
- * kayıt bu arada değiştiyse kullanıcıya söylenir ve ekran yenilenir.
+ * Yönetim paneli: kaynak detayı (ekran akışları 5.2; FG-YP-04, FG-YP-06 – 08, FG-YP-14). Kaynağın ayarları,
+ * etkinleştirme, "Şimdi topla", "İçeriği sil" ve beslemeleri sağlık durumlarıyla. Her değişiklik kaydın
+ * sürümüyle gönderilir; kayıt bu arada değiştiyse kullanıcıya söylenir ve ekran yenilenir.
  */
 export function SourceDetailPage() {
   const { sourceId = '' } = useParams()
   const { t } = useTranslation()
   const accessToken = useAccessToken()
-  const source = useQuery({ queryKey: ['admin-source', sourceId], queryFn: () => fetchSource(accessToken, sourceId) })
+  const source = useQuery({
+    queryKey: ['admin-source', sourceId],
+    queryFn: () => fetchSource(accessToken, sourceId),
+    // Silmeyi işçi yapar; sürerken detay aralıklarla yeniden istenir, bitince istek boşalır ve yenileme durur.
+    refetchInterval: (query) => (query.state.data?.purgeRequestedAt ? PURGE_POLL_MS : false),
+  })
 
   if (source.error instanceof ApiError && (source.error.status === 404 || source.error.status === 400)) {
     return <NotFoundPage />
@@ -74,6 +83,8 @@ function SourceView({ source }: { source: ManagedSource }) {
   const queryClient = useQueryClient()
   const [notice, setNotice] = useState<Notice | null>(null)
   const [isAddFeedOpen, setAddFeedOpen] = useState(false)
+  const [isPurgeOpen, setPurgeOpen] = useState(false)
+  const isPurging = source.purgeRequestedAt !== null
 
   /** Değişiklikten sonra detay ve liste yeniden istenir; hata kaydın eskidiğini söylüyorsa yine yenilenir. */
   const refresh = () =>
@@ -113,7 +124,8 @@ function SourceView({ source }: { source: ManagedSource }) {
           <h1 className="text-3xl font-semibold tracking-tight">{source.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {source.code} · {t(`languages.${source.language}`)} · {source.readerType} ·{' '}
-            {source.enabled ? t('admin.sources.enabled') : t('admin.sources.disabled')}
+            {source.enabled ? t('admin.sources.enabled') : t('admin.sources.disabled')} ·{' '}
+            {t('admin.sources.articleCount', { count: source.articleCount })}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -125,15 +137,42 @@ function SourceView({ source }: { source: ManagedSource }) {
           >
             {t('admin.sources.fetchNow')}
           </Button>
+          {/* İçerik silinirken kaynak etkinleştirilemez: silme sürerken yeni haberler eklenirdi. */}
           <Button
             variant={source.enabled ? 'outline' : 'default'}
-            isDisabled={toggle.isPending}
+            isDisabled={toggle.isPending || isPurging}
             onPress={() => toggle.mutate()}
           >
             {source.enabled ? t('admin.sources.disable') : t('admin.sources.enable')}
           </Button>
+          {/* İçerik yalnızca devre dışı kaynakta silinebilir (sözleşme 6.2). Düğme her zaman görünür; kaynak
+              etkinse pencere açılmaz, önce devre dışı bırakılması gerektiği söylenir. */}
+          <Button
+            variant="destructive"
+            isDisabled={isPurging || source.articleCount === 0}
+            onPress={() =>
+              source.enabled
+                ? setNotice({ kind: 'error', text: t('admin.sources.purgeNeedsDisabled') })
+                : setPurgeOpen(true)
+            }
+          >
+            {t('admin.sources.purge')}
+          </Button>
         </div>
       </div>
+      <PurgeDialog
+        source={source}
+        isOpen={isPurgeOpen}
+        onOpenChange={setPurgeOpen}
+        onRequested={() => setNotice({ kind: 'success', text: t('admin.sources.purgeRequested') })}
+        refresh={refresh}
+      />
+
+      {isPurging && (
+        <p role="status" className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
+          {t('admin.sources.purging')}
+        </p>
+      )}
 
       {notice && (
         <p

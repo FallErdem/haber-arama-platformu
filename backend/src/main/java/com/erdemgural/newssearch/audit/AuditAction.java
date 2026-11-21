@@ -30,6 +30,11 @@ public enum AuditAction {
     SOURCE_DISABLED,
     /** Yönetici kaynak için toplamayı elle başlattı (FG-YP-08). */
     FETCH_REQUESTED,
+    /**
+     * Yönetici kaynağın bütün içeriğinin silinmesini istedi (FG-YP-14). Silmeyi işçi yapar; bitirdiğinde
+     * kendi kaydını ({@code SOURCE_PURGED}) yazar.
+     */
+    SOURCE_PURGE_REQUESTED,
     /** Yönetici kaynağa besleme ekledi (FG-YP-04). */
     FEED_CREATED,
     /** Yönetici beslemenin ayarlarını değiştirdi. */
