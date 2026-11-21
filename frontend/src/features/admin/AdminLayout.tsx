@@ -4,7 +4,7 @@ import { NavLink, Outlet } from 'react-router'
 import { useCurrentUser } from '../../auth/currentUser'
 
 /**
- * Yönetim panelinin çerçevesi: yan menü (Kullanıcılar, Kaynaklar, Toplama geçmişi) ve seçili ekran
+ * Yönetim panelinin çerçevesi: yan menü (Kullanıcılar, Kaynaklar, Toplama geçmişi, Audit kayıtları) ve seçili ekran
  * (ekran akışları 3. bölüm). Dar ekranda menü ekranın üstünde yatay durur.
  *
  * Yönetici olmayan kullanıcıya (adresi elle yazdıysa) içerik gösterilmez ve ekranlar API'ye hiç sormaz.
@@ -41,6 +41,11 @@ export function AdminLayout() {
           <li>
             <NavLink to="/admin/ingestion-runs" className={linkClass}>
               {t('admin.nav.runs')}
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/admin/audit-events" className={linkClass}>
+              {t('admin.nav.audit')}
             </NavLink>
           </li>
         </ul>

@@ -37,5 +37,7 @@ public enum AuditAction {
     /** Yönetici beslemeyi etkinleştirdi; otomatik kapanmış beslemede hata sayacı sıfırlanır. */
     FEED_ENABLED,
     /** Yönetici beslemeyi devre dışı bıraktı. */
-    FEED_DISABLED
+    FEED_DISABLED,
+    /** Yönetici audit kayıtlarını CSV olarak dışa aktardı (FG-YP-11). */
+    AUDIT_EXPORTED
 }

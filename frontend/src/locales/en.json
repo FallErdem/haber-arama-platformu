@@ -31,7 +31,8 @@
       "label": "Admin menu",
       "users": "Users",
       "sources": "Sources",
-      "runs": "Collection history"
+      "runs": "Collection history",
+      "audit": "Audit log"
     },
     "errors": {
       "VERSION_CONFLICT": "This record was changed by another administrator in the meantime. The page was refreshed; please try again.",
@@ -134,6 +135,66 @@
         "SUCCEEDED": "Succeeded",
         "NOT_MODIFIED": "Not modified",
         "FAILED": "Failed"
+      }
+    },
+    "audit": {
+      "title": "Audit log",
+      "actionFilter": "Action",
+      "allActions": "All actions",
+      "targetTypeFilter": "Target type",
+      "allTargetTypes": "All targets",
+      "resultFilter": "Result",
+      "allResults": "All results",
+      "lastThirtyDays": "Last 30 days",
+      "loading": "Loading the audit log…",
+      "loadFailed": "The audit log could not be loaded.",
+      "empty": "No records match these criteria.",
+      "system": "System",
+      "actorFilter": "User: {{name}}",
+      "targetFilter": "Target: {{name}}",
+      "removeFilter": "Remove filter: {{name}}",
+      "showActorEvents": "{{name}}: show this user's records",
+      "showTargetEvents": "{{name}}: show this object's records",
+      "details": "Details",
+      "detailsFor": "Details: {{action}}, {{time}}",
+      "export": "Export as CSV",
+      "exporting": "Preparing…",
+      "exportTooLarge": "More than 100,000 records would be exported. Narrow the date range.",
+      "exportFailed": "The file could not be prepared. Please try again.",
+      "fields": {
+        "id": "Record ID",
+        "requestId": "Request ID",
+        "actorUserId": "User ID",
+        "targetId": "Target ID"
+      },
+      "actions": {
+        "USER_REGISTERED": "User registered",
+        "SESSION_STARTED": "Session started",
+        "ACCESS_DENIED": "Access denied",
+        "USER_APPROVED": "User approved",
+        "USER_REJECTED": "User rejected",
+        "USER_ROLE_CHANGED": "Role changed",
+        "USER_STATUS_CHANGED": "Status changed",
+        "SOURCE_CREATED": "Source added",
+        "SOURCE_UPDATED": "Source edited",
+        "SOURCE_ENABLED": "Source enabled",
+        "SOURCE_DISABLED": "Source disabled",
+        "FETCH_REQUESTED": "Manual collection started",
+        "FEED_CREATED": "Feed added",
+        "FEED_UPDATED": "Feed edited",
+        "FEED_ENABLED": "Feed enabled",
+        "FEED_DISABLED": "Feed disabled",
+        "FEED_AUTO_DISABLED": "Feed disabled automatically",
+        "AUDIT_EXPORTED": "Audit log exported"
+      },
+      "targetTypes": {
+        "USER": "User",
+        "SOURCE": "Source",
+        "FEED": "Feed"
+      },
+      "results": {
+        "SUCCESS": "Succeeded",
+        "FAILURE": "Failed"
       }
     },
     "users": {

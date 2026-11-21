@@ -1,5 +1,26 @@
+import { parseDate } from '@internationalized/date'
+
 /** Tarihler Türkiye saatiyle gösterilir ve seçilir (ekran akışları 2. bölüm); API'den UTC gelir. */
 export const TIME_ZONE = 'Europe/Istanbul'
+
+/** Takvimde var olan bir gün mü (`2026-11-05`); `2026-02-30` veya `05-11-2026` değildir. */
+export function isIsoDay(value: string): boolean {
+  try {
+    return parseDate(value).toString() === value
+  } catch {
+    return false
+  }
+}
+
+/** Türkiye saatinde günün ilk anı. Saat farkı sabit yazılmaz; saat dilimi kurallarından hesaplanır. */
+export function startOfDay(day: string): Date {
+  return parseDate(day).toDate(TIME_ZONE)
+}
+
+/** Türkiye saatinde günün son anı: ertesi günün ilk anından bir milisaniye önce. */
+export function endOfDay(day: string): Date {
+  return new Date(parseDate(day).add({ days: 1 }).toDate(TIME_ZONE).getTime() - 1)
+}
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE

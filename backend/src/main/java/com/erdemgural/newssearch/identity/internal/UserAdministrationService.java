@@ -15,6 +15,7 @@ import com.erdemgural.newssearch.web.ErrorCode;
 import com.erdemgural.newssearch.web.PageParameters;
 import com.erdemgural.newssearch.web.PageResponse;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,11 @@ class UserAdministrationService implements UserAdministration {
     @Override
     public PageResponse<ManagedUser> list(UserFilter filter, PageParameters page) {
         return PageResponse.of(repository.findPage(filter, page.size(), page.offset()), page, repository.count(filter));
+    }
+
+    @Override
+    public Map<UUID, String> findEmails(Collection<UUID> userIds) {
+        return repository.findEmails(userIds);
     }
 
     @Override

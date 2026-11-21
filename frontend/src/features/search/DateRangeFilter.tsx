@@ -13,6 +13,8 @@ interface DateRangeFilterProps {
   from: string | undefined
   to: string | undefined
   onChange: (from: string | undefined, to: string | undefined) => void
+  /** Tarih seçilmemişken düğmenin metni; verilmezse "Tarih". */
+  emptyLabel?: string
 }
 
 /**
@@ -20,11 +22,11 @@ interface DateRangeFilterProps {
  * seçilir ve pencere kapanır. Gelecekteki günler seçilemez. Ay adları ve haftanın ilk günü dil
  * ayarından gelir (Türkçede Pazartesi).
  */
-export function DateRangeFilter({ from, to, onChange }: DateRangeFilterProps) {
+export function DateRangeFilter({ from, to, onChange, emptyLabel }: DateRangeFilterProps) {
   const { t } = useTranslation()
   const { locale } = useLocale()
   const value = from && to ? { start: parseDate(from), end: parseDate(to) } : null
-  const label = from || to ? formatRange(locale, from, to) : t('search.filters.date')
+  const label = from || to ? formatRange(locale, from, to) : (emptyLabel ?? t('search.filters.date'))
 
   return (
     <DialogTrigger>
