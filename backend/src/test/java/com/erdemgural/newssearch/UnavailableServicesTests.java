@@ -68,6 +68,26 @@ class UnavailableServicesTests {
     }
 
     @Test
+    @DisplayName("Elasticsearch ve MinIO kapalıyken yönetim panosu yanıt verir ve ikisini DOWN gösterir (FG-YP-12)")
+    void statsReportUnavailableComponents() {
+        TestUser admin = users.create(UserRole.ADMIN, UserStatus.ACTIVE);
+
+        MvcTestResult result = mvc.get()
+                .uri("/api/v1/admin/stats")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + admin.token())
+                .exchange();
+
+        assertThat(result).hasStatusOk();
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.components")
+                .asMap()
+                .containsEntry("database", "UP")
+                .containsEntry("elasticsearch", "DOWN")
+                .containsEntry("objectStorage", "DOWN");
+    }
+
+    @Test
     @DisplayName("Elasticsearch kapalıyken arama 503 ve SEARCH_UNAVAILABLE döner; iç ayrıntı vermez")
     void searchReportsThatItIsUnavailable() {
         TestUser user = users.create(UserRole.USER, UserStatus.ACTIVE);

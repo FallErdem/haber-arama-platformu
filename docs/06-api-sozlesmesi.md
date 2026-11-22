@@ -426,7 +426,7 @@ Zaten gizli bir haberi gizleme veya gizli olmayan bir haberin gizlemesini geri a
   "articles": {
     "total": 125000,
     "last24h": 2400,
-    "bySource": [{ "code": "TRT", "total": 40000, "last24h": 800 }]
+    "bySource": [{ "code": "TRT", "name": "TRT Haber", "total": 40000, "last24h": 800 }]
   },
   "users": { "PENDING": 2, "ACTIVE": 15, "PASSIVE": 1, "REJECTED": 0 },
   "feeds": { "enabled": 120, "failing": 3, "disabledAuto": 1 },
@@ -440,7 +440,15 @@ Zaten gizli bir haberi gizleme veya gizli olmayan bir haberin gizlemesini geri a
 }
 ```
 
-- `workerLastActivityAt`: İşçinin son toplama kaydının zamanı. İki uygulama yalnızca veri depoları üzerinden iletişim kurduğundan (ADR-0017), işçinin canlı olup olmadığı buradan anlaşılır.
+- `articles`: Gizlenen haberler de sayılır. `last24h`, son 24 saatte toplanan haberlerdir. `bySource` bütün kaynakları ada göre verir; haberi olmayan kaynak 0 ile yer alır.
+- `users`: Durumlara göre kullanıcı sayıları; hiç kullanıcısı olmayan durum 0 ile yer alır.
+- `feeds`: `enabled` okunan beslemeler (kendisi ve kaynağı etkin), `failing` bunlardan son okuması başarısız olanlar, `disabledAuto` art arda hatalar yüzünden kendiliğinden kapananlar.
+- `components`: Her bileşen `UP` veya `DOWN`.
+  - `database`: Sayılar veritabanından geldiği için yanıt dönüyorsa `UP`'tır.
+  - `elasticsearch`: Elasticsearch yanıt veriyor ve arama yapılabiliyorsa (kümenin durumu yeşil veya sarı) `UP`, kırmızıysa veya yanıt vermiyorsa `DOWN`.
+  - `objectStorage`: Var olmayan bir dosya istenir. MinIO "dosya yok" veya "erişim yok" diye yanıt verirse ayaktadır (`UP`); hiç yanıt vermezse `DOWN`. Bu kontrol için API'ye yeni yetki verilmez.
+  - Elasticsearch veya MinIO kapalı olsa da pano açılır ve onları `DOWN` gösterir (FOG-09).
+- `workerLastActivityAt`: İşçinin en son başlattığı toplamanın zamanı; hiç toplama yoksa `null`. İki uygulama yalnızca veri depoları üzerinden iletişim kurduğundan (ADR-0017), işçinin çalışıp çalışmadığı buradan anlaşılır.
 - `pendingOutboxEvents`: Elasticsearch'e henüz aktarılmamış değişiklik sayısı. Sürekli artması, aktarımda bir sorun olduğunu gösterir.
 
 ### 6.8 Audit kayıtları

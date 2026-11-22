@@ -1,7 +1,9 @@
 package com.erdemgural.newssearch.ingestion.internal;
 
+import com.erdemgural.newssearch.ingestion.ObjectStorageStatus;
 import com.erdemgural.newssearch.web.ApiException;
 import com.erdemgural.newssearch.web.ErrorCode;
+import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 /**
  * Nesne depolamadan (MinIO) görsel okuma. MinIO, Amazon S3 ile aynı arayüzü sunar; bağlantı AWS
@@ -22,10 +25,13 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
  * başka bir S3 uyumlu depolamaya geçilirse kod değişmez (R-35).
  */
 @Component
-class MediaStorage {
+class MediaStorage implements ObjectStorageStatus {
 
     /** Nesne depolama yanıt vermiyorsa görsel isteği bu kadar beklemez. */
     static final Duration CALL_TIMEOUT = Duration.ofSeconds(5);
+
+    /** Durum kontrolünde okunmaya çalışılan, var olmayan dosya. */
+    private static final String STATUS_CHECK_KEY = "status-check/missing";
 
     private final S3Client client;
     private final String bucket;
@@ -59,6 +65,28 @@ class MediaStorage {
             throw new ApiException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, exception);
         } catch (SdkException exception) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, ErrorCode.MEDIA_UNAVAILABLE, exception);
+        }
+    }
+
+    /**
+     * Var olmayan bir dosya ister. MinIO "dosya yok" (404) veya "erişim yok" (403 {@code AccessDenied}) derse
+     * ayaktadır ve API'yi tanımıştır. Hiç yanıt vermezse ya da anahtarı reddederse kullanılamaz. API'nin
+     * yalnızca dosya okuma yetkisi vardır; bu kontrol için yeni yetki gerekmez.
+     */
+    @Override
+    public boolean isAvailable() {
+        try (ResponseInputStream<GetObjectResponse> unexpected =
+                client.getObject(request -> request.bucket(bucket).key(STATUS_CHECK_KEY))) {
+            return true;
+        } catch (NoSuchKeyException exception) {
+            return true;
+        } catch (S3Exception exception) {
+            return exception.statusCode() == 403
+                    && exception.awsErrorDetails() != null
+                    && "AccessDenied".equals(exception.awsErrorDetails().errorCode());
+        } catch (SdkException | IOException exception) {
+            // IOException: dosya beklenmedik biçimde varsa, akış kapatılırken çıkabilir.
+            return false;
         }
     }
 }

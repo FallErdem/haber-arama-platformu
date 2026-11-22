@@ -84,6 +84,17 @@ class ManagedUserRepository {
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
+    /** Kullanıcısı olan durumların sayıları; kullanıcısı olmayan durum sonuçta yer almaz. */
+    Map<UserStatus, Long> countByStatus() {
+        return jdbcClient
+                .sql("SELECT status, count(*) AS user_count FROM users GROUP BY status")
+                .query((row, rowNumber) ->
+                        Map.entry(UserStatus.valueOf(row.getString("status")), row.getLong("user_count")))
+                .list()
+                .stream()
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
     /**
      * Kullanıcıyı okur ve satırını işlem bitene kadar kilitler ({@code FOR UPDATE}): aynı kullanıcıyı aynı
      * anda değiştirmeye çalışan diğer istek bekler ve güncel hâlini görür.

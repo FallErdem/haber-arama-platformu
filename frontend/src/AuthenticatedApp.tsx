@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { I18nProvider } from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { BrowserRouter, Route, Routes } from 'react-router'
 import { fetchMe } from './api/me'
 import { AccessTokenContext } from './auth/accessToken'
 import { CurrentUserContext } from './auth/currentUser'
@@ -11,6 +11,7 @@ import { Button } from './components/ui/button'
 import { AccountStatus } from './features/account/AccountStatus'
 import { AdminLayout } from './features/admin/AdminLayout'
 import { AuditEventsPage } from './features/admin/audit/AuditEventsPage'
+import { DashboardPage } from './features/admin/dashboard/DashboardPage'
 import { IngestionRunsPage } from './features/admin/runs/IngestionRunsPage'
 import { SourceDetailPage } from './features/admin/sources/SourceDetailPage'
 import { SourcesPage } from './features/admin/sources/SourcesPage'
@@ -81,7 +82,7 @@ export function AuthenticatedApp({ accessToken, onSignOut, onSessionExpired }: A
                 <Route path="articles/:articleId" element={<ArticlePage />} />
                 <Route path="saved" element={<SavedArticlesPage />} />
                 <Route path="admin" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="users" replace />} />
+                  <Route index element={<DashboardPage />} />
                   <Route path="users" element={<AdminUsersPage />} />
                   <Route path="sources" element={<SourcesPage />} />
                   <Route path="sources/:sourceId" element={<SourceDetailPage />} />

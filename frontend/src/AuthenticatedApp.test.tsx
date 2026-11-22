@@ -22,10 +22,20 @@ function stubMeResponse(status: number, body: unknown) {
         Response.json({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0, totalRelation: 'eq' }),
       )
     }
+    if (url === '/api/v1/admin/stats') return Promise.resolve(Response.json(EMPTY_STATS))
     return Promise.resolve(Response.json({ items: [] }))
   })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
+}
+
+/** Yönetim panosunun boş bir sistemdeki yanıtı (yönetim menüsü panoya açılır). */
+const EMPTY_STATS = {
+  articles: { total: 0, last24h: 0, bySource: [] },
+  users: { PENDING: 0, ACTIVE: 1, PASSIVE: 0, REJECTED: 0 },
+  feeds: { enabled: 0, failing: 0, disabledAuto: 0 },
+  searchIndex: { pendingOutboxEvents: 0 },
+  components: { database: 'UP', elasticsearch: 'UP', objectStorage: 'UP', workerLastActivityAt: null },
 }
 
 /** Uygulamayı verilen adreste açar. Yönlendirici tarayıcının adresini okur; jsdom'da da adres vardır. */
@@ -82,7 +92,7 @@ describe('AuthenticatedApp', () => {
     expect(within(menu).getByRole('link', { name: 'Arama' })).not.toHaveAttribute('aria-current')
   })
 
-  it('Yönetim menüsü yalnızca yöneticiye görünür ve kullanıcılar ekranına götürür', async () => {
+  it('Yönetim menüsü yalnızca yöneticiye görünür ve panoya götürür', async () => {
     stubMeResponse(200, meWithStatus('ACTIVE'))
     renderAt('/')
     const userMenu = await screen.findByRole('navigation', { name: 'Ana menü' })
@@ -94,8 +104,9 @@ describe('AuthenticatedApp', () => {
     const adminMenu = await screen.findByRole('navigation', { name: 'Ana menü' })
     await userEvent.click(within(adminMenu).getByRole('link', { name: 'Yönetim' }))
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Kullanıcılar' })).toBeInTheDocument()
-    expect(window.location.pathname).toBe('/admin/users')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Pano' })).toBeInTheDocument()
+    expect(await screen.findByText('Sistem durumu')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/admin')
   })
 
   it('görünen adı olmayan kullanıcının e-posta adresini gösterir', async () => {

@@ -16,6 +16,7 @@ import com.erdemgural.newssearch.web.PageParameters;
 import com.erdemgural.newssearch.web.PageResponse;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +65,17 @@ class UserAdministrationService implements UserAdministration {
     @Override
     public Map<UUID, String> findEmails(Collection<UUID> userIds) {
         return repository.findEmails(userIds);
+    }
+
+    @Override
+    public Map<UserStatus, Long> countByStatus() {
+        // EnumMap: sıra durumların tanım sırasıdır (onay bekleyen, aktif, pasif, reddedilen).
+        Map<UserStatus, Long> counts = new EnumMap<>(UserStatus.class);
+        for (UserStatus status : UserStatus.values()) {
+            counts.put(status, 0L);
+        }
+        counts.putAll(repository.countByStatus());
+        return counts;
     }
 
     @Override
