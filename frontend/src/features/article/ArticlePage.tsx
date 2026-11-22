@@ -1,17 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeftIcon } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { ArrowLeftIcon, EyeOffIcon } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocale } from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useParams } from 'react-router'
 import { fetchArticle, type ArticleDetail } from '../../api/articles'
 import { ApiError } from '../../api/client'
 import { useAccessToken } from '../../auth/accessToken'
+import { useCurrentUser } from '../../auth/currentUser'
 import { Button } from '../../components/ui/button'
 import { formatDateTime } from '../../lib/time'
 import { NotFoundPage } from '../errors/NotFoundPage'
 import { BookmarkToggle } from '../saved/BookmarkToggle'
 import { useSaveArticle } from '../saved/useSaveArticle'
+import { HideArticleDialog } from './HideArticleDialog'
 import { sanitizeContent } from './sanitize'
 import { SourceAttribution } from './SourceAttribution'
 
@@ -30,6 +32,10 @@ interface CameFrom {
 /**
  * Haber detayı (ekran akışları 5.1; FG-AR-06, FG-AR-07). Meta veri ve görseller PostgreSQL'den, özet,
  * tam metin ve yazar Elasticsearch'ten gelir; API ikisini birleştirip tek yanıtta döner (ADR-0019).
+ *
+ * Yönetici haberi buradan gizleyebilir (FG-YP-09). Gizlenen haber kimseye gösterilmediği için haberin yerine
+ * "Haber gizlendi" mesajı çıkar; yönetici aramaya dönebilir veya gizlemeyi Gizlenen haberler ekranından geri
+ * alabilir.
  */
 export function ArticlePage() {
   const { articleId = '' } = useParams()
@@ -40,6 +46,7 @@ export function ArticlePage() {
   const cameFrom = location.state as CameFrom | null
   const fromSaved = cameFrom?.from === 'saved'
   const backTo = `${fromSaved ? '/saved' : '/'}${cameFrom?.search ?? ''}`
+  const [isHidden, setHidden] = useState(false)
 
   const article = useQuery({
     queryKey: ['article', articleId],
@@ -47,7 +54,8 @@ export function ArticlePage() {
     enabled: isValidId,
   })
 
-  if (!isValidId || (article.error instanceof ApiError && article.error.status === 404)) {
+  // Az önce gizlenen haber yeniden istenirse 404 döner; bulunamadı sayfası yerine gizlendi mesajı kalır.
+  if (!isValidId || (!isHidden && article.error instanceof ApiError && article.error.status === 404)) {
     return <NotFoundPage />
   }
 
@@ -61,7 +69,9 @@ export function ArticlePage() {
         {fromSaved ? t('article.backToSaved') : t('article.back')}
       </Link>
 
-      {article.isPending ? (
+      {isHidden ? (
+        <HiddenNotice backTo={backTo} fromSaved={fromSaved} />
+      ) : article.isPending ? (
         <p className="mt-10 text-muted-foreground">{t('article.loading')}</p>
       ) : article.isError ? (
         <div role="alert" className="mt-10">
@@ -75,15 +85,37 @@ export function ArticlePage() {
           </Button>
         </div>
       ) : (
-        <ArticleView article={article.data} />
+        <ArticleView article={article.data} onHidden={() => setHidden(true)} />
       )}
     </div>
   )
 }
 
-function ArticleView({ article }: { article: ArticleDetail }) {
+/** Gizlemeden sonra haberin yerine gösterilen mesaj. */
+function HiddenNotice({ backTo, fromSaved }: { backTo: string; fromSaved: boolean }) {
+  const { t } = useTranslation()
+  const linkClass = 'text-sm font-medium text-primary underline-offset-4 hover:underline'
+  return (
+    <div role="status" className="mt-10 rounded-lg border border-border bg-card p-6">
+      <h1 className="text-2xl font-semibold tracking-tight">{t('article.hidden.title')}</h1>
+      <p className="mt-2 text-muted-foreground">{t('article.hidden.text')}</p>
+      <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
+        <Link to={backTo} className={linkClass}>
+          {fromSaved ? t('article.backToSaved') : t('article.back')}
+        </Link>
+        <Link to="/admin/hidden-articles" className={linkClass}>
+          {t('article.hidden.list')}
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function ArticleView({ article, onHidden }: { article: ArticleDetail; onHidden: () => void }) {
   const { t } = useTranslation()
   const { locale } = useLocale()
+  const currentUser = useCurrentUser()
+  const [isHideOpen, setHideOpen] = useState(false)
   const content = useMemo(() => (article.content ? sanitizeContent(article.content) : null), [article.content])
   const bookmark = useSaveArticle(article.id, article.saved)
   const [mainImage, ...otherImages] = article.media
@@ -106,13 +138,30 @@ function ArticleView({ article }: { article: ArticleDetail }) {
             <span aria-hidden> · </span>
             <time dateTime={article.publishedAt}>{formatDateTime(article.publishedAt, locale)}</time>
           </p>
-          <BookmarkToggle
-            isSaved={bookmark.isSaved}
-            onChange={bookmark.setSaved}
-            isDisabled={bookmark.isPending}
-            className="-mr-2"
-          />
+          <div className="flex items-center gap-1">
+            {/* Yalnızca yöneticiye görünür; bu bir kolaylıktır, yetki kontrolü backend'dedir. */}
+            {currentUser.role === 'ADMIN' && (
+              <Button variant="ghost" size="sm" onPress={() => setHideOpen(true)}>
+                <EyeOffIcon aria-hidden />
+                {t('article.hide.button')}
+              </Button>
+            )}
+            <BookmarkToggle
+              isSaved={bookmark.isSaved}
+              onChange={bookmark.setSaved}
+              isDisabled={bookmark.isPending}
+              className="-mr-2"
+            />
+          </div>
         </div>
+        {currentUser.role === 'ADMIN' && (
+          <HideArticleDialog
+            articleId={article.id}
+            isOpen={isHideOpen}
+            onOpenChange={setHideOpen}
+            onHidden={onHidden}
+          />
+        )}
         {bookmark.isError && (
           <p role="alert" className="mt-1 text-right text-xs text-destructive">
             {t('bookmark.failed')}

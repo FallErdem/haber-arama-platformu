@@ -33,6 +33,7 @@
       "users": "Kullanıcılar",
       "sources": "Kaynaklar",
       "runs": "Toplama geçmişi",
+      "hidden": "Gizlenen haberler",
       "audit": "Audit kayıtları"
     },
     "errors": {
@@ -150,6 +151,20 @@
         "FAILED": "Başarısız"
       }
     },
+    "hidden": {
+      "title": "Gizlenen haberler",
+      "sourceFilter": "Kaynak",
+      "allSources": "Tüm kaynaklar",
+      "anyDate": "Yayın tarihi",
+      "loading": "Gizlenen haberler yükleniyor…",
+      "loadFailed": "Gizlenen haberler alınamadı.",
+      "empty": "Gizlenmiş haber yok.",
+      "hiddenBy": "{{admin}} gizledi · {{time}}",
+      "unhide": "Gizlemeyi geri al",
+      "unhideFor": "Gizlemeyi geri al: {{title}}",
+      "unhidden": "Haber yeniden yayında: {{title}}",
+      "openOriginal": "Kaynağında aç"
+    },
     "dashboard": {
       "title": "Pano",
       "updatedAt": "Son güncelleme {{time}}",
@@ -243,12 +258,15 @@
         "FEED_ENABLED": "Besleme etkinleştirildi",
         "FEED_DISABLED": "Besleme devre dışı bırakıldı",
         "FEED_AUTO_DISABLED": "Besleme kendiliğinden kapandı",
-        "AUDIT_EXPORTED": "Audit kayıtları dışa aktarıldı"
+        "AUDIT_EXPORTED": "Audit kayıtları dışa aktarıldı",
+        "ARTICLE_HIDDEN": "Haber gizlendi",
+        "ARTICLE_UNHIDDEN": "Haberin gizlemesi geri alındı"
       },
       "targetTypes": {
         "USER": "Kullanıcı",
         "SOURCE": "Kaynak",
-        "FEED": "Besleme"
+        "FEED": "Besleme",
+        "ARTICLE": "Haber"
       },
       "results": {
         "SUCCESS": "Başarılı",
@@ -371,6 +389,19 @@
     "textUnavailable": "Haber metinleri şu an alınamıyor. Biraz sonra yeniden deneyin.",
     "textPending": "Haberin metni henüz hazır değil. Birkaç saniye sonra yeniden deneyin ya da haberi kaynağında okuyun.",
     "retry": "Yeniden dene",
+    "hide": {
+      "button": "Gizle",
+      "title": "Haberi gizle",
+      "text": "Gizlenen haber aramada ve detay sayfasında görünmez. Gizlemeyi daha sonra Gizlenen haberler ekranından geri alabilirsiniz.",
+      "reason": "Gerekçe",
+      "reasonHint": "Gerekçe, Gizlenen haberler ekranında ve audit kayıtlarında görünür.",
+      "confirm": "Gizle"
+    },
+    "hidden": {
+      "title": "Haber gizlendi",
+      "text": "Haber aramada ve detay sayfasında artık görünmüyor. Gizlemeyi Gizlenen haberler ekranından geri alabilirsiniz.",
+      "list": "Gizlenen haberler"
+    },
     "license": {
       "GLOBALVOICES": {
         "text": "Bu haber Creative Commons Atıf (CC BY) lisansıyla yayımlanmıştır.",

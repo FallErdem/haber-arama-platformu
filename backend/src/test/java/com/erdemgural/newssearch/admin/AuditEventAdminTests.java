@@ -306,7 +306,7 @@ class AuditEventAdminTests {
                 "action",
                 "user_approved",
                 "targetType",
-                "ARTICLE",
+                "HABER",
                 "targetId",
                 "hedef",
                 "result",

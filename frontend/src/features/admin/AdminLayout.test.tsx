@@ -38,6 +38,7 @@ describe('AdminLayout', () => {
       ['Kullanıcılar', '/admin/users'],
       ['Kaynaklar', '/admin/sources'],
       ['Toplama geçmişi', '/admin/ingestion-runs'],
+      ['Gizlenen haberler', '/admin/hidden-articles'],
       ['Audit kayıtları', '/admin/audit-events'],
     ])
     expect(within(menu).getByRole('link', { name: 'Kaynaklar' })).toHaveAttribute('aria-current', 'page')

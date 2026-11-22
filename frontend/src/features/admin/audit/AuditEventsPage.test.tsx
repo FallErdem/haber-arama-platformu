@@ -160,7 +160,7 @@ describe('AuditEventsPage', () => {
   it("adresteki bozuk değerler API'ye gönderilmez", async () => {
     const { listQueries } = stubApi()
 
-    renderAt('/admin/audit-events?action=onay&targetType=ARTICLE&actorUserId=kullanici&from=2026-11-10&to=2026-11-01')
+    renderAt('/admin/audit-events?action=onay&targetType=HABER&actorUserId=kullanici&from=2026-11-10&to=2026-11-01')
 
     await screen.findByText('192.0.2.10')
     expect(Object.fromEntries(listQueries[0])).toEqual({ page: '0' })

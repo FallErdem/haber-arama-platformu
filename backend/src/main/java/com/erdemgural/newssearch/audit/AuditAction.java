@@ -44,5 +44,9 @@ public enum AuditAction {
     /** Yönetici beslemeyi devre dışı bıraktı. */
     FEED_DISABLED,
     /** Yönetici audit kayıtlarını CSV olarak dışa aktardı (FG-YP-11). */
-    AUDIT_EXPORTED
+    AUDIT_EXPORTED,
+    /** Yönetici bir haberi gerekçesiyle gizledi (FG-YP-09). */
+    ARTICLE_HIDDEN,
+    /** Yönetici bir haberin gizlemesini geri aldı (FG-YP-09). */
+    ARTICLE_UNHIDDEN
 }

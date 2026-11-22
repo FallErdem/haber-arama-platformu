@@ -338,6 +338,8 @@ Başlangıç verisi:
 | `FEED_AUTO_DISABLED` | İşçi (ADR-0017, 10. bölüm) | `SYSTEM` | `FEED` | `SUCCESS` | `consecutive_failures`, `last_error` |
 | `SOURCE_PURGE_REQUESTED` | API, yönetici kaynağın içeriğinin silinmesini istediğinde (FG-YP-14) | `USER` (yönetici) | `SOURCE` | `SUCCESS` veya `FAILURE` | `code`, `articleCount` (istek anındaki haber sayısı) |
 | `SOURCE_PURGED` | İşçi, kaynağın içeriğini silmeyi bitirdiğinde (FG-YP-14) | `SYSTEM` | `SOURCE` | `SUCCESS` | `article_count`, `media_count` (silmeyi bitiren turda silinen haber ve görsel dosyası sayıları) |
+| `ARTICLE_HIDDEN` | API, yönetici bir haberi gizlediğinde (FG-YP-09) | `USER` (yönetici) | `ARTICLE` | `SUCCESS` veya `FAILURE` | `reason` (gerekçe); başarısız denemede `code` |
+| `ARTICLE_UNHIDDEN` | API, yönetici gizlemeyi geri aldığında | `USER` (yönetici) | `ARTICLE` | `SUCCESS` veya `FAILURE` | Başarısız denemede `code` |
 | `AUDIT_EXPORTED` | API, yönetici audit kayıtlarını CSV olarak dışa aktardığında (FG-YP-11) | `USER` (yönetici) | — | `SUCCESS` | Kullanılan filtreler (`actorUserId`, `action`, `targetType`, `targetId`, `result`; verilenler), `from`, `to` (uygulanan aralık), `rowCount` |
 
 - `USER_REGISTERED` ve `SESSION_STARTED`, kullanıcı kaydı ve `last_session_id` güncellemesiyle aynı veritabanı işleminde yazılır. Aynı anda gelen iki istekten yalnızca eklemeyi veya koşullu güncellemeyi başaran istek kayıt yazar; kayıt bir kez oluşur. `ACCESS_DENIED` bir iş işlemine bağlı değildir, ayrı yazılır; yazılamazsa istek yine 403 alır ve hata uygulama loguna düşer.

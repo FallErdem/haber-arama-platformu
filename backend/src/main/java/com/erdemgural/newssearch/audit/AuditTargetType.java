@@ -4,5 +4,6 @@ package com.erdemgural.newssearch.audit;
 public enum AuditTargetType {
     USER,
     SOURCE,
-    FEED
+    FEED,
+    ARTICLE
 }

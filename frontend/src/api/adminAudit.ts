@@ -1,7 +1,7 @@
 import { apiDownload, apiGet, type DownloadedFile } from './client'
 
 /** Audit kaydının hedef türleri (veri modeli 3.13). */
-export const AUDIT_TARGET_TYPES = ['USER', 'SOURCE', 'FEED'] as const
+export const AUDIT_TARGET_TYPES = ['USER', 'SOURCE', 'FEED', 'ARTICLE'] as const
 export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number]
 
 export const AUDIT_RESULTS = ['SUCCESS', 'FAILURE'] as const
