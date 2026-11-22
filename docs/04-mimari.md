@@ -102,7 +102,7 @@ Backend, iş alanlarına göre altı modülden oluşur (ADR-0005; modül adları
 |---|---|---|
 | `identity` | Kullanıcı tablosu, kullanıcı durumları, token'daki kimliğin kullanıcıyla eşleştirilmesi, yetki kontrolü | API |
 | `ingestion` | API'de: kaynak ve besleme yönetimi, elle toplama ve içerik silme taleplerinin oluşturulması. İşçide: zamanlama, RSS/Atom/API okuyucuları, normalleştirme, kategori eşlemesi, tekrar kontrolü, görsel indirme, kaynak içeriğinin silinmesi | API ve işçi |
-| `search` | API'de: arama sorguları ve haber detayı (haber metinleri Elasticsearch'te olduğu için, ADR-0019). İşçide: outbox aktarımı, tam yeniden indeksleme, kaynaklar arası gruplama | API ve işçi |
+| `search` | API'de: arama sorguları ve haber detayı (haber metinleri Elasticsearch'te olduğu için, ADR-0019); haber gizleme ve gizlemeyi geri alma (5.5). İşçide: outbox aktarımı, tam yeniden indeksleme, kaynaklar arası gruplama | API ve işçi |
 | `library` | Kaydedilen haberler ve kaydedilmiş aramalar | API |
 | `admin` | Yönetim paneli işlevleri ve istatistikler | API |
 | `audit` | Denetim kayıtlarının yazılması, aranması ve dışa aktarılması. İşçi, sistem kayıtlarını doğrudan yazar. | API ve işçi |
@@ -252,15 +252,14 @@ sequenceDiagram
     participant ES as Elasticsearch
 
     Y->>A: Haberi gizle (gerekçeyle)
-    A->>PG: Haberi gizli olarak işaretle + outbox kaydı (tek işlem)
-    A->>PG: Audit kaydı
+    A->>PG: Haberi gizli olarak işaretle + outbox kaydı + audit kaydı (tek işlem)
     A-->>Y: Gizlendi
     T->>PG: İşlenmemiş outbox kayıtlarını oku
     T->>ES: Haberin arama belgesini güncelle
     T->>PG: Outbox kaydını işlenmiş olarak işaretle
 ```
 
-Gizleme, outbox kaydı işlenene kadar (birkaç saniye) aramaya yansımayabilir (ADR-0012). Belge silinmez, gizli olarak işaretlenir (`hidden: true`); metinlerin tek kaydı belge olduğundan gizleme geri alındığında haber metniyle birlikte aramaya döner (ADR-0019).
+Gizleme iki modülün tablosuna yazar: haberin satırı `ingestion`'da, outbox kaydı `search`'te. İşi `search` modülü yönetir; çünkü `search` zaten `ingestion`'ı kullanıyor, ters yön iki modülü birbirine bağlardı. Haber detayı ve arama, PostgreSQL'de gizlenmiş haberi hemen göstermez; Elasticsearch'teki belge ise outbox kaydı işlenene kadar (birkaç saniye) eski hâlinde kalır (ADR-0012). Belge silinmez, gizli olarak işaretlenir (`hidden: true`); metinlerin tek kaydı belge olduğundan gizleme geri alındığında haber metniyle birlikte aramaya döner (ADR-0019).
 
 ### 5.6 Toplama sırasında uygulanan kurallar
 

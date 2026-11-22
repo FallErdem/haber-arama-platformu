@@ -416,6 +416,9 @@ Listedeki her öğe ve işlemlerin yanıtı:
 | `POST /api/v1/admin/articles/{id}/unhide` | Gizlemeyi geri alır | 200 |
 
 Zaten gizli bir haberi gizleme veya gizli olmayan bir haberin gizlemesini geri alma isteği `409 INVALID_STATE_TRANSITION` döner.
+- **Gizleme:** Gerekçe zorunludur, en fazla 500 karakter; yoksa `400 VALIDATION_FAILED` (`reason`). Yanıt, listedeki biçimde haberin kendisidir.
+- **Geri alma:** Gizleme bilgileri (zaman, gerekçe, yönetici) silinir; kimin ne zaman neden gizlediği audit kaydında kalır.
+- Gizleme ve geri alma, arama indeksinin güncellenmesi için outbox kaydı yazar ve audit log'a kaydedilir (`ARTICLE_HIDDEN`, `ARTICLE_UNHIDDEN`; veri modeli 3.13).
 
 ### 6.7 İstatistikler
 

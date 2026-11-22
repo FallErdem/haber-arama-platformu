@@ -6,7 +6,6 @@ import co.elastic.clients.elasticsearch._types.HealthStatus;
 import com.erdemgural.newssearch.search.SearchIndexStatus;
 import java.io.IOException;
 import java.util.Set;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
 /**
@@ -23,21 +22,17 @@ class SearchIndexStatusService implements SearchIndexStatus {
      */
     private static final Set<HealthStatus> SERVING = Set.of(HealthStatus.Green, HealthStatus.Yellow);
 
-    private final JdbcClient jdbcClient;
+    private final OutboxRepository outbox;
     private final ElasticsearchClient client;
 
-    SearchIndexStatusService(JdbcClient jdbcClient, ElasticsearchClient client) {
-        this.jdbcClient = jdbcClient;
+    SearchIndexStatusService(OutboxRepository outbox, ElasticsearchClient client) {
+        this.outbox = outbox;
         this.client = client;
     }
 
-    /** Bekleyen notlar ({@code outbox_events_pending_next_attempt_at_idx} kısmi indeksinden sayılır). */
     @Override
     public long pendingOutboxEvents() {
-        return jdbcClient
-                .sql("SELECT count(*) FROM outbox_events WHERE status = 'PENDING'")
-                .query(Long.class)
-                .single();
+        return outbox.countPending();
     }
 
     /** Elasticsearch'e ulaşılamazsa bağlantı ayarındaki süre (2 sn) dolunca {@code false} döner. */
