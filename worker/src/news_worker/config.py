@@ -45,6 +45,13 @@ class Settings:
     # (FG-YP-14). Silme seyrek istenir; sık bakmaya gerek yoktur.
     purge_interval_seconds: float = 60.0
     purge_batch_size: int = 500
+    # Bakım işi (yaşam döngüsü durumu ve temizlik): işçi açılınca bir kez, sonra bu aralıkla çalışır.
+    maintenance_interval_seconds: float = 12 * 60 * 60
+    # Saklama süreleri: bu kadar günden eski yardımcı kayıtlar silinir (05-veri-modeli.md). Kesin süreler veri
+    # büyümesi analizinde (İ-35) belirlenecek; kod değişmeden ayarla değiştirilebilir.
+    outbox_retention_days: int = 7
+    ingestion_run_retention_days: int = 180
+    feed_test_retention_days: int = 1
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str] | None = None) -> Settings:
@@ -90,6 +97,14 @@ class Settings:
             media_batch_size=_positive_int(env, "MEDIA_BATCH_SIZE", cls.media_batch_size),
             purge_interval_seconds=_positive_float(env, "PURGE_INTERVAL_SECONDS", cls.purge_interval_seconds),
             purge_batch_size=_positive_int(env, "PURGE_BATCH_SIZE", cls.purge_batch_size),
+            maintenance_interval_seconds=_positive_float(
+                env, "MAINTENANCE_INTERVAL_SECONDS", cls.maintenance_interval_seconds
+            ),
+            outbox_retention_days=_positive_int(env, "OUTBOX_RETENTION_DAYS", cls.outbox_retention_days),
+            ingestion_run_retention_days=_positive_int(
+                env, "INGESTION_RUN_RETENTION_DAYS", cls.ingestion_run_retention_days
+            ),
+            feed_test_retention_days=_positive_int(env, "FEED_TEST_RETENTION_DAYS", cls.feed_test_retention_days),
         )
 
 

@@ -15,6 +15,7 @@ from news_worker.health import HealthServer
 from news_worker.image_downloader import ImageDownloader
 from news_worker.ingestion_service import IngestionService
 from news_worker.logging_config import configure_logging
+from news_worker.maintenance import Maintenance, MaintenanceRepository, RetentionPeriods
 from news_worker.media import MediaRepository
 from news_worker.media_downloader import MediaDownloader
 from news_worker.object_storage import ObjectStorage, create_storage_client
@@ -31,8 +32,8 @@ log = logging.getLogger(__name__)
 async def run(settings: Settings, stop: asyncio.Event) -> None:
     """Sağlık adresini açar, tabloları bekler ve durdurma istenene kadar işleri çalıştırır.
 
-    Dört iş yan yana çalışır: zamanlayıcı (haber toplama), outbox aktarımı (Elasticsearch), görsel
-    indirme (MinIO) ve kaynak içeriğinin silinmesi.
+    Beş iş yan yana çalışır: zamanlayıcı (haber toplama), outbox aktarımı (Elasticsearch), görsel
+    indirme (MinIO), kaynak içeriğinin silinmesi ve bakım (yaşam döngüsü durumu, eski kayıtların temizliği).
     """
     database = Database(settings)
     # Bütün indirmeler tek bir HTTP istemcisini paylaşır; blok bitince istemci ve açık bağlantıları kapanır.
@@ -89,6 +90,16 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             settings.purge_interval_seconds,
             settings.purge_batch_size,
         )
+        maintenance = Maintenance(
+            database,
+            MaintenanceRepository(),
+            RetentionPeriods(
+                outbox_days=settings.outbox_retention_days,
+                ingestion_run_days=settings.ingestion_run_retention_days,
+                feed_test_days=settings.feed_test_retention_days,
+            ),
+            settings.maintenance_interval_seconds,
+        )
         # Hazır olma yalnızca zamanlayıcıya bakar: Elasticsearch veya MinIO kapalıyken de haber toplama
         # sürer; notlar ve görseller PostgreSQL'de bekler (FOG-09). İşçi bu yüzden sağlıksız sayılmaz.
         health_server = HealthServer(settings.health_port, is_ready=scheduler.is_healthy)
@@ -103,7 +114,11 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
                 log.info("Tablolar hazır; zamanlayıcı başlıyor")
                 # gather: döngüler aynı anda çalışır; durdurma istenince hepsi elindeki işi bitirip döner.
                 await asyncio.gather(
-                    scheduler.run(stop), outbox_relay.run(stop), media_downloader.run(stop), source_purger.run(stop)
+                    scheduler.run(stop),
+                    outbox_relay.run(stop),
+                    media_downloader.run(stop),
+                    source_purger.run(stop),
+                    maintenance.run(stop),
                 )
         finally:
             await health_server.stop()

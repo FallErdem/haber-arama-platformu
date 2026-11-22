@@ -11,7 +11,7 @@ images:
   - name: haber-registry.localhost:5000/newssearch-frontend
     newTag: "d34ddc9"
   - name: haber-registry.localhost:5000/newssearch-worker
-    newTag: "692a5ad"
+    newTag: "a34fb82"
 generatorOptions:
   # CloudNativePG, Secret'lara adlarıyla başvurur; Kustomize'ın adlara eklediği özet sonekini kapatıyoruz.
   disableNameSuffixHash: true

@@ -56,6 +56,7 @@ CREATE_EMPTY_DATABASE_SQL = "CREATE DATABASE empty"
 RESET_DATA_SQL = """
     DELETE FROM outbox_events;
     DELETE FROM articles;
+    DELETE FROM feed_tests;
     DELETE FROM users;
     DELETE FROM ingestion_runs;
     UPDATE sources SET enabled = true, purge_requested_at = NULL;
