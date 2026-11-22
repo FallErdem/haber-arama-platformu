@@ -27,6 +27,9 @@ public interface UserAdministration {
      */
     Map<UUID, String> findEmails(Collection<UUID> userIds);
 
+    /** Durumlara göre kullanıcı sayıları; kullanıcısı olmayan durum da 0 ile yer alır (FG-YP-12). */
+    Map<UserStatus, Long> countByStatus();
+
     /** Onay bekleyen kullanıcıyı aktif yapar; rolü {@code USER} olur. */
     ManagedUser approve(UUID adminId, UUID userId);
 
