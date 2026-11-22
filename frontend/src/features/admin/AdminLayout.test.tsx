@@ -34,6 +34,7 @@ describe('AdminLayout', () => {
     const menu = screen.getByRole('navigation', { name: 'Yönetim menüsü' })
     const links = within(menu).getAllByRole('link')
     expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      ['Pano', '/admin'],
       ['Kullanıcılar', '/admin/users'],
       ['Kaynaklar', '/admin/sources'],
       ['Toplama geçmişi', '/admin/ingestion-runs'],

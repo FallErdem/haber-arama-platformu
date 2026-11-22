@@ -200,8 +200,11 @@ Bulunamadı ekranı ve genel hata ekranı. İkisinde de arama ekranına dönüş
 - **Amaç:** Sistemin genel durumunu göstermek (FG-YP-12).
 - **İçerik:** Toplam ve son 24 saatteki haber sayıları, kaynak bazında haber sayıları, durumlara göre kullanıcı sayıları, hatalı ve otomatik olarak devre dışı kalmış besleme sayıları, Elasticsearch'e aktarılmayı bekleyen değişiklik sayısı ve bileşen durumları.
 - **Davranışlar:**
-  - Onay bekleyen kullanıcı varsa Kullanıcılar ekranına bağlantı verilir.
+  - Yönetim panelinin açılış ekranıdır (`/admin`).
+  - Onay bekleyen kullanıcı varsa, onay bekleyenleri gösteren Kullanıcılar ekranına bağlantı verilir. Hatalı veya kendiliğinden kapanmış besleme varsa Kaynaklar ekranına bağlantı verilir.
   - İşçinin son etkinliği 30 dakikadan eskiyse "Arka plan işleri çalışmıyor olabilir" uyarısı gösterilir.
+  - Bileşenlerin durumu renkli bir işaretle ve "Çalışıyor" / "Ulaşılamıyor" yazısıyla gösterilir.
+  - Pano 30 saniyede bir kendiliğinden yenilenir; son güncelleme saati gösterilir.
 - **Uç nokta:** `GET /admin/stats`
 
 #### Kullanıcılar
