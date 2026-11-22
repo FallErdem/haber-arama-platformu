@@ -33,6 +33,10 @@ def test_defaults_are_used_when_only_password_is_given() -> None:
     assert settings.media_batch_size == 100
     assert settings.purge_interval_seconds == 60.0
     assert settings.purge_batch_size == 500
+    assert settings.maintenance_interval_seconds == 43200.0
+    assert settings.outbox_retention_days == 7
+    assert settings.ingestion_run_retention_days == 180
+    assert settings.feed_test_retention_days == 1
 
 
 def test_environment_variables_override_defaults() -> None:
@@ -54,6 +58,10 @@ def test_environment_variables_override_defaults() -> None:
             "MEDIA_BATCH_SIZE": "20",
             "PURGE_INTERVAL_SECONDS": "15",
             "PURGE_BATCH_SIZE": "50",
+            "MAINTENANCE_INTERVAL_SECONDS": "600",
+            "OUTBOX_RETENTION_DAYS": "3",
+            "INGESTION_RUN_RETENTION_DAYS": "90",
+            "FEED_TEST_RETENTION_DAYS": "2",
             "DB_HOST": "postgres-rw",
             "DB_PORT": "6432",
             "DB_NAME": "haberler",
@@ -85,6 +93,10 @@ def test_environment_variables_override_defaults() -> None:
     assert settings.media_batch_size == 20
     assert settings.purge_interval_seconds == 15.0
     assert settings.purge_batch_size == 50
+    assert settings.maintenance_interval_seconds == 600.0
+    assert settings.outbox_retention_days == 3
+    assert settings.ingestion_run_retention_days == 90
+    assert settings.feed_test_retention_days == 2
 
 
 @pytest.mark.parametrize(
@@ -122,6 +134,10 @@ def test_missing_password_raises_a_clear_error(environment: dict[str, str], miss
         ("MEDIA_BATCH_SIZE", "yuz"),
         ("PURGE_INTERVAL_SECONDS", "0"),
         ("PURGE_BATCH_SIZE", "bes"),
+        ("MAINTENANCE_INTERVAL_SECONDS", "0"),
+        ("OUTBOX_RETENTION_DAYS", "0"),
+        ("INGESTION_RUN_RETENTION_DAYS", "yarim"),
+        ("FEED_TEST_RETENTION_DAYS", "1.5"),
     ],
 )
 def test_invalid_numeric_setting_is_rejected(name: str, value: str) -> None:

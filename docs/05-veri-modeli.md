@@ -181,7 +181,7 @@ Başlangıç verisi:
 - Kısıt: `hidden` `true` ise `hidden_at` ve `hidden_by` dolu olmalıdır.
 - İndeksler: `(lifecycle_state, published_at)`, `(source_id, published_at)`, `fetched_at`.
 - Tablo bölümlenmez (ADR-0015).
-- Yaşam döngüsü durumu, işçideki günlük işle `published_at` değerine göre güncellenir: 30 günden yeni `HOT`, 30 gün ile 1 yıl arası `WARM`, 1 yıldan eski `COLD`.
+- Yaşam döngüsü durumu `published_at` değerine göre belirlenir: 30 günden yeni `HOT`, 30 gün ile 1 yıl arası `WARM`, 1 yıldan eski `COLD`. İşçi haberi kaydederken durumu verir; zamanla yaşlanan haberleri işçideki bakım işi günceller (işçi açılınca bir kez, sonra 12 saatte bir).
 
 ### 3.7 `article_categories` (modül: ingestion)
 
@@ -243,7 +243,7 @@ Başlangıç verisi:
 
 - İndeksler: `(feed_id, started_at)` ve saklama süresi dolan kayıtların silinmesi için `started_at`.
 - Kaynakların günlük istek sınırı, bu tablodaki son 24 saatlik kayıtlardan hesaplanır.
-- Saklama süresi önerisi 180 gündür; kesin süre veri büyümesi analizinde belirlenecektir.
+- 180 günden eski kayıtlar bakım işiyle silinir (`INGESTION_RUN_RETENTION_DAYS`); kesin süre veri büyümesi analizinde belirlenecektir.
 
 ### 3.10 `outbox_events` (modül: search)
 
@@ -265,7 +265,7 @@ Başlangıç verisi:
 - Haberin metinleri, haberle aynı işlemde yazılan kaydın `payload` alanıyla Elasticsearch'e taşınır; haber ve kayıt birlikte yazıldığından metin kaybolmaz. Kayıt işlenince metin silinir; PostgreSQL'de kopyası kalmaz (ADR-0019).
 - İşleyen iş meta veriyi haberin PostgreSQL'deki güncel halinden okur ve kararını ona göre verir: haber yoksa belgesi silinir; haber duruyorsa ve kayıt metin taşıyorsa belge baştan yazılır, taşımıyorsa belgede yalnızca meta veri alanları güncellenir. Gizlenmiş haberin belgesi silinmez, `hidden` alanı güncellenir (5.2). `operation` yalnızca kaydın neden oluştuğunu gösterir, kararı değiştirmez; bir kaydın geç veya iki kez işlenmesi yanlış sonuç üretmez (ADR-0017, 11. bölüm).
 - Haber gizlendiğinde ve gizleme geri alındığında `INDEX` kaydı oluşturulur. `DELETE` kaydı yalnızca haber silindiğinde (kaynak içeriğinin silinmesi) yazılır.
-- Kayıtlardan vazgeçilmez. Elasticsearch'in reddettiği kayıt 1, 5 ve 15 dakika sonra, ardından 15 dakikada bir yeniden denenir (`attempts`, `last_error`, `next_attempt_at`); Elasticsearch'e ulaşılamadığında kayıtlara dokunulmaz ve bir sonraki turda yeniden denenir. İşlenmiş kayıtlar belirli bir süre sonra (öneri: 7 gün) silinir.
+- Kayıtlardan vazgeçilmez. Elasticsearch'in reddettiği kayıt 1, 5 ve 15 dakika sonra, ardından 15 dakikada bir yeniden denenir (`attempts`, `last_error`, `next_attempt_at`); Elasticsearch'e ulaşılamadığında kayıtlara dokunulmaz ve bir sonraki turda yeniden denenir. İşlenmiş kayıtlar 7 gün sonra bakım işiyle silinir (`OUTBOX_RETENTION_DAYS`); bekleyen kayıtlar silinmez.
 
 ### 3.11 `saved_articles` (modül: library)
 
@@ -358,7 +358,7 @@ Başlangıç verisi:
 | `created_at`, `updated_at` | `timestamptz` | Zorunlu | |
 
 - İndeks: `status = 'PENDING'` olan satırları kapsayan, `created_at` üzerinde kısmi indeks.
-- Test sonuçları kalıcı bir değer taşımadığından kısa süre sonra (öneri: 1 gün) silinir.
+- Test sonuçları kalıcı bir değer taşımadığından 1 gün sonra bakım işiyle silinir (`FEED_TEST_RETENTION_DAYS`).
 
 ## 4. Silme Davranışları
 
