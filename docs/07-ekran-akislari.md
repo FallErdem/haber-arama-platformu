@@ -166,7 +166,7 @@ Bu akışlar, uçtan uca testlerin senaryolarının temelidir.
   - Kaydet düğmesi (arama ekranındakiyle aynı aç/kapa düğmesi)
   - Yalnızca yöneticilere: "Gizle" butonu
 - **Davranışlar:**
-  - Gizleme butonu, gerekçe alanı zorunlu olan bir onay penceresi açar.
+  - Gizleme butonu, gerekçe alanı zorunlu olan bir onay penceresi açar. Gizlenince haberin yerine "Haber gizlendi" mesajı çıkar; altında "Aramaya dön" ve "Gizlenen haberler" bağlantıları bulunur.
   - "Aramaya dön" bağlantısı, gelinen aramaya filtreleri ve sayfasıyla döner; detay doğrudan açıldıysa ana sayfaya gider. Detaya Kaydedilenler'den gelindiyse bağlantı "Kaydedilenlere dön" olur ve aynı sayfaya döner.
   - Tam metin, işçinin temizlediği HTML'dir ve tarayıcıda ikinci kez temizlenir (ADR-0018, 6. bölüm); metindeki bağlantılar yeni sekmede açılır.
   - Haber yeni kaydedildiyse ve metni arama indeksine henüz aktarılmadıysa (birkaç saniye) "metin henüz hazır değil" mesajı gösterilir. Arama indeksine ulaşılamıyorsa metinlerin alınamadığı söylenir ve yeniden deneme seçeneği sunulur.
@@ -262,6 +262,10 @@ Bulunamadı ekranı ve genel hata ekranı. İkisinde de arama ekranına dönüş
 
 - **Amaç:** Gizlenen haberleri görmek ve gizlemeyi geri almak (FG-YP-09).
 - **İçerik:** Kaynak ve tarih filtreleri; başlık, kaynak, gizlenme zamanı, gizleyen yönetici ve gerekçe sütunlarıyla liste. Her satırda "Gizlemeyi geri al" butonu.
+- **Davranışlar:**
+  - En son gizlenen haber önce gelir. Tarih filtresi haberin yayın tarihine bakar.
+  - Detay sayfası gizli haberi göstermediği için başlık, haberi kaynağında yeni sekmede açar.
+  - "Gizlemeyi geri al" sonrasında haberin yeniden yayında olduğu söylenir ve liste yenilenir.
 - **Uç noktalar:** `GET /admin/articles?hidden=true`, `POST /admin/articles/{id}/unhide`
 
 #### Audit kayıtları

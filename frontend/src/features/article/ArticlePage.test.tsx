@@ -5,7 +5,9 @@ import { I18nProvider } from 'react-aria-components'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ArticleDetail } from '../../api/articles'
+import type { UserRole } from '../../api/me'
 import { AccessTokenContext } from '../../auth/accessToken'
+import { CurrentUserContext } from '../../auth/currentUser'
 import { ArticlePage } from './ArticlePage'
 
 const ID = '0193f1a2-0000-7000-8000-000000000001'
@@ -46,20 +48,32 @@ function SavedStub() {
   return <p>Kaydedilenler sayfası: {useLocation().search}</p>
 }
 
-/** `cameFrom`: detaya gelinen sayfanın bıraktığı bilgi (arama veya Kaydedilenler). */
-function renderDetail(id = ID, cameFrom?: { from?: 'saved'; search: string }) {
+/** Gizlenen haberler ekranının yerine geçer. */
+function HiddenListStub() {
+  return <p>Gizlenen haberler ekranı</p>
+}
+
+/**
+ * `cameFrom`: detaya gelinen sayfanın bıraktığı bilgi (arama veya Kaydedilenler). `role`: oturumdaki
+ * kullanıcının rolü; "Gizle" düğmesi yalnızca yöneticiye görünür.
+ */
+function renderDetail(id = ID, cameFrom?: { from?: 'saved'; search: string }, role: UserRole = 'USER') {
+  const currentUser = { id: 'u1', email: 'u@example.test', displayName: null, role, status: 'ACTIVE' } as const
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <AccessTokenContext value="test-token">
-        <I18nProvider locale="tr-TR">
-          <MemoryRouter initialEntries={[{ pathname: `/articles/${id}`, state: cameFrom ?? null }]}>
-            <Routes>
-              <Route path="/" element={<SearchStub />} />
-              <Route path="/saved" element={<SavedStub />} />
-              <Route path="/articles/:articleId" element={<ArticlePage />} />
-            </Routes>
-          </MemoryRouter>
-        </I18nProvider>
+        <CurrentUserContext value={currentUser}>
+          <I18nProvider locale="tr-TR">
+            <MemoryRouter initialEntries={[{ pathname: `/articles/${id}`, state: cameFrom ?? null }]}>
+              <Routes>
+                <Route path="/" element={<SearchStub />} />
+                <Route path="/saved" element={<SavedStub />} />
+                <Route path="/admin/hidden-articles" element={<HiddenListStub />} />
+                <Route path="/articles/:articleId" element={<ArticlePage />} />
+              </Routes>
+            </MemoryRouter>
+          </I18nProvider>
+        </CurrentUserContext>
       </AccessTokenContext>
     </QueryClientProvider>,
   )
@@ -269,5 +283,43 @@ describe('ArticlePage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Haber metinleri şu an alınamıyor.')
     expect(screen.getByRole('button', { name: 'Yeniden dene' })).toBeInTheDocument()
+  })
+
+  it('okur "Gizle" düğmesini görmez', async () => {
+    stubDetail(detail())
+    renderDetail()
+
+    await screen.findByRole('heading', { level: 1, name: 'Deprem sonrası son durum' })
+    expect(screen.queryByRole('button', { name: 'Gizle' })).not.toBeInTheDocument()
+  })
+
+  it('yönetici haberi gerekçesiyle gizler; haberin yerine gizlendi mesajı ve bağlantılar çıkar (FG-YP-09)', async () => {
+    const requests: { method: string; url: string; body: unknown }[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET'
+        requests.push({ method, url, body: init?.body ? JSON.parse(init.body as string) : undefined })
+        return Promise.resolve(Response.json(method === 'POST' ? { id: ID, hidden: true } : detail()))
+      }),
+    )
+    renderDetail(ID, undefined, 'ADMIN')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Gizle' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Haberi gizle' })
+    const confirm = within(dialog).getByRole('button', { name: 'Gizle' })
+    // Gerekçe yazılmadan onaylanamaz.
+    expect(confirm).toBeDisabled()
+    await userEvent.type(within(dialog).getByLabelText(/^Gerekçe/), 'Yanıltıcı başlık')
+    await userEvent.click(confirm)
+
+    const notice = await screen.findByRole('status')
+    expect(within(notice).getByRole('heading', { level: 1, name: 'Haber gizlendi' })).toBeInTheDocument()
+    expect(screen.queryByText('Ekipler sahada.')).not.toBeInTheDocument()
+    expect(requests.filter((request) => request.method === 'POST')).toEqual([
+      { method: 'POST', url: `/api/v1/admin/articles/${ID}/hide`, body: { reason: 'Yanıltıcı başlık' } },
+    ])
+    await userEvent.click(within(notice).getByRole('link', { name: 'Gizlenen haberler' }))
+    expect(await screen.findByText('Gizlenen haberler ekranı')).toBeInTheDocument()
   })
 })

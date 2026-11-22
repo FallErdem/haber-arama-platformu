@@ -33,6 +33,7 @@
       "users": "Users",
       "sources": "Sources",
       "runs": "Collection history",
+      "hidden": "Hidden stories",
       "audit": "Audit log"
     },
     "errors": {
@@ -150,6 +151,20 @@
         "FAILED": "Failed"
       }
     },
+    "hidden": {
+      "title": "Hidden stories",
+      "sourceFilter": "Source",
+      "allSources": "All sources",
+      "anyDate": "Publication date",
+      "loading": "Loading hidden stories…",
+      "loadFailed": "Hidden stories could not be loaded.",
+      "empty": "There are no hidden stories.",
+      "hiddenBy": "Hidden by {{admin}} · {{time}}",
+      "unhide": "Unhide",
+      "unhideFor": "Unhide: {{title}}",
+      "unhidden": "The story is visible again: {{title}}",
+      "openOriginal": "Open at the source"
+    },
     "dashboard": {
       "title": "Dashboard",
       "updatedAt": "Last updated {{time}}",
@@ -243,12 +258,15 @@
         "FEED_ENABLED": "Feed enabled",
         "FEED_DISABLED": "Feed disabled",
         "FEED_AUTO_DISABLED": "Feed disabled automatically",
-        "AUDIT_EXPORTED": "Audit log exported"
+        "AUDIT_EXPORTED": "Audit log exported",
+        "ARTICLE_HIDDEN": "Story hidden",
+        "ARTICLE_UNHIDDEN": "Story unhidden"
       },
       "targetTypes": {
         "USER": "User",
         "SOURCE": "Source",
-        "FEED": "Feed"
+        "FEED": "Feed",
+        "ARTICLE": "Story"
       },
       "results": {
         "SUCCESS": "Succeeded",
@@ -371,6 +389,19 @@
     "textUnavailable": "Story texts are unavailable right now. Please try again shortly.",
     "textPending": "The story text is not ready yet. Try again in a few seconds or read it at the source.",
     "retry": "Try again",
+    "hide": {
+      "button": "Hide",
+      "title": "Hide the story",
+      "text": "A hidden story does not appear in search or on its page. You can undo this later on the Hidden stories screen.",
+      "reason": "Reason",
+      "reasonHint": "The reason appears on the Hidden stories screen and in the audit log.",
+      "confirm": "Hide"
+    },
+    "hidden": {
+      "title": "Story hidden",
+      "text": "The story no longer appears in search or on its page. You can undo this on the Hidden stories screen.",
+      "list": "Hidden stories"
+    },
     "license": {
       "GLOBALVOICES": {
         "text": "This story is published under the Creative Commons Attribution (CC BY) license.",
