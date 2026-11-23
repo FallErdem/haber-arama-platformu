@@ -1,0 +1,41 @@
+# Prometheus uyarı kurallarının denetimi ve testleri (FOG-41). Kurallar Prometheus'un kendi aracı promtool ile
+# sahte ölçümlerle denenir (deploy/k8s/platform/prometheus/alerting-rules.test.yml).
+name: Uyarı kuralları
+
+on:
+  pull_request:
+    paths:
+      - "deploy/k8s/platform/prometheus/**"
+      - ".github/workflows/alert-rules.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/k8s/platform/prometheus/**"
+      - ".github/workflows/alert-rules.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alert-rules-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  promtool:
+    name: promtool
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Depoyu indir
+        uses: actions/checkout@v7.0.1
+
+      # promtool, kümedeki Prometheus'la aynı sürümün resmi imajından çalıştırılır. Kural klasörü salt okunur bağlanır.
+      - name: Kuralların yazımını denetle
+        run: >
+          docker run --rm -v "$PWD/deploy/k8s/platform/prometheus:/rules:ro" -w /rules
+          --entrypoint promtool quay.io/prometheus/prometheus:v3.16.0 check rules alerting-rules.yml
+
+      - name: Kuralları sahte ölçümlerle test et
+        run: >
+          docker run --rm -v "$PWD/deploy/k8s/platform/prometheus:/rules:ro" -w /rules
+          --entrypoint promtool quay.io/prometheus/prometheus:v3.16.0 test rules alerting-rules.test.yml
