@@ -76,6 +76,20 @@ Bu doküman, uygulamanın geliştirilmesini iş kalemlerine böler, sıralar ve 
 | İ-38 | Performans testleri (yük, stres, ani yük, uzun süre, ölçeklenebilirlik, hacim) ve raporları | FOG-01, FOG-02, FOG-06, FOG-07 | İ-32, İ-33, İ-35 |
 | İ-39 | Kullanılabilirlik testi (en az 3 kişi, SUS anketi) | — | Hafta 3 |
 | İ-40 | README, kurulum dokümantasyonu ve OpenAPI belgesi | FOG-26, FOG-38 | — |
+| İ-13 | NYT okuyucusu (Hafta 3'ten taşındı) | FG-VT-02, FOG-05 | İ-12 |
+| İ-41 | Ek Türk haber kaynakları (10–15): kullanım şartlarının ve robots.txt'nin araştırılması, kaynak ve beslemelerin eklenmesi, kategori eşlemeleri | FG-VT-01, FG-VT-05 | İ-22 |
+
+**Planlanan sıra (22 Kasım):**
+
+| Gün | İş kalemleri |
+|---|---|
+| Pazartesi 23 | İ-32 (HTTPS kendinden imzalı sertifikayla) |
+| Salı 24 | İ-33, İ-34 |
+| Çarşamba 25 | İ-35, İ-38 (uzun süre testi arka planda, Perşembe'ye taşabilir); akşam durum değerlendirmesi (kural 4) |
+| Perşembe 26 | İ-36, İ-37, İ-40 |
+| Cuma 27 (sabah) | İ-13, İ-41; Hafta 4 ilerleme notu |
+
+Geride kalınırsa Must iş kalemleri ertelenmez; kapsamları daraltılır (örneğin uyarılarda yalnızca FOG-41'in saydıkları, performans testlerinde öncelikle yük, hacim ve ölçeklenebilirlik). İ-41'deki kaynakların araştırması uzun sürebileceğinden aday kaynaklara hafta içinde bakılmaya başlanır.
 
 **Her Cuma:** Haftalık ilerleme notu, planın ve risk kaydının gözden geçirilmesi.
 
