@@ -15,6 +15,44 @@ spec:
       labels:
         app: elasticsearch
     spec:
+      initContainers:
+        # Elasticsearch'ün gizli ayarlarını (keystore) hazırlar: snapshot'ları MinIO'ya yazan kullanıcının
+        # anahtarları (ADR-0018). Bu anahtarlar ortam değişkeniyle verilemez, keystore'da olmalıdır. İmajın
+        # ayar klasörü boş bir klasöre kopyalanır, keystore oraya yazılır; Elasticsearch o klasörle açılır.
+        # Keystore zaten her açılışta yeniden oluşturulur; kalıcı bir şey kaybolmaz.
+        - name: keystore
+          image: docker.elastic.co/elasticsearch/elasticsearch:9.4.9
+          env:
+            # elasticsearch-keystore aracı bu klasördeki keystore'u kullanır.
+            - name: ES_PATH_CONF
+              value: /config
+            - name: BACKUP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-backup
+                  key: username
+            - name: BACKUP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-backup
+                  key: password
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              cp -R /usr/share/elasticsearch/config/. /config/
+              elasticsearch-keystore create
+              printf '%s' "$BACKUP_USER" | elasticsearch-keystore add --stdin s3.client.minio.access_key
+              printf '%s' "$BACKUP_PASSWORD" | elasticsearch-keystore add --stdin s3.client.minio.secret_key
+          volumeMounts:
+            - name: config
+              mountPath: /config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
       containers:
         - name: elasticsearch
           image: docker.elastic.co/elasticsearch/elasticsearch:9.4.9
@@ -42,6 +80,15 @@ spec:
                 secretKeyRef:
                   name: elasticsearch-elastic
                   key: password
+            # Snapshot deposu MinIO (S3 uyumlu). "minio" adlı istemcinin anahtarları keystore'dadır.
+            - name: s3.client.minio.endpoint
+              value: http://minio:9000
+            # MinIO kova adını adresin yolunda bekler: http://minio:9000/backups/...
+            - name: s3.client.minio.path_style_access
+              value: "true"
+            # MinIO bölge kullanmaz; S3 istemcisi yine de bir bölge adı ister.
+            - name: s3.client.minio.region
+              value: us-east-1
           resources:
             requests:
               cpu: 500m
@@ -56,6 +103,12 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /usr/share/elasticsearch/data
+            # Init container'ın hazırladığı ayar klasörü (keystore dahil).
+            - name: config
+              mountPath: /usr/share/elasticsearch/config
+      volumes:
+        - name: config
+          emptyDir: {}
   volumeClaimTemplates:
     - metadata:
         name: data

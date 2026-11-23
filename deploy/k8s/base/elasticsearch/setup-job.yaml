@@ -1,6 +1,6 @@
-# Elasticsearch açıldıktan sonra uygulamaların rollerini ve kullanıcılarını oluşturur.
-# İşçi yazabilir, API yalnızca okuyabilir (ADR-0017). İş tekrar çalıştırılabilir:
-# aynı istekler aynı rolleri ve kullanıcıları yeniden yazar.
+# Elasticsearch açıldıktan sonra uygulamaların rollerini ve kullanıcılarını, snapshot deposunu ve gece
+# snapshot politikasını oluşturur. İşçi yazabilir, API yalnızca okuyabilir (ADR-0017). İş tekrar
+# çalıştırılabilir: aynı istekler aynı tanımları yeniden yazar.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -62,4 +62,23 @@ spec:
               curl -fsS -u "$AUTH" -X PUT "$ES/_security/user/news_api" -H 'Content-Type: application/json' \
                 -d "{\"password\": \"${API_PASSWORD}\", \"roles\": [\"news_api\"]}"
 
-              echo "Roller ve kullanıcılar oluşturuldu."
+              # Snapshot deposu: MinIO'daki backups kovasının elasticsearch/ klasörü (ADR-0018). İstemcinin adresi
+              # ve anahtarları Elasticsearch'ün kendi ayarlarındadır (statefulset.yaml). Elasticsearch depoyu
+              # tanımlarken içine deneme dosyası yazıp siler; yazamazsa istek hata verir.
+              curl -fsS -u "$AUTH" -X PUT "$ES/_snapshot/backups" -H 'Content-Type: application/json' -d '{
+                "type": "s3",
+                "settings": {"client": "minio", "bucket": "backups", "base_path": "elasticsearch"}
+              }'
+
+              # Gece snapshot'ı: her gün 00:30 UTC'de (Türkiye saatiyle 03:30; PostgreSQL'in yedeğinden sonra).
+              # Haber indekslerinin hepsi alınır; rolleri, şablonları ve küme ayarlarını bu iş ve işçi yeniden kurar.
+              # Snapshot'lar 7 gün saklanır; ama en az 3'ü her zaman kalır, en fazla 14'ü tutulur.
+              curl -fsS -u "$AUTH" -X PUT "$ES/_slm/policy/nightly" -H 'Content-Type: application/json' -d '{
+                "schedule": "0 30 0 * * ?",
+                "name": "<nightly-{now/d}>",
+                "repository": "backups",
+                "config": {"indices": ["articles-*"], "include_global_state": false},
+                "retention": {"expire_after": "7d", "min_count": 3, "max_count": 14}
+              }'
+
+              echo "Roller, kullanıcılar ve snapshot politikası oluşturuldu."
