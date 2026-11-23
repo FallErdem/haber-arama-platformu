@@ -63,8 +63,21 @@ jobs:
 
       # Java kütüphaneleri pom.xml'den değil, imajın içindeki jar dosyasından taranır:
       # gerçekten dağıtılan kütüphaneler bunlardır ve tarama Maven deposuna istek göndermez.
+      # İmaj her seferinde sıfırdan derlendiği için Maven ve kütüphaneler Maven Central'dan yeniden indirilir.
+      # Maven Central, GitHub'ın paylaşılan sunucularından gelen yoğun isteklere zaman zaman 429 (çok fazla
+      # istek) döner; bu bir açık bulgusu değildir. Bu yüzden derleme en fazla 3 kez, 1 dakika arayla denenir.
       - name: API imajını derle
-        run: docker build -f backend/Dockerfile -t newssearch-api:ci .
+        run: |
+          for attempt in 1 2 3; do
+            if docker build -f backend/Dockerfile -t newssearch-api:ci .; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Derleme başarısız oldu ($attempt. deneme); 1 dakika sonra yeniden denenecek."
+              sleep 60
+            fi
+          done
+          exit 1
 
       - name: API kütüphaneleri (engeller)
         run: >
