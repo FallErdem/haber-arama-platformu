@@ -14,6 +14,11 @@ spec:
     metadata:
       labels:
         app: api
+      # Prometheus bu etiketli pod'ların ölçümlerini okur (deploy/k8s/platform/prometheus).
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /actuator/prometheus
     spec:
       securityContext:
         runAsUser: 1000

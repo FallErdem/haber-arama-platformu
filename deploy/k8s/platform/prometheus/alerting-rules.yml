@@ -1,0 +1,51 @@
+# Uyarı kuralları (FOG-41). Testleri: alerting-rules.test.yml.
+# "for": koşul bu süre boyunca kesintisiz sürmeden uyarı gönderilmez; kısa dalgalanmalar uyarı üretmez.
+groups:
+  - name: haber
+    rules:
+      # Doluluk = 1 - boş / toplam. Yerel kümede üç disk de bilgisayarın asıl diskinde durduğu için
+      # üçü aynı değeri gösterir.
+      - alert: DiskAlmostFull
+        expr: 1 - kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk %80'den fazla dolu: {{ $labels.persistentvolumeclaim }}"
+          description: "{{ $labels.persistentvolumeclaim }} diskinin doluluğu: {{ $value | humanizePercentage }}"
+
+      # Bir kaynağın herhangi bir beslemesi art arda 3 kez okunamadı. Besleme 5. hatada kendiliğinden kapanır;
+      # uyarı ondan önce haber verir. Art arda hata zaten sürekliliktir; ayrıca beklenmez.
+      - alert: SourceFailing
+        expr: max by (source) (news_worker_feed_consecutive_failures) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.source }} kaynağı art arda okunamıyor"
+          description: "{{ $labels.source }} kaynağının bir beslemesi art arda {{ $value }} kez okunamadı; 5. hatada besleme kendiliğinden kapanır."
+
+      # Son 5 dakikada API isteklerinin %5'inden fazlası sunucu hatası (5xx) döndü.
+      # - Sağlık kontrolleri ve ölçüm okumaları (/actuator) sayılmaz: hep başarılıdırlar, az trafikte oranı düşük gösterirler.
+      # - En az 20 istek gerekir: trafik azken tek bir hata oranı %100 yapar.
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{app="api", uri!~"/actuator.*", status=~"5.."}[5m]))
+              / sum(rate(http_server_requests_seconds_count{app="api", uri!~"/actuator.*"}[5m]))
+          ) > 0.05
+          and sum(increase(http_server_requests_seconds_count{app="api", uri!~"/actuator.*"}[5m])) >= 20
+        labels:
+          severity: critical
+        annotations:
+          summary: "API'de hata oranı yüksek"
+          description: "Son 5 dakikadaki API isteklerinde sunucu hatası oranı: {{ $value | humanizePercentage }}"
+
+      # Son 5 dakikada 100'den fazla 401 (token'sız veya geçersiz token'lı istek) geldi (ADR-0016).
+      # Token deneme saldırısı veya bozuk bir istemci olabilir.
+      - alert: UnauthorizedSpike
+        expr: sum(increase(http_server_requests_seconds_count{app="api", status="401"}[5m])) > 100
+        labels:
+          severity: warning
+        annotations:
+          summary: "API'ye çok sayıda yetkisiz istek geliyor"
+          description: "Son 5 dakikada {{ $value | printf \"%.0f\" }} istek 401 aldı."

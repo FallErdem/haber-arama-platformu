@@ -66,6 +66,7 @@ flowchart LR
     keycloak["Keycloak"]
     mailpit["Mailpit"]
     kaynaklar["Haber kaynakları"]
+    prometheus["Prometheus + Alertmanager"]
 
     tarayici -->|Giriş: Authorization Code + PKCE| keycloak
     tarayici -->|REST istekleri + JWT| api
@@ -79,6 +80,9 @@ flowchart LR
     worker -->|RSS, Atom, API| kaynaklar
     keycloak -->|SMTP| mailpit
     keycloak -->|Kendi veritabanı| pg
+    prometheus -->|Ölçümleri okur| api
+    prometheus -->|Ölçümleri okur| worker
+    prometheus -->|Uyarı e-postaları| mailpit
 ```
 
 | Bileşen | Görevi | Kopya sayısı | ADR |
@@ -91,6 +95,7 @@ flowchart LR
 | MinIO | Görsel dosyaları | — | ADR-0010 |
 | Keycloak | Kimlik doğrulama; verilerini PostgreSQL'de ayrı bir veritabanında tutar | — | ADR-0014 |
 | Mailpit | Geliştirme ortamında e-posta yakalama | — | ADR-0014 |
+| Prometheus ve Alertmanager | Ölçümleri toplar ve uyarı üretir; uyarılar e-postayla gönderilir | — | ADR-0018 |
 
 API ile işçi yalnızca veri depoları üzerinden iletişim kurar (ADR-0017). Görseller tarayıcıya API üzerinden, imzalı adreslerle sunulur (`06-api-sozlesmesi.md`, 4.4).
 
@@ -285,6 +290,5 @@ Yaşam döngüsü kuralları (sıcak, ılık, soğuk) ADR-0011'dedir. Ayrıntıl
 
 | Konu | Açıklama |
 |---|---|
-| Gözlemlenebilirlik | Loglama, metrik toplama ve uyarı araçları |
 | Dağıtım | Gateway API'yi uygulayacak bileşen ve konteyner imajları |
 | Kategori eşlemesi | Kaynak kategorilerinin ortak listeye eşleme tablosu ve NYT bölümlerinin seçimi |

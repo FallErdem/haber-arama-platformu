@@ -84,7 +84,19 @@
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- Ölçümleri Prometheus'un okuduğu biçimde /actuator/prometheus adresinde yayımlar (FOG-40). Sürüm Spring Boot'tan gelir. -->
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+			<scope>runtime</scope>
+		</dependency>
 
+		<!-- Testlerde ölçüm yayımlamayı açan @AutoConfigureMetrics (varsayılan olarak kapalıdır). -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-micrometer-metrics-test</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security-oauth2-resource-server-test</artifactId>

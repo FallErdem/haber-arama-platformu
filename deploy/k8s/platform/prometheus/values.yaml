@@ -1,0 +1,114 @@
+# Prometheus ve Alertmanager Helm chart ayarları (ADR-0018).
+# Kurulum (depo kökünden):
+#   helm upgrade --install prometheus oci://ghcr.io/prometheus-community/charts/prometheus --version 29.45.2 \
+#     --namespace monitoring --create-namespace -f deploy/k8s/platform/prometheus/values.yaml \
+#     --set-file 'ruleFiles.alerting-rules\.yml=deploy/k8s/platform/prometheus/alerting-rules.yml' --wait
+#
+# Prometheus ölçümleri 30 saniyede bir okur, saklar ve uyarı kurallarını kontrol eder.
+# Alertmanager uyarıları e-postayla Mailpit'e gönderir. İkisi de dışarıya açılmaz; port-forward ile bakılır.
+
+server:
+  global:
+    scrape_interval: 30s
+    evaluation_interval: 30s
+  # local-path diski, istenen boyutu zorlamaz; boyutu Prometheus kendisi sınırlar.
+  # Hangisine önce ulaşılırsa en eski veri silinir.
+  retention: 15d
+  retentionSize: 4GB
+  persistentVolume:
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+
+# Uyarı kuralları ayrı dosyada (alerting-rules.yml); kurulum komutu --set-file ile buraya koyar.
+# Prometheus'un kendi biçiminde olduğu için promtool ile test edilebilir (alerting-rules.test.yml).
+serverFiles:
+  prometheus.yml:
+    rule_files:
+      - /etc/config/alerting-rules.yml
+
+# Kural dosyası değişince Prometheus'u yeniden yükleten yardımcı kapsayıcı.
+configmapReload:
+  prometheus:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 16Mi
+      limits:
+        memory: 64Mi
+
+# Okunan yerler. Gerekmeyenler kapatılır.
+scrapeConfigs:
+  # Prometheus'un kendi ölçümleri.
+  prometheus:
+    enabled: true
+  # Kubernetes'in ölçümleri: diskler (kubelet) ve kapsayıcıların CPU ve bellek kullanımı (cAdvisor).
+  kubernetes-nodes:
+    enabled: true
+  kubernetes-nodes-cadvisor:
+    enabled: true
+  # Uygulamalar: "prometheus.io/scrape: true" etiketli pod'lar (API ve işçi).
+  kubernetes-pods:
+    enabled: true
+  kubernetes-api-servers:
+    enabled: false
+  kubernetes-service-endpoints:
+    enabled: false
+  kubernetes-service-endpoints-slow:
+    enabled: false
+  kubernetes-pods-slow:
+    enabled: false
+  kubernetes-services:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
+
+alertmanager:
+  # Susturma ve gönderim kayıtları bellekte. Yeniden başlarsa aynı uyarı bir kez daha gönderilebilir.
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  configmapReload:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 16Mi
+      limits:
+        memory: 64Mi
+  config:
+    global:
+      smtp_smarthost: mailpit.haber.svc.cluster.local:1025
+      smtp_from: alertmanager@haber.localhost
+      # Mailpit TLS kullanmaz.
+      smtp_require_tls: false
+    receivers:
+      - name: email
+        email_configs:
+          - to: admin@haber.localhost
+            # Uyarı ortadan kalkınca da e-posta gelir.
+            send_resolved: true
+    route:
+      receiver: email
+      # Aynı uyarının bütün örnekleri tek e-postada toplanır.
+      group_by: [alertname]
+      group_wait: 30s
+      group_interval: 5m
+      # Uyarı sürüyorsa 4 saatte bir hatırlatılır.
+      repeat_interval: 4h
+
+# Bu projede gerekmeyen yan bileşenler.
+kube-state-metrics:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
