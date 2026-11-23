@@ -267,7 +267,32 @@ Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, ta
 
 Başka bir adresle kaydolan kullanıcı "onay bekliyor" durumunda kalır; yönetici onu Yönetim → Kullanıcılar ekranından onaylar. Haberler, işçinin ilk turu bittikçe aramada görünmeye başlar (birkaç dakika).
 
-### 11. Arama indeksini yeniden oluştur (yalnızca gerektiğinde)
+### 11. Ölçümleri ve uyarıları kur
+
+Prometheus, API'nin, işçinin ve Kubernetes'in ölçümlerini toplar; Alertmanager uyarıları e-postayla Mailpit'e gönderir (ADR-0018, 13. bölüm). Uyarı kuralları `alerting-rules.yml` dosyasındadır; kurulum komutu dosyayı chart'a verir.
+
+```bash
+helm upgrade --install prometheus oci://ghcr.io/prometheus-community/charts/prometheus --version 29.45.2 \
+  --namespace monitoring --create-namespace -f deploy/k8s/platform/prometheus/values.yaml \
+  --set-file 'ruleFiles.alerting-rules\.yml=deploy/k8s/platform/prometheus/alerting-rules.yml' --wait
+```
+
+Kural dosyası değiştiğinde aynı komut yeniden çalıştırılır; Prometheus kuralları yaklaşık bir dakika içinde kendisi yeniden yükler. Kurallar kümeye uygulanmadan önce test edilir:
+
+```bash
+docker run --rm -v "$PWD/deploy/k8s/platform/prometheus:/rules:ro" -w /rules \
+  --entrypoint promtool quay.io/prometheus/prometheus:v3.16.0 test rules alerting-rules.test.yml
+```
+
+Uyarılar üç yerde görülür:
+
+| Nerede | Nasıl açılır | Ne gösterir |
+|---|---|---|
+| Mailpit | `kubectl port-forward -n haber svc/mailpit 8025:8025`, ardından `http://localhost:8025` | Uyarı e-postaları (`[FIRING]`) ve uyarı kalkınca gelen `[RESOLVED]` e-postaları |
+| Prometheus | `kubectl port-forward -n monitoring svc/prometheus-server 9090:80`, ardından `http://localhost:9090/alerts` | Kuralların anlık durumu (`inactive`, `pending`, `firing`); "Graph" sekmesinde ölçümlerin grafikleri |
+| Alertmanager | `kubectl port-forward -n monitoring svc/prometheus-alertmanager 9093:9093`, ardından `http://localhost:9093` | Gönderilmekte olan uyarılar; bir uyarı geçici olarak susturulabilir |
+
+### 12. Arama indeksini yeniden oluştur (yalnızca gerektiğinde)
 
 İlk kurulumda gerekmez; işçi haberleri topladıkça arama indeksine kendisi yazar. İndeks yapısı değiştiğinde (yeni bir alan, başka bir analizör) veya PostgreSQL ile Elasticsearch arasında meta veri tutarsızlığı şüphesi olduğunda çalıştırılır:
 
@@ -295,6 +320,7 @@ kubectl exec -n haber elasticsearch-0 -- curl -s -u "news_worker:$ES_PW" 'localh
 | İşçi | `kubectl logs -n haber deploy/worker --tail=5` | "Okuma zamanı gelmiş besleme sayısı: ..." ve "Besleme toplandı: ... (yeni: ..., tekrar: ..., atlanan: ...)" satırları |
 | Outbox aktarımı | `kubectl logs -n haber deploy/worker --tail=200 \| grep Outbox` | "Outbox aktarıldı (not: ..., yazılan haber: ..., metniyle yazılan: ..., silinen haber: ..., hata: 0)" satırları; Elasticsearch kapalıyken "Elasticsearch'e ulaşılamadı; outbox notları bekliyor" |
 | Görsel indirme | `kubectl logs -n haber deploy/worker --tail=200 \| grep Görseller` | "Görseller işlendi (indirilen: ..., yeniden denenecek: ..., başarısız: ...)" satırları; MinIO kapalıyken "Nesne depolamaya ulaşılamadı; görseller bekliyor" |
+| Prometheus'un okuduğu yerler | `kubectl get --raw '/api/v1/namespaces/monitoring/services/prometheus-server:80/proxy/api/v1/targets' \| grep -o '"health":"[a-z]*"' \| sort \| uniq -c` | Hepsi `"health":"up"` (API, işçi, Traefik, Kubernetes ve Prometheus'un kendisi) |
 | API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{content_type}\n" http://haber.localhost/actuator/health` | `text/html` (yanıtı API değil frontend verir; API'nin yanıtı `application/...json` olurdu) |
 
 Keycloak'ın yönetim paneli: `http://haber.localhost/auth/admin/`. Kullanıcı adı ve şifre `deploy/k8s/overlays/dev/secrets/keycloak-admin.env` dosyasındadır.

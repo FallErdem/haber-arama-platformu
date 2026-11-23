@@ -157,12 +157,12 @@ Arama ve haber detayı ekranları (İ-19, 18 Kasım 2026) kurulurken eklenenler:
 
 - **Bitnami kullanılmaz:** Yaygın kurulum örnekleri Bitnami'nin Helm chart'larını kullanır; ancak Bitnami Ağustos 2025'ten itibaren ücretsiz katmanda sürüm numaralı imajları genel katalogdan kaldırmıştır, bu yüzden sürüm sabitlenemez.
 - **Kustomize:** Ortak tanımlar `deploy/k8s/base/`, geliştirme ortamına özgü ayarlar `deploy/k8s/overlays/dev/` altındadır. Kubernetes Secret'ları, depoya girmeyen `secrets/` klasöründeki dosyalardan üretilir; hangi dosyaların gerektiği `secrets.example/` klasöründe gösterilir. CloudNativePG Secret'lara adlarıyla başvurduğundan Kustomize'ın adlara eklediği özet soneki kapatılmıştır.
-- **Tek namespace:** Uygulamanın bütün bileşenleri `haber` namespace'indedir; Traefik ve CloudNativePG operatörü gibi küme genelindeki bileşenler kendi namespace'lerindedir.
+- **Tek namespace:** Uygulamanın bütün bileşenleri `haber` namespace'indedir; Traefik, CloudNativePG operatörü ve Prometheus gibi küme genelindeki bileşenler kendi namespace'lerindedir.
 - **En az yetki:** Elasticsearch'te güvenlik açıktır. Elasticsearch ve MinIO'da işçi ve API için ayrı kullanıcılar bulunur; işçi yazabilir, API yalnızca okuyabilir (ADR-0017). Kullanıcılar, tekrar çalıştırılabilen kurulum işleriyle (Job) oluşturulur.
 - **Root olmayan kullanıcı:** MinIO ve Mailpit root olmayan bir kullanıcıyla çalışır; MinIO sunucusu kabuk ve ek araç içermeyen imajla çalışır.
 - **Keycloak üretim modunda çalışır:** Geliştirme modunda çalışan bir yapılandırmanın üretim modunda da çalışacağının garantisi yoktur. Küme içinde HTTP kullanılır; HTTPS, trafiğin kümeye girdiği Gateway'de açılacaktır (İ-32).
 - **Mailpit dışarıya açılmaz:** Yalnızca geliştirme ortamında, e-postaların gerçek adreslere gitmemesi için kullanılır; arayüzüne `port-forward` ile erişilir.
-- **Sürümler sabittir:** k3s v1.36.6+k3s1 (kubectl ile aynı seri), Gateway API v1.6.3, Traefik chart 42.3.1, CloudNativePG chart 0.29.1, PostgreSQL 18.4, Elasticsearch 9.4.9, Silo RELEASE.2026-10-26T00-00-00Z, Keycloak 26.8.2, Mailpit v1.33.1.
+- **Sürümler sabittir:** k3s v1.36.6+k3s1 (kubectl ile aynı seri), Gateway API v1.6.3, Traefik chart 42.3.1, CloudNativePG chart 0.29.1, PostgreSQL 18.4, Elasticsearch 9.4.9, Silo RELEASE.2026-10-26T00-00-00Z, Keycloak 26.8.2, Mailpit v1.33.1, prometheus chart 29.45.2 (Prometheus v3.16.0, Alertmanager v0.34.2).
 
 Alternatifler:
 
@@ -233,6 +233,46 @@ Alternatifler:
 - İşçi dışarıdan istek almaz; bu yüzden Service'i ve trafik kuralı yoktur. Sağlık adresleri yalnızca Kubernetes'in kontrolleri içindir.
 - Tablolar beklenirken işçi "ayakta ama hazır değil" görünür; Kubernetes onu yeniden başlatmaz.
 - Derleme bağlamı, etiketleme ve dağıtım diğer imajlarla aynıdır (10. bölüm); betik `scripts/dev/deploy-worker.sh` dosyasıdır.
+
+### 13. Gözlemlenebilirlik (İ-33)
+
+- **Prometheus** ölçümleri 30 saniyede bir okur, 15 gün (en fazla 4 GB) saklar ve uyarı kurallarını 30 saniyede bir kontrol eder. **Alertmanager** uyarıları e-postayla gönderir; geliştirme ortamında e-postalar Mailpit'e düşer.
+- İkisi `monitoring` namespace'ine prometheus-community'nin `prometheus` Helm chart'ıyla kurulur (`deploy/k8s/platform/prometheus/`). Dışarıya açılmaz; `port-forward` ile bakılır.
+- Chart'ın getirdiği yan bileşenler (kube-state-metrics, node-exporter, pushgateway) kapatılmıştır; disk ve kaynak kullanımı Kubernetes'in kendi ölçümlerinden gelir.
+
+**Okunan ölçümler (FOG-40)**
+
+| Nereden | Ne | Nasıl |
+|---|---|---|
+| Spring Boot API | İstek sayısı, durum kodu ve süresi (p95 hesaplanabilsin diye süre dağılımıyla) | Micrometer, `/actuator/prometheus` |
+| Python işçisi | Okuma sonuçları, beslemelerin art arda hata sayısı | prometheus-client, `/metrics` (ADR-0017, 13. bölüm) |
+| Kubernetes | Kapsayıcıların CPU ve bellek kullanımı, disk doluluğu | kubelet ve cAdvisor |
+
+Prometheus, okunacak pod'ları `prometheus.io/scrape: "true"` etiketinden bulur.
+
+**Uyarılar (FOG-41, ADR-0016)**
+
+| Uyarı | Koşul |
+|---|---|
+| `DiskAlmostFull` | Disk %80'den fazla dolu, 5 dakika boyunca |
+| `SourceFailing` | Bir kaynağın herhangi bir beslemesi art arda en az 3 kez okunamadı (besleme 5. hatada kendiliğinden kapanır) |
+| `HighErrorRate` | Son 5 dakikada API isteklerinin %5'inden fazlası 5xx döndü; sağlık kontrolleri sayılmaz, en az 20 istek gerekir |
+| `UnauthorizedSpike` | Son 5 dakikada 100'den fazla 401 |
+
+- Kurallar `alerting-rules.yml` dosyasındadır ve Prometheus'un kendi aracı `promtool` ile test edilir (`alerting-rules.test.yml`): sahte ölçümlerle her kural için uyarının çıktığı ve çıkmadığı durumlar denenir.
+- `SourceFailing` ve `UnauthorizedSpike` kümede de denendi (23 Kasım 2026): uyarı e-postası yaklaşık 1 dakikada geldi, koşul ortadan kalkınca "çözüldü" e-postası geldi.
+- **Loglar** JSON olarak standart çıktıya yazılır (FOG-39) ve `kubectl logs` ile okunur; merkezde toplanmaz.
+- **Grafana kurulmaz:** Prometheus'un kendi ekranı grafikleri ve uyarı listesini gösterir. Gerekirse sonradan eklenebilir.
+
+Yerel ortamın sınırlamaları:
+
+- Üç disk de bilgisayarın asıl diskinde durduğu için disk ölçümü üçü için aynı değeri gösterir; local-path diski istenen boyutu zorlamaz. Doluluk "1 − boş / toplam" ile hesaplanır: dosya sisteminin root kullanıcısına ayırdığı alan (%5) dolu sayılır, çünkü bileşenler root olmayan kullanıcıyla çalışır ve o alana yazamaz.
+- Alertmanager kayıtlarını bellekte tutar; yeniden başlarsa aynı uyarı bir kez daha gönderilebilir.
+
+Alternatifler:
+
+- **kube-prometheus-stack:** Aynı araçlara ek olarak Prometheus Operator, Grafana, node-exporter, kube-state-metrics ve çok sayıda hazır kural getirir; bu ölçekte ağır ve anlatılması zordur.
+- **VictoriaMetrics:** Daha az bellek kullanır ve Prometheus'un sorgu dilini destekler; ancak ayrı bir üründür ve kaynakları daha azdır.
 
 ## Sonuçlar
 

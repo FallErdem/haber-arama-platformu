@@ -39,6 +39,7 @@ Performans testlerinde yük üreten araç ve test edilen sistem aynı bilgisayar
 | Spring Boot API | JUnit 5, Mockito, AssertJ; kapsam ölçümü JaCoCo | İş mantığında en az %80 satır kapsamı (FOG-23) |
 | Python işçisi | pytest, pytest-asyncio, respx; kapsam ölçümü pytest-cov | İş mantığında en az %80 satır kapsamı (FOG-23) |
 | Frontend | Vitest, React Testing Library | Hedef yok; bileşenlerin davranışı test edilir |
+| Uyarı kuralları (Prometheus) | promtool | Her kural için uyarının çıktığı ve çıkmadığı durumlar |
 
 Örnekler: Türkçe küçük harf dönüşümü ("İSTANBUL", "IĞDIR"), adres normalleştirme, kategori eşlemesi ve "Diğer" kuralı, tarih dönüşümleri, imzalı görsel adresinin üretilmesi ve doğrulanması, CSV enjeksiyonuna karşı önlem.
 
@@ -47,6 +48,7 @@ Performans testlerinde yük üreten araç ve test edilen sistem aynı bilgisayar
 - **respx:** httpx isteklerini taklit eder; okuyucular internete çıkmadan, kaydedilmiş besleme örnekleriyle test edilir. Alternatifi gerçek kaynaklara istek atmak: Testler kaynakların o anki durumuna bağlı olur ve kaynaklara gereksiz yük bindirir.
 - **Vitest:** Frontend'in derleme aracı Vite'tır (ADR-0018); Vitest aynı yapılandırmayı kullanır. Alternatif Jest, Vite ile ayrıca yapılandırma gerektirir.
 - **React Testing Library:** Bileşenleri kullanıcının gördüğü gibi (metin, düğme, etiket) test eder; bileşenin iç yapısına bağlı testler yazılmasını engeller.
+- **promtool:** Prometheus'un kendi aracıdır. Kuralları sahte ölçümlerle ve zamanı ileri sararak dener; bir uyarının çıktığını görmek için kümede dakikalarca beklemek veya gerçek bir arıza çıkarmak gerekmez.
 
 ### 5.2 Entegrasyon testleri
 
