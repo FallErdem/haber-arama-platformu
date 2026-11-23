@@ -1,5 +1,6 @@
-# Kovayı, erişim politikalarını ve uygulama kullanıcılarını oluşturur.
+# Kovaları, erişim politikalarını ve kullanıcıları oluşturur.
 # İşçi görsel yazabilir, okuyabilir ve silebilir; API yalnızca okuyabilir (ADR-0017).
+# Yedekleme kullanıcısı yalnızca yedek kovasına erişir (ADR-0018).
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -40,6 +41,11 @@ spec:
                 secretKeyRef:
                   name: minio-news-api
                   key: password
+            - name: BACKUP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-backup
+                  key: password
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -50,6 +56,7 @@ spec:
               done
 
               mc mb --ignore-existing haber/media
+              mc mb --ignore-existing haber/backups
 
               cat > /tmp/news-worker.json <<'EOF'
               {
@@ -70,14 +77,38 @@ spec:
               }
               EOF
 
+              # Yedekler: PostgreSQL dökümleri ve Elasticsearch snapshot'ları. Çok parçalı yükleme izinleri
+              # Elasticsearch'ün büyük dosyaları parça parça yüklemesi içindir.
+              cat > /tmp/backup.json <<'EOF'
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"], "Resource": ["arn:aws:s3:::backups/*"]},
+                  {"Effect": "Allow", "Action": ["s3:ListBucket", "s3:GetBucketLocation", "s3:ListBucketMultipartUploads"], "Resource": ["arn:aws:s3:::backups"]}
+                ]
+              }
+              EOF
+
+              # PostgreSQL dökümleri 7 gün sonra kendiliğinden silinir. Kural yalnızca postgres/ klasörüne uygulanır:
+              # Elasticsearch snapshot'ları birbirinin dosyalarını paylaşır; eskilerini Elasticsearch kendisi siler.
+              # import, kuralların tamamını baştan yazar; iş tekrar çalıştırılınca aynı kural ikinci kez eklenmez.
+              cat > /tmp/backups-lifecycle.json <<'EOF'
+              {"Rules": [{"ID": "postgres-7-days", "Status": "Enabled", "Filter": {"Prefix": "postgres/"}, "Expiration": {"Days": 7}}]}
+              EOF
+
               mc admin policy create haber news-worker /tmp/news-worker.json
               mc admin policy create haber news-api /tmp/news-api.json
+              mc admin policy create haber backup /tmp/backup.json
 
               mc admin user add haber news-worker "$WORKER_PASSWORD"
               mc admin user add haber news-api "$API_PASSWORD"
+              mc admin user add haber backup "$BACKUP_PASSWORD"
 
               # Politika zaten bağlıysa mc hata verir; iş tekrar çalıştırıldığında bu durum beklenen bir durumdur.
               mc admin policy attach haber news-worker --user news-worker || true
               mc admin policy attach haber news-api --user news-api || true
+              mc admin policy attach haber backup --user backup || true
 
-              echo "Kova, politikalar ve kullanıcılar oluşturuldu."
+              mc ilm rule import haber/backups < /tmp/backups-lifecycle.json
+
+              echo "Kovalar, politikalar ve kullanıcılar oluşturuldu."

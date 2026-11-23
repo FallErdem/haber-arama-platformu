@@ -7,7 +7,7 @@ images:
   # Kümede çalışan imajların etiketleri: imajın derlendiği commit'in kısa özeti.
   # scripts/dev/ altındaki deploy-*.sh betikleri her dağıtımda kendi satırını günceller.
   - name: haber-registry.localhost:5000/newssearch-api
-    newTag: "9d67635"
+    newTag: "8ccd9c0"
   - name: haber-registry.localhost:5000/newssearch-frontend
     newTag: "0e9402c"
   - name: haber-registry.localhost:5000/newssearch-worker
@@ -28,6 +28,10 @@ secretGenerator:
     type: kubernetes.io/basic-auth
     envs:
       - secrets/postgres-news-worker.env
+  - name: postgres-news-backup
+    type: kubernetes.io/basic-auth
+    envs:
+      - secrets/postgres-news-backup.env
   - name: postgres-keycloak
     type: kubernetes.io/basic-auth
     envs:
@@ -50,6 +54,9 @@ secretGenerator:
   - name: minio-news-api
     envs:
       - secrets/minio-news-api.env
+  - name: minio-backup
+    envs:
+      - secrets/minio-backup.env
   - name: keycloak-admin
     envs:
       - secrets/keycloak-admin.env

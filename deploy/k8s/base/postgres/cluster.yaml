@@ -40,3 +40,12 @@ spec:
         login: true
         passwordSecret:
           name: postgres-keycloak
+      # Gece yedeği (deploy/k8s/base/postgres/backup-cronjob.yaml). pg_read_all_data, PostgreSQL'in hazır rolüdür:
+      # bütün tabloları okuyabilir, hiçbir şeyi değiştiremez. news veritabanına bağlanma izni V17 betiğindedir.
+      - name: news_backup
+        ensure: present
+        login: true
+        inRoles:
+          - pg_read_all_data
+        passwordSecret:
+          name: postgres-news-backup

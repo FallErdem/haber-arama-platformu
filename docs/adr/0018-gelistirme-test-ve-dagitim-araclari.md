@@ -152,7 +152,7 @@ Arama ve haber detayı ekranları (İ-19, 18 Kasım 2026) kurulurken eklenenler:
 | Bileşen | Kurulum | Gerekçe |
 |---|---|---|
 | Traefik | Helm chart, sürümü sabit | Yalnızca Gateway API desteği açıktır; Traefik'in kendi kaynak türleri, Ingress desteği ve yönetim paneli kapatılmıştır. Yönlendirmeler yalnızca Gateway API ile tanımlandığından Traefik'in yerine başka bir Gateway API uygulaması geçirilebilir |
-| PostgreSQL | CloudNativePG operatörü | Asıl kayıt PostgreSQL'dedir; operatör yedekleme ve geri dönüşü hazır sunar. Veritabanı kullanıcıları ve Keycloak veritabanı operatörün kaynaklarıyla tanımlanır. Yedekleme aracını kendi içinde taşıyan "system" imajları kullanımdan kalkmakta olduğundan "standard" imaj kullanılır |
+| PostgreSQL | CloudNativePG operatörü | Asıl kayıt PostgreSQL'dedir; operatör yedekleme ve geri dönüşü hazır sunar. Veritabanı kullanıcıları ve Keycloak veritabanı operatörün kaynaklarıyla tanımlanır. Yedekleme aracını kendi içinde taşıyan "system" imajları kullanımdan kalkmakta olduğundan "standard" imaj kullanılır. Yedekleme sonradan operatörün eklentisiyle değil `pg_dump` ile kurulmuştur (14. bölüm) |
 | Elasticsearch, MinIO, Keycloak, Mailpit | Kendi yazılan Kubernetes tanımları, resmi veya bakımı süren imajlarla | Her satır projede yazıldığından anlatılabilir; operatörlerin getirdiği ek kaynak türleri ve pod'lar bu bileşenler için sağladıkları faydadan büyüktür |
 
 - **Bitnami kullanılmaz:** Yaygın kurulum örnekleri Bitnami'nin Helm chart'larını kullanır; ancak Bitnami Ağustos 2025'ten itibaren ücretsiz katmanda sürüm numaralı imajları genel katalogdan kaldırmıştır, bu yüzden sürüm sabitlenemez.
@@ -273,6 +273,25 @@ Alternatifler:
 
 - **kube-prometheus-stack:** Aynı araçlara ek olarak Prometheus Operator, Grafana, node-exporter, kube-state-metrics ve çok sayıda hazır kural getirir; bu ölçekte ağır ve anlatılması zordur.
 - **VictoriaMetrics:** Daha az bellek kullanır ve Prometheus'un sorgu dilini destekler; ancak ayrı bir üründür ve kaynakları daha azdır.
+
+### 14. Yedekleme ve geri dönüş (İ-34)
+
+PostgreSQL ve Elasticsearch her gece MinIO'daki `backups` kovasına yedeklenir (FOG-10). Elasticsearch, haber metinlerinin tek kaydıdır (ADR-0019); PostgreSQL'den yeniden üretilemez.
+
+| Ne | Nasıl | Ne zaman (Türkiye saati) | Saklama |
+|---|---|---|---|
+| PostgreSQL (`news` ve `keycloak`) | `postgres-backup` CronJob'u: `pg_dump` ile döküm (sıkıştırılmış özel biçim), `mc` ile `backups/postgres/<tarih>/` klasörüne yükleme | 03:00 | 7 gün; MinIO'nun kova kuralı siler |
+| Elasticsearch (haber indeksleri) | Elasticsearch'ün zamanlanmış snapshot'ı (SLM, `nightly` politikası); S3 deposu olarak MinIO (`backups/elasticsearch/`) | 03:30 (politika UTC'ye göre 00:30) | 7 gün, en az 3 ve en fazla 14 snapshot; Elasticsearch kendisi siler |
+
+- **Önce PostgreSQL, sonra Elasticsearch:** Tam geri dönüşte Elasticsearch'te PostgreSQL'de karşılığı olmayan belgeler kalabilir; yeniden indeksleme PostgreSQL'deki haberlerden yola çıktığı için bunları temizler.
+- **Kova kuralı yalnızca `postgres/` klasörüne uygulanır:** Elasticsearch snapshot'ları artımlıdır ve birbirinin dosyalarını paylaşır; dosyaları kova kuralı silerse depo bozulur.
+- **En az yetki:**
+  - PostgreSQL'de `news_backup` kullanıcısı PostgreSQL'in hazır `pg_read_all_data` rolüyle bütün tabloları okur, hiçbir şeyi değiştiremez. Kullanıcıyı CloudNativePG oluşturur; `news` veritabanına bağlanma izni V17 betiğindedir.
+  - MinIO'da `backup` kullanıcısı yalnızca `backups` kovasına erişir.
+- **Elasticsearch'ün MinIO anahtarları keystore'dadır:** Bu anahtarlar ortam değişkeniyle verilemez. Bir init container, imajın ayar klasörünü boş bir klasöre kopyalar ve anahtarları oraya yazar; Elasticsearch o klasörle açılır. MinIO'nun adresi ve ayarları ortam değişkenidir (`s3.client.minio.*`). Depo ve politika kurulum Job'unda tanımlanır.
+- **Doğrulama:**
+  - MinIO'nun Elasticsearch'le uyumu Elasticsearch'ün kendi aracıyla denendi (`_analyze`): sorun bulunmadı.
+  - Geri dönüş denemesinin sonucu `docs/test-raporlari/2026-11-23-yedekten-geri-donus.md` dosyasındadır (FOG-11).
 
 ## Sonuçlar
 

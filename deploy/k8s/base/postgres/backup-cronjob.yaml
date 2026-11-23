@@ -1,0 +1,108 @@
+# PostgreSQL'in gece yedeği (FOG-10): news ve keycloak veritabanlarının dökümü alınır ve MinIO'daki
+# backups kovasına yüklenir. Dökümler 7 gün saklanır (MinIO'nun kuralı: deploy/k8s/base/minio/setup-job.yaml).
+#
+# Elle başlatmak için:
+#   kubectl create job -n haber --from=cronjob/postgres-backup postgres-backup-elle
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+spec:
+  # Türkiye saatiyle 03:00. Elasticsearch'ün snapshot'ı 03:30'da alınır: önce PostgreSQL, sonra Elasticsearch.
+  schedule: "0 3 * * *"
+  timeZone: Europe/Istanbul
+  # Önceki yedek bitmeden yenisi başlamaz.
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      # Yarım saatte bitmeyen yedek durdurulur ve başarısız sayılır.
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+          volumes:
+            # Dökümün iki adım arasında beklediği geçici klasör; pod bitince silinir.
+            - name: dumps
+              emptyDir: {}
+          initContainers:
+            # 1. Döküm: PostgreSQL'in kendi aracıyla, sunucuyla aynı imajdan ve aynı sürümle.
+            - name: dump
+              image: ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie
+              securityContext:
+                # İmajdaki postgres kullanıcısı.
+                runAsUser: 26
+              env:
+                - name: PGHOST
+                  value: postgres-rw
+                # Yalnızca okuyabilen yedekleme kullanıcısı (05-veri-modeli.md, 7.1).
+                - name: PGUSER
+                  value: news_backup
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-news-backup
+                      key: password
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  # -Fc: sıkıştırılmış özel biçim; pg_restore ile tamamı veya tek bir tablosu geri yüklenebilir.
+                  pg_dump -Fc -d news -f /dumps/news.dump
+                  pg_dump -Fc -d keycloak -f /dumps/keycloak.dump
+                  ls -l /dumps
+              volumeMounts:
+                - name: dumps
+                  mountPath: /dumps
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+          containers:
+            # 2. Yükleme: MinIO istemcisiyle (mc), tarihli bir klasöre.
+            - name: upload
+              # Standart imaj: içinde mc istemcisi ve kabuk bulunur (MinIO'nun kurulum işiyle aynı imaj).
+              image: docker.io/pgsty/silo:RELEASE.2026-10-26T00-00-00Z
+              securityContext:
+                runAsUser: 1000
+              env:
+                - name: MC_CONFIG_DIR
+                  value: /tmp/.mc
+                # Yalnızca yedek kovasına erişebilen kullanıcı.
+                - name: BACKUP_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-backup
+                      key: username
+                - name: BACKUP_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-backup
+                      key: password
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  mc alias set haber http://minio:9000 "$BACKUP_USER" "$BACKUP_PASSWORD" > /dev/null
+                  TARGET="haber/backups/postgres/$(date -u +%Y-%m-%dT%H%M%SZ)"
+                  mc cp /dumps/news.dump /dumps/keycloak.dump "$TARGET/"
+                  echo "Yedek yüklendi: $TARGET"
+              volumeMounts:
+                - name: dumps
+                  mountPath: /dumps
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi

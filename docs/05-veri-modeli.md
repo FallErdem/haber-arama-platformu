@@ -468,6 +468,7 @@ Sorguyu API kurar (`search` modülü, `ArticleSearchQuery`); API indeksi yalnız
 | `news_app` | Uygulama veritabanı | Spring Boot API. Tablolarda okuma, ekleme, güncelleme ve silme; `audit_events` tablosunda yalnızca okuma ve ekleme. |
 | `news_worker` | Uygulama veritabanı | Python işçisi. Yalnızca ihtiyaç duyduğu tablolarda ve işlemlerde yetki; `audit_events` tablosunda yalnızca ekleme. Kullanıcı tablolarına (`users`, `saved_articles`, `saved_searches`) erişimi yoktur. |
 | `keycloak` | Ayrı `keycloak` veritabanı | Yalnızca kendi veritabanına erişir. |
+| `news_backup` | Uygulama ve `keycloak` veritabanları | Gece yedeği (7.3). PostgreSQL'in hazır `pg_read_all_data` rolüyle bütün tabloları okur; hiçbir şeyi değiştiremez. |
 
 İşçinin tablo bazındaki yetkileri:
 
@@ -480,7 +481,7 @@ Sorguyu API kurar (`search` modülü, `ArticleSearchQuery`); API indeksi yalnız
 | `feed_tests` | Okuma, güncelleme, silme |
 | `audit_events` | Ekleme |
 
-- Uygulama veritabanına yalnızca `news_owner`, `news_app` ve `news_worker` bağlanabilir.
+- Uygulama veritabanına yalnızca `news_owner`, `news_app`, `news_worker` ve `news_backup` bağlanabilir (`news_backup` için V17).
 - Yeni bir tablo ekleyen her geçiş betiği, o tablonun yetkilerini de verir.
 - Veritabanı şemasının sahibi tektir; geçiş betikleri tek bir yerde tutulur ve Python işçisi şemayı değiştirmez (ADR-0017).
 - Uygulamalar ve Keycloak aynı PostgreSQL sunucusunu kullanır, ancak birbirlerinin yetki alanlarının dışındaki verilere erişemez.
@@ -492,9 +493,11 @@ Sorguyu API kurar (`search` modülü, `ArticleSearchQuery`); API indeksi yalnız
 | Elasticsearch | Yalnızca okuma | Okuma ve yazma; indeks şablonlarının ve yaşam döngüsü politikasının oluşturulması |
 | MinIO | Yalnızca okuma | Okuma, yazma ve silme |
 
+Yedekler MinIO'da ayrı bir `backups` kovasındadır; bu kovaya yalnızca yedekleme kullanıcısı (`backup`) erişir, uygulamaların erişimi yoktur.
+
 ### 7.3 Yedekleme kapsamı
 
-PostgreSQL (uygulama ve Keycloak veritabanları) ve MinIO yedeklenir. Elasticsearch, PostgreSQL'den her zaman yeniden oluşturulabildiğinden yedeklenmez. Yedekleme yöntemi ayrıca belirlenecektir.
+PostgreSQL (uygulama ve Keycloak veritabanları) ve Elasticsearch her gece yedeklenir. Elasticsearch, haber metinlerinin tek kaydı olduğundan (ADR-0019) PostgreSQL'den yeniden oluşturulamaz; bu yüzden o da yedeklenir. MinIO'daki görseller yedeklenmez. Yöntem, saklama süreleri ve geri dönüş ADR-0018'in 14. bölümündedir.
 
 ## 8. Bilinen Sınırlamalar ve Açık Konular
 
