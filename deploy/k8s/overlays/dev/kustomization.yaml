@@ -7,7 +7,7 @@ images:
   # Kümede çalışan imajların etiketleri: imajın derlendiği commit'in kısa özeti.
   # scripts/dev/ altındaki deploy-*.sh betikleri her dağıtımda kendi satırını günceller.
   - name: haber-registry.localhost:5000/newssearch-api
-    newTag: "9d67635"
+    newTag: "8ccd9c0"
   - name: haber-registry.localhost:5000/newssearch-frontend
     newTag: "0e9402c"
   - name: haber-registry.localhost:5000/newssearch-worker
