@@ -23,6 +23,7 @@ from news_worker.feed_fetcher import FailureKind, FeedFetcher, FeedNotModified, 
 from news_worker.feed_reader import FeedParseError, FeedReader
 from news_worker.feeds import DueFeed, FeedRepository
 from news_worker.ingestion_runs import IngestionRunRepository, RunResult, RunStatus, RunTrigger
+from news_worker.metrics import FetchResult, WorkerMetrics
 from news_worker.parsed_article import ParsedArticle
 from news_worker.rate_limiter import SourceRateLimiter
 
@@ -52,12 +53,16 @@ class IngestionService:
         fetcher: FeedFetcher,
         reader: FeedReader,
         rate_limiter: SourceRateLimiter,
+        metrics: WorkerMetrics,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._database = database
         self._fetcher = fetcher
         self._reader = reader
         self._rate_limiter = rate_limiter
+        # Okuma sonuçları sayılır. Sayaç, sonuç veritabanına yazıldıktan sonra artar; yazma hata verirse
+        # okuma "başarısız" sayılır ve iki kez sayılmaz.
+        self._metrics = metrics
         # Testlerde sabit bir zaman verilebilir.
         self._clock = clock
         self._feeds = FeedRepository()
@@ -97,6 +102,7 @@ class IngestionService:
                     run_id,
                     RunResult(RunStatus.NOT_MODIFIED, http_status=fetched.http_status, final_url=fetched.final_url),
                 )
+            self._metrics.record_fetch(feed.source_code, FetchResult.NOT_MODIFIED)
             log.info("Besleme değişmemiş: %s", feed.url)
             return
 
@@ -122,6 +128,7 @@ class IngestionService:
                             error_message=fetched.message,
                         ),
                     )
+                self._metrics.record_fetch(feed.source_code, FetchResult.POSTPONED)
                 log.warning("Besleme ertelendi: %s (%s)", feed.url, fetched.message)
                 return
             # Erişim engeli (403) dahil diğer hatalar: aşılmaya çalışılmaz, başarısız okuma sayılır (FG-VT-06).
@@ -153,6 +160,7 @@ class IngestionService:
                     items_failed=items_failed,
                 ),
             )
+        self._metrics.record_fetch(feed.source_code, FetchResult.SUCCEEDED)
         log.info(
             "Besleme toplandı: %s (yeni: %d, tekrar: %d, atlanan: %d)",
             feed.url,
@@ -240,6 +248,7 @@ class IngestionService:
                 RunResult(RunStatus.FAILED, http_status=http_status, final_url=final_url, error_message=message),
             )
 
+        self._metrics.record_fetch(feed.source_code, FetchResult.FAILED)
         if disable:
             log.error("Besleme art arda %d kez okunamadı ve devre dışı bırakıldı: %s", consecutive_failures, feed.url)
         else:

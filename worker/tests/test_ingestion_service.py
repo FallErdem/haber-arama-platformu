@@ -14,6 +14,7 @@ import httpx
 import psycopg
 import pytest
 import respx
+from conftest import metric_value
 
 from news_worker.database import Database
 from news_worker.feed_fetcher import FeedFetcher, create_http_client
@@ -24,6 +25,7 @@ from news_worker.ingestion_service import (
     MAX_CONSECUTIVE_FAILURES,
     IngestionService,
 )
+from news_worker.metrics import FetchResult, WorkerMetrics
 from news_worker.parsed_article import ItemType, ParsedArticle
 from news_worker.rate_limiter import SourceRateLimiter
 
@@ -41,13 +43,27 @@ async def fetcher() -> AsyncIterator[FeedFetcher]:
         yield FeedFetcher(client, total_timeout_seconds=5)
 
 
-def build_service(database: Database, fetcher: FeedFetcher, reader: FeedReader) -> IngestionService:
-    return IngestionService(database, fetcher, reader, SourceRateLimiter(sleep=no_sleep), clock=lambda: NOW)
+@pytest.fixture
+def metrics() -> WorkerMetrics:
+    return WorkerMetrics()
+
+
+def build_service(
+    database: Database, fetcher: FeedFetcher, reader: FeedReader, metrics: WorkerMetrics | None = None
+) -> IngestionService:
+    return IngestionService(
+        database,
+        fetcher,
+        reader,
+        SourceRateLimiter(sleep=no_sleep),
+        metrics or WorkerMetrics(),
+        clock=lambda: NOW,
+    )
 
 
 @pytest.fixture
-def service(database: Database, fetcher: FeedFetcher) -> IngestionService:
-    return build_service(database, fetcher, FeedReader())
+def service(database: Database, fetcher: FeedFetcher, metrics: WorkerMetrics) -> IngestionService:
+    return build_service(database, fetcher, FeedReader(), metrics)
 
 
 async def due_feed(database: Database, source_code: str, name: str) -> DueFeed:
@@ -423,6 +439,38 @@ async def test_rate_limited_feed_is_postponed_without_counting_a_failure(
     assert (run["status"], run["http_status"]) == ("FAILED", 429)
 
 
+@pytest.mark.parametrize(
+    ("status_code", "body_fixture", "expected_result"),
+    [
+        (200, "trt-gundem.xml", FetchResult.SUCCEEDED),
+        (304, None, FetchResult.NOT_MODIFIED),
+        (500, None, FetchResult.FAILED),
+        (429, None, FetchResult.POSTPONED),
+    ],
+    ids=["succeeded", "not-modified", "failed", "postponed"],
+)
+async def test_each_read_result_is_counted_in_metrics(
+    service: IngestionService,
+    metrics: WorkerMetrics,
+    database: Database,
+    admin: psycopg.Connection,
+    respx_mock: respx.MockRouter,
+    status_code: int,
+    body_fixture: str | None,
+    expected_result: FetchResult,
+) -> None:
+    """Okumanın sonucu ölçümde kaynağıyla birlikte bir kez sayılır; diğer sonuçlar sayılmaz (FOG-40)."""
+    feed = await due_feed(database, "TRT", "gundem")
+    content = fixture_body(body_fixture) if body_fixture else b""
+    respx_mock.get(feed.url).respond(status_code, content=content)
+
+    await service.ingest(feed)
+
+    for result in FetchResult:
+        expected = 1 if result is expected_result else None
+        assert metric_value(metrics, "news_worker_feed_fetches_total", source="TRT", result=result.value) == expected
+
+
 async def test_unrecognized_content_is_a_failure(
     service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
 ) -> None:
@@ -563,7 +611,9 @@ async def test_request_waits_for_the_source_rate_limit(
     # Saat hiç ilerlemez: ikinci istek, aralığın tamamı kadar beklemek zorundadır.
     limiter = SourceRateLimiter(clock=lambda: 0.0, sleep=record_sleep)
     async with create_http_client("HaberAramaPlatformuTest/0.1", timeout_seconds=5) as client:
-        service = IngestionService(database, FeedFetcher(client, total_timeout_seconds=5), FeedReader(), limiter)
+        service = IngestionService(
+            database, FeedFetcher(client, total_timeout_seconds=5), FeedReader(), limiter, WorkerMetrics()
+        )
 
         await service.ingest(first)
         await service.ingest(second)

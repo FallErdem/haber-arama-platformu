@@ -18,6 +18,11 @@ spec:
     metadata:
       labels:
         app: worker
+      # Prometheus bu etiketli pod'ların ölçümlerini okur (deploy/k8s/platform/prometheus).
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
     spec:
       # Pod durdurulurken işçi elindeki beslemeyi bitirir; bu en kötü durumda 40 saniye sürebilir
       # (10 sn istek aralığı + 30 sn indirme). Varsayılan 30 saniye yerine 60 saniye tanınır.

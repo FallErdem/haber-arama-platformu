@@ -18,6 +18,7 @@ from news_worker.logging_config import configure_logging
 from news_worker.maintenance import Maintenance, MaintenanceRepository, RetentionPeriods
 from news_worker.media import MediaRepository
 from news_worker.media_downloader import MediaDownloader
+from news_worker.metrics import FeedFailureMetricsUpdater, WorkerMetrics
 from news_worker.object_storage import ObjectStorage, create_storage_client
 from news_worker.outbox import OutboxRepository
 from news_worker.outbox_relay import OutboxRelay
@@ -32,10 +33,13 @@ log = logging.getLogger(__name__)
 async def run(settings: Settings, stop: asyncio.Event) -> None:
     """Sağlık adresini açar, tabloları bekler ve durdurma istenene kadar işleri çalıştırır.
 
-    Beş iş yan yana çalışır: zamanlayıcı (haber toplama), outbox aktarımı (Elasticsearch), görsel
-    indirme (MinIO), kaynak içeriğinin silinmesi ve bakım (yaşam döngüsü durumu, eski kayıtların temizliği).
+    Altı iş yan yana çalışır: zamanlayıcı (haber toplama), outbox aktarımı (Elasticsearch), görsel
+    indirme (MinIO), kaynak içeriğinin silinmesi, bakım (yaşam döngüsü durumu, eski kayıtların temizliği)
+    ve besleme hata sayılarının ölçüme yazılması (Prometheus).
     """
     database = Database(settings)
+    # Ölçümler tek yerde toplanır: toplama servisi sayaçları artırır, sağlık sunucusu /metrics'te yayımlar.
+    metrics = WorkerMetrics()
     # Bütün indirmeler tek bir HTTP istemcisini paylaşır; blok bitince istemci ve açık bağlantıları kapanır.
     # Elasticsearch istemcisi de aynı şekilde blok bitince kapanır.
     async with (
@@ -52,6 +56,7 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             FeedFetcher(http_client, settings.http_total_timeout_seconds),
             FeedReader(),
             rate_limiter,
+            metrics,
         )
         scheduler = Scheduler(database, FeedRepository(), ingestion_service.ingest, settings.scheduler_interval_seconds)
         outbox_relay = OutboxRelay(
@@ -100,9 +105,12 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             ),
             settings.maintenance_interval_seconds,
         )
+        feed_failure_metrics = FeedFailureMetricsUpdater(
+            database, FeedRepository(), metrics, settings.metrics_interval_seconds
+        )
         # Hazır olma yalnızca zamanlayıcıya bakar: Elasticsearch veya MinIO kapalıyken de haber toplama
         # sürer; notlar ve görseller PostgreSQL'de bekler (FOG-09). İşçi bu yüzden sağlıksız sayılmaz.
-        health_server = HealthServer(settings.health_port, is_ready=scheduler.is_healthy)
+        health_server = HealthServer(settings.health_port, is_ready=scheduler.is_healthy, metrics=metrics)
 
         # Sağlık adresi beklemeden önce açılır: tablolar beklenirken işçi "ayakta ama
         # hazır değil" görünür ve Kubernetes onu yeniden başlatmaz.
@@ -119,6 +127,7 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
                     media_downloader.run(stop),
                     source_purger.run(stop),
                     maintenance.run(stop),
+                    feed_failure_metrics.run(stop),
                 )
         finally:
             await health_server.stop()

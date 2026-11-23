@@ -55,6 +55,7 @@ Veritabanı geçiş betikleri tek bir yerde tutulur. Python işçisi şemayı hi
 | elasticsearch | Elasticsearch istemcisi | Sunucu sürümleriyle uyumlu yayımlanır; toplu indeksleme yardımcıları outbox aktarımında kullanılır. |
 | boto3 | S3 uyumlu depolama istemcisi | MinIO dahil her S3 uyumlu depolamayla çalışır; ileride başka bir depolamaya geçilirse kod değişmez (R-35). |
 | Pillow | Görsel işleme | Dosyayı gerçekten bir görsel olarak açmayı deneyerek doğrular; genişlik ve yükseklik bilgisini de verir. Yalnızca ilk baytlara bakan kütüphaneler boyut bilgisi vermez. |
+| prometheus-client | Ölçümlerin Prometheus'un okuduğu biçimde yayımlanması (İ-33) | Prometheus'un resmi Python kütüphanesidir ve başka pakete bağımlı değildir. Biçimi (tip satırları, kaçış kuralları) elle yazmak hataya açıktır. |
 | ruff | Kod stili denetimi ve biçimlendirme | İki işi tek araçla yapar (FOG-28). |
 | mypy | Tür kontrolü | Tür ipuçlarını CI'da zorunlu kılar; pyright benzer yetenekte, ancak Node.js gerektirir. |
 | pytest | Test çerçevesi | Test verisi hazırlama (fixture), aynı testi farklı girdilerle çalıştırma, asyncio testleri ve kapsam ölçümü (FOG-23). |
@@ -335,10 +336,23 @@ Bütün görseller tek bir biçimde saklanır: **WebP, kalite 80, en uzun kenar 
 - 17 Kasım 2026'da kuyrukta yaklaşık 2.185 görsel vardı (TRT 1.151, CNN Türk 630, NTV 385, Global Voices 19); haber başına ortalama bir görsel. TRT'nin istek aralığı 5 saniye olduğundan TRT'nin birikimi yaklaşık 1,6 saatte iner; sonrasında yeni görseller birkaç dakika içinde indirilir.
 - `caption` ve `credit` sütunları boş kalır: mevcut beslemeler fotoğrafçı veya altyazı bilgisi vermiyor. NYT görsellerinin tek boyutunun seçilmesi NYT okuyucusuyla (İ-13) birlikte yapılacaktır.
 
+### 13. Ölçümler (İ-33)
+
+Prometheus, işçinin ölçümlerini sağlık sunucusunun `/metrics` adresinden 30 saniyede bir okur (FOG-40). Ayrı bir sunucu açılmaz; sağlık adresinin portu (8080) kullanılır.
+
+| Ölçüm | Ne gösterir | Nasıl üretilir |
+|---|---|---|
+| `news_worker_feed_fetches_total{source, result}` | Okuma sonuçları: `succeeded`, `not_modified`, `failed`, `postponed` (429) | Her okuma bitince, sonuç veritabanına yazıldıktan sonra ilgili sayaç bir artar |
+| `news_worker_feed_consecutive_failures{source, feed}` | Beslemenin art arda hata sayısı | 30 saniyede bir `feeds.consecutive_failures` sütunundan okunur |
+
+- **Hata sayısı veritabanından okunur.** Gerçek sayı oradadır; işçi yeniden başlasa da kaybolmaz. Kendiliğinden kapanan besleme artık okunmaz ama sayısı 5'te kalır; bu yüzden "art arda başarısız kaynak" uyarısı (FOG-41), yönetici beslemeyi yeniden açıp sayı sıfırlanana kadar sürer. Elle kapatılan beslemeler ve kapalı kaynakların beslemeleri ölçüme girmez.
+- **Sayaçlar işçi yeniden başlayınca sıfırdan başlar.** Prometheus'un artış hesapları (`increase`, `rate`) sıfırlanmayı tanır; sonuç bozulmaz.
+- İşçinin CPU ve bellek kullanımını Kubernetes ölçer; işçi ayrıca yayımlamaz.
+
 ## Sonuçlar
 
 - Spring Boot API'nin zamanlanmış işi olmadığından, kopya sayısı kısıtsız artırılabilir.
 - Projeye ikinci bir dil ve araç zinciri eklenir; testler, kod stili denetimi, bağımlılık taraması ve konteyner imajı Python için ayrıca kurulur.
 - İki uygulamanın aynı veri yapılarını farklı yorumlaması riski oluşur (R-36).
 - Python'un yerleşik küçük harfe çevirme fonksiyonu Türkçe kurallarını bilmediğinden, Türkçe metinler için ayrı bir fonksiyon yazılır.
-- Python işçisi, Kubernetes'in sağlık kontrolleri için küçük bir HTTP uç noktası sunar (FOG-13).
+- Python işçisi, Kubernetes'in sağlık kontrolleri (FOG-13) ve Prometheus'un ölçümleri (FOG-40) için küçük bir HTTP uç noktası sunar.

@@ -1,6 +1,6 @@
-"""Kubernetes'in sağlık kontrolleri için küçük bir HTTP sunucusu (FOG-13).
+"""Kubernetes'in sağlık kontrolleri (FOG-13) ve Prometheus'un ölçümleri (FOG-40) için küçük bir HTTP sunucusu.
 
-Yalnızca iki adres sunar; bunun için bir web çatısı eklemek yerine Python'un
+Yalnızca üç adres sunar; bunun için bir web çatısı eklemek yerine Python'un
 kendi asyncio araçları kullanılır.
 """
 
@@ -9,20 +9,25 @@ import contextlib
 import logging
 from collections.abc import Callable
 
+from news_worker.metrics import WorkerMetrics
+
 log = logging.getLogger(__name__)
 
 LIVE_PATH = "/healthz/live"
 READY_PATH = "/healthz/ready"
+METRICS_PATH = "/metrics"
 
+_TEXT_CONTENT_TYPE = "text/plain; charset=utf-8"
 _REQUEST_TIMEOUT_SECONDS = 5.0
 _MAX_HEADER_LINES = 100
 
 
 class HealthServer:
-    def __init__(self, port: int, is_ready: Callable[[], bool], host: str = "0.0.0.0") -> None:
+    def __init__(self, port: int, is_ready: Callable[[], bool], metrics: WorkerMetrics, host: str = "0.0.0.0") -> None:
         self._host = host
         self._port = port
         self._is_ready = is_ready
+        self._metrics = metrics
         self._server: asyncio.Server | None = None
 
     async def start(self) -> None:
@@ -43,15 +48,19 @@ class HealthServer:
             await self._server.wait_closed()
             self._server = None
 
-    def _respond(self, path: str) -> tuple[str, bytes]:
+    def _respond(self, path: str) -> tuple[str, str, bytes]:
+        """Durum satırı, içerik türü ve gövde."""
         if path == LIVE_PATH:
             # Süreç yanıt verebiliyorsa ayaktadır.
-            return "200 OK", b"ok"
+            return "200 OK", _TEXT_CONTENT_TYPE, b"ok"
         if path == READY_PATH:
             if self._is_ready():
-                return "200 OK", b"ready"
-            return "503 Service Unavailable", b"not ready"
-        return "404 Not Found", b"not found"
+                return "200 OK", _TEXT_CONTENT_TYPE, b"ready"
+            return "503 Service Unavailable", _TEXT_CONTENT_TYPE, b"not ready"
+        if path == METRICS_PATH:
+            # Prometheus 3, içerik türünü tanımadığı yanıtı okumaz; bu yüzden kütüphanenin türü gönderilir.
+            return "200 OK", WorkerMetrics.CONTENT_TYPE, self._metrics.render()
+        return "404 Not Found", _TEXT_CONTENT_TYPE, b"not found"
 
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         try:
@@ -67,10 +76,10 @@ class HealthServer:
 
                     parts = request_line.decode("latin-1").split()
                     path = parts[1] if len(parts) >= 2 else ""
-                    status, body = self._respond(path)
+                    status, content_type, body = self._respond(path)
                     head = (
                         f"HTTP/1.1 {status}\r\n"
-                        "Content-Type: text/plain; charset=utf-8\r\n"
+                        f"Content-Type: {content_type}\r\n"
                         f"Content-Length: {len(body)}\r\n"
                         "Connection: close\r\n"
                         "\r\n"

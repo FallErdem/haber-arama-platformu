@@ -52,6 +52,9 @@ class Settings:
     outbox_retention_days: int = 7
     ingestion_run_retention_days: int = 180
     feed_test_retention_days: int = 1
+    # Beslemelerin art arda hata sayılarının veritabanından okunup ölçüme yazılma aralığı (metrics.py).
+    # Prometheus da 30 saniyede bir okur.
+    metrics_interval_seconds: float = 30.0
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str] | None = None) -> Settings:
@@ -105,6 +108,7 @@ class Settings:
                 env, "INGESTION_RUN_RETENTION_DAYS", cls.ingestion_run_retention_days
             ),
             feed_test_retention_days=_positive_int(env, "FEED_TEST_RETENTION_DAYS", cls.feed_test_retention_days),
+            metrics_interval_seconds=_positive_float(env, "METRICS_INTERVAL_SECONDS", cls.metrics_interval_seconds),
         )
 
 

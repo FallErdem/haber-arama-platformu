@@ -20,11 +20,13 @@ import psycopg
 import pytest
 from elasticsearch import AsyncElasticsearch
 from PIL import Image
+from prometheus_client.parser import text_string_to_metric_families
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.core.container import DockerContainer
 
 from news_worker.config import Settings
 from news_worker.database import Database
+from news_worker.metrics import WorkerMetrics
 from news_worker.object_storage import ObjectStorage, create_storage_client
 from news_worker.search_index import INDEX_PATTERN, create_search_client
 
@@ -90,6 +92,18 @@ def count_enabled_feeds(admin: psycopg.Connection) -> int:
     assert row is not None
     count: int = row[0]
     return count
+
+
+def metric_value(metrics: WorkerMetrics, name: str, **labels: str) -> float | None:
+    """Bir ölçümün, Prometheus'un okuduğu çıktıdaki değeri; çıktıda yoksa None.
+
+    Çıktı, Prometheus kütüphanesinin kendi ayrıştırıcısıyla okunur; test Prometheus'un gördüğünü denetler.
+    """
+    for family in text_string_to_metric_families(metrics.render().decode()):
+        for sample in family.samples:
+            if sample.name == name and sample.labels == labels:
+                return sample.value
+    return None
 
 
 def _migration_version(path: Path) -> int:

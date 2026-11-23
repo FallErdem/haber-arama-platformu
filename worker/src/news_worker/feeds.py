@@ -44,6 +44,15 @@ class FailureState:
     enabled: bool
 
 
+@dataclass(frozen=True)
+class FeedFailureCount:
+    """Bir beslemenin art arda hata sayısı; ölçüm olarak yayımlanır (bkz. metrics.py)."""
+
+    source_code: str
+    url: str
+    consecutive_failures: int
+
+
 # Elle toplama da bu sorguyla çalışır: API beslemenin next_fetch_at değerini şimdiye çeker ve
 # manual_fetch_requested_at'i doldurur, işçi bir sonraki turda onu burada bulur (ADR-0013).
 _FIND_DUE_QUERY = """
@@ -138,6 +147,18 @@ _LOCK_FAILURE_STATE_QUERY = """
     FOR UPDATE
 """
 
+# "Art arda başarısız kaynak" uyarısının baktığı beslemeler: açık kaynakların açık beslemeleri ve art arda
+# hatalar yüzünden kendiliğinden kapanmış beslemeleri. Kendiliğinden kapanan besleme artık okunmaz, ama
+# yönetici yeniden açana kadar uyarı sürer. Yöneticinin elle kapattığı besleme uyarı üretmez.
+_FIND_FAILURE_COUNTS_QUERY = """
+    SELECT s.code AS source_code, f.url, f.consecutive_failures
+    FROM feeds f
+    JOIN sources s ON s.id = f.source_id
+    WHERE s.enabled
+      AND (f.enabled OR f.disabled_reason = 'AUTO')
+    ORDER BY s.code, f.url
+"""
+
 # Otomatik devre dışı bırakma yalnızca istenirse yapılır; elle kapatılmış bir beslemenin
 # durumu ve nedeni değiştirilmez.
 _RECORD_FAILURE_QUERY = """
@@ -214,6 +235,12 @@ class FeedRepository:
                 "manual_requested_at": manual_requested_at,
             },
         )
+
+    async def find_failure_counts(self, connection: psycopg.AsyncConnection[TupleRow]) -> list[FeedFailureCount]:
+        """Uyarının baktığı beslemelerin art arda hata sayıları (bkz. _FIND_FAILURE_COUNTS_QUERY)."""
+        async with connection.cursor(row_factory=class_row(FeedFailureCount)) as cursor:
+            await cursor.execute(_FIND_FAILURE_COUNTS_QUERY)
+            return await cursor.fetchall()
 
     async def lock_failure_state(self, connection: psycopg.AsyncConnection[TupleRow], feed_id: UUID) -> FailureState:
         """Beslemenin hata sayacını ve etkin olup olmadığını, satırı kilitleyerek okur. İşlem içinde çağrılır."""
