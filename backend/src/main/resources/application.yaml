@@ -45,18 +45,23 @@ logging:
     format:
       console: ecs
 
-# Kubernetes'in "ayakta mı, istek almaya hazır mı" kontrolleri için sağlık adresleri
-# (/actuator/health/liveness ve /actuator/health/readiness). Başka hiçbir yönetim
-# adresi açılmaz; bu adresler /api altında olmadığı için dışarıdan da erişilemez.
+# Yalnızca iki yönetim adresi açılır; ikisi de /api altında olmadığı için dışarıdan erişilemez:
+# - Kubernetes'in "ayakta mı, istek almaya hazır mı" kontrolleri: /actuator/health/liveness ve /readiness
+# - Prometheus'un okuduğu ölçümler (FOG-40): /actuator/prometheus
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health, prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    distribution:
+      # İstek sürelerinin dağılımı da yayımlanır; Prometheus p95'i (isteklerin %95'inin bittiği süre) bundan hesaplar.
+      percentiles-histogram:
+        http.server.requests: true
 
 newssearch:
   media:

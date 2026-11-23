@@ -99,9 +99,9 @@ Hatalar RFC 9457 Problem Details biçiminde (`application/problem+json`) döner.
 
 Her yanıt `X-Request-Id` başlığını içerir. Bu değer uygulama loglarında ve audit kayıtlarında da bulunur; bir hatanın loglardaki izini sürmeyi sağlar (FOG-39).
 
-### 2.8 Sağlık uç noktaları
+### 2.8 Sağlık ve ölçüm uç noktaları
 
-Kubernetes'in kullandığı liveness, readiness ve startup uç noktaları (FOG-13) `/api/v1` altında değildir ve dışarıya açılmaz.
+Kubernetes'in kullandığı liveness, readiness ve startup uç noktaları (FOG-13) ve Prometheus'un okuduğu ölçüm adresi (`/actuator/prometheus`, FOG-40) `/api/v1` altında değildir ve dışarıya açılmaz. İkisi de token istemez; yalnızca küme içinden erişilir.
 
 ## 3. Kullanıcı Bilgisi
 

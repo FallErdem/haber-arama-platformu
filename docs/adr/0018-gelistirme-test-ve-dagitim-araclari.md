@@ -214,7 +214,7 @@ Alternatifler:
 - Derleme bağlamı deponun köküdür, çünkü geçiş betikleri `backend/` dışındadır (3. bölüm). Kökteki `.dockerignore` varsayılan olarak hiçbir dosyayı Docker'a göndermez; yalnızca `backend/` altındaki derleme dosyaları ve `db/migrations/` açılır. Böylece gizli bilgi dosyaları derleme bağlamına girmez.
 - Testler imaj derlenirken çalıştırılmaz (Testcontainers Docker gerektirir); `./mvnw verify` ile ve CI'da çalışır.
 - İmajın etiketi, derlendiği commit'in kısa özetidir. Etiket geliştirme overlay'inde tutulur ve `scripts/dev/deploy-api.sh` tarafından güncellenir.
-- Kubernetes'in kontrolleri Spring Boot Actuator'ın sağlık adreslerini kullanır (`/actuator/health/liveness`, `/actuator/health/readiness`). Yalnızca sağlık adresi açıktır ve token istemez; trafik kuralı yalnızca `/api` ile başlayan adresleri API'ye yönlendirdiği için bu adreslere dışarıdan erişilemez (API sözleşmesi 2.8).
+- Kubernetes'in kontrolleri Spring Boot Actuator'ın sağlık adreslerini kullanır (`/actuator/health/liveness`, `/actuator/health/readiness`). Yalnızca sağlık adresi ve Prometheus'un okuduğu ölçüm adresi (`/actuator/prometheus`) açıktır ve token istemez; trafik kuralı yalnızca `/api` ile başlayan adresleri API'ye yönlendirdiği için bu adreslere dışarıdan erişilemez (API sözleşmesi 2.8).
 - Kümede API, token imzalarını doğrulayan anahtarları Keycloak'ın küme içindeki adresinden alır; token'ın yayıncısı (`iss`) ise dış adresle karşılaştırılır.
 
 ### 11. React frontend'in imajı ve dağıtımı

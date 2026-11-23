@@ -26,6 +26,10 @@ class SecurityConfiguration {
                         // Sağlık kontrolünü Kubernetes yapar ve token'ı yoktur.
                         .requestMatchers("/actuator/health", "/actuator/health/**")
                         .permitAll()
+                        // Ölçümleri Prometheus küme içinden okur ve token'ı yoktur. Adres /api altında olmadığı
+                        // için dışarıdan erişilemez; kişisel veri içermez, yalnızca sayılar vardır.
+                        .requestMatchers("/actuator/prometheus")
+                        .permitAll()
                         // Görseller <img> etiketiyle istenir ve etiket token ekleyemez; bu adres token yerine
                         // imzalı ve süreli adres ister (API sözleşmesi 4.4). İmzayı MediaController denetler.
                         .requestMatchers(HttpMethod.GET, "/api/v1/media/*")
