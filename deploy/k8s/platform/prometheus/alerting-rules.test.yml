@@ -35,3 +35,82 @@ tests:
             exp_annotations:
               summary: "Disk %80'den fazla dolu: postgres-1"
               description: "postgres-1 diskinin doluluğu: 85%"
+
+  # TRT'nin bir beslemesi 1, 2, 3 kez art arda okunamadı; NTV'ninki 2'de kaldı.
+  - interval: 1m
+    input_series:
+      - series: 'news_worker_feed_consecutive_failures{source="TRT", feed="https://trt.test/a"}'
+        values: '1 2 3'
+      - series: 'news_worker_feed_consecutive_failures{source="TRT", feed="https://trt.test/b"}'
+        values: '0 0 0'
+      - series: 'news_worker_feed_consecutive_failures{source="NTV", feed="https://ntv.test/c"}'
+        values: '2 2 2'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: SourceFailing
+        exp_alerts: []
+      # Uyarı kaynak başınadır; beslemenin adresi değil kaynağın kodu yazılır.
+      - eval_time: 2m
+        alertname: SourceFailing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              source: TRT
+            exp_annotations:
+              summary: "TRT kaynağı art arda okunamıyor"
+              description: "TRT kaynağının bir beslemesi art arda 3 kez okunamadı; 5. hatada besleme kendiliğinden kapanır."
+
+  # Dakikada 90 başarılı ve 10 hatalı API isteği (%10). Sağlık kontrolleri dakikada 1000 istek yapıyor;
+  # sayılsalardı oran %1'in altına düşer, uyarı çıkmazdı.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{app="api", uri="/api/v1/articles", status="200"}'
+        values: '0+90x10'
+      - series: 'http_server_requests_seconds_count{app="api", uri="/api/v1/articles", status="500"}'
+        values: '0+10x10'
+      - series: 'http_server_requests_seconds_count{app="api", uri="/actuator/health/**", status="200"}'
+        values: '0+1000x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "API'de hata oranı yüksek"
+              description: "Son 5 dakikadaki API isteklerinde sunucu hatası oranı: 10%"
+
+  # Trafik az: dakikada tek istek, hepsi hatalı (%100) ama 5 dakikada 20 istek yok; uyarı çıkmaz.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{app="api", uri="/api/v1/articles", status="500"}'
+        values: '0+1x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HighErrorRate
+        exp_alerts: []
+
+  # Dakikada 30 tane 401: 5 dakikada 150.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{app="api", uri="UNKNOWN", status="401"}'
+        values: '0+30x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: UnauthorizedSpike
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "API'ye çok sayıda yetkisiz istek geliyor"
+              description: "Son 5 dakikada 150 istek 401 aldı."
+
+  # Dakikada 10 tane 401: 5 dakikada 50; eşiğin altında.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{app="api", uri="UNKNOWN", status="401"}'
+        values: '0+10x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: UnauthorizedSpike
+        exp_alerts: []
