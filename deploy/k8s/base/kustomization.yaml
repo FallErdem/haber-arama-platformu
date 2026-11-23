@@ -5,6 +5,7 @@ resources:
   - namespace.yaml
   - postgres/cluster.yaml
   - postgres/database-keycloak.yaml
+  - postgres/backup-cronjob.yaml
   - elasticsearch/statefulset.yaml
   - elasticsearch/service.yaml
   - elasticsearch/setup-job.yaml

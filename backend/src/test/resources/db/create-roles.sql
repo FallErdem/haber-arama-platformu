@@ -4,5 +4,6 @@
 CREATE ROLE news_owner LOGIN PASSWORD 'test-owner';
 CREATE ROLE news_app LOGIN PASSWORD 'test-app';
 CREATE ROLE news_worker LOGIN PASSWORD 'test-worker';
+CREATE ROLE news_backup LOGIN PASSWORD 'test-backup' IN ROLE pg_read_all_data;
 
 ALTER DATABASE news OWNER TO news_owner;

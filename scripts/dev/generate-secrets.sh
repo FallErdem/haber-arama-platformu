@@ -26,6 +26,7 @@ create_secret() {
 create_secret postgres-news-owner news_owner
 create_secret postgres-news-app news_app
 create_secret postgres-news-worker news_worker
+create_secret postgres-news-backup news_backup
 create_secret postgres-keycloak keycloak
 create_secret elasticsearch-elastic elastic
 create_secret elasticsearch-news-worker news_worker
@@ -33,6 +34,7 @@ create_secret elasticsearch-news-api news_api
 create_secret minio-root haber-admin
 create_secret minio-news-worker news-worker
 create_secret minio-news-api news-api
+create_secret minio-backup backup
 create_secret keycloak-admin haber-admin
 
 # Kullanıcı adı ve şifre yerine tek bir anahtar taşıyan gizli bilgiler.
