@@ -307,13 +307,31 @@ export ES_PW=$(grep '^password=' deploy/k8s/overlays/dev/secrets/elasticsearch-n
 kubectl exec -n haber elasticsearch-0 -- curl -s -u "news_worker:$ES_PW" 'localhost:9200/_index_template/articles*?filter_path=index_templates.name'
 ```
 
+### 13. Yedekler
+
+PostgreSQL her gece 03:00'te, Elasticsearch 03:30'da (Türkiye saati) MinIO'daki `backups` kovasına kendiliğinden yedeklenir; yedekler 7 gün saklanır (ADR-0018, 14. bölüm). Geceyi beklemeden yedek almak için:
+
+```bash
+# PostgreSQL: CronJob'un kalıbından hemen bir Job üretilir.
+kubectl create job -n haber --from=cronjob/postgres-backup postgres-backup-elle
+kubectl logs -n haber job/postgres-backup-elle -c upload
+
+# Elasticsearch: gece politikası bir kez çalıştırılır ve snapshot'lar listelenir.
+export ES_ELASTIC_PW=$(grep '^password=' deploy/k8s/overlays/dev/secrets/elasticsearch-elastic.env | cut -d= -f2)
+kubectl exec -n haber elasticsearch-0 -c elasticsearch -- curl -s -u "elastic:$ES_ELASTIC_PW" -X POST 'localhost:9200/_slm/policy/nightly/_execute'
+kubectl exec -n haber elasticsearch-0 -c elasticsearch -- curl -s -u "elastic:$ES_ELASTIC_PW" 'localhost:9200/_cat/snapshots/backups?v'
+```
+
+Geri dönüş denemesinin adımları ve sonucu: `docs/test-raporlari/2026-11-23-yedekten-geri-donus.md`.
+
 ## Doğrulama
 
 | Ne | Komut | Beklenen |
 |---|---|---|
 | PostgreSQL | `kubectl get cluster -n haber` | `Cluster in healthy state` |
-| Elasticsearch kullanıcıları | `kubectl logs -n haber job/elasticsearch-setup` | "Roller ve kullanıcılar oluşturuldu." |
-| MinIO kullanıcıları | `kubectl logs -n haber job/minio-setup` | "Kova, politikalar ve kullanıcılar oluşturuldu." |
+| Elasticsearch kullanıcıları ve snapshot politikası | `kubectl logs -n haber job/elasticsearch-setup` | "Roller, kullanıcılar ve snapshot politikası oluşturuldu." |
+| MinIO kullanıcıları | `kubectl logs -n haber job/minio-setup` | "Kovalar, politikalar ve kullanıcılar oluşturuldu." |
+| PostgreSQL yedeği | `kubectl get cronjob -n haber postgres-backup` | `SCHEDULE` sütununda `0 3 * * *` (her gece 03:00, Türkiye saati) |
 | Keycloak | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/auth/` | `302` |
 | API | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/api/v1/me` | `401` (token olmadan) |
 | Frontend | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/` | `200` |

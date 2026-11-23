@@ -188,10 +188,10 @@ Bileşenler yerel Kubernetes'te tek tek durdurulur (`kubectl`) ve beklenen davra
 
 **Soru:** Yedekten geri dönüş gerçekten çalışıyor mu?
 
-PostgreSQL ve MinIO yedekleri boş bir ortama geri yüklenir, Elasticsearch indeksi PostgreSQL'den yeniden oluşturulur ve uygulamanın çalıştığı doğrulanır.
+PostgreSQL dökümü ve Elasticsearch snapshot'ı (ADR-0018, 14. bölüm) geçici kopyalara geri yüklenir: geçici veritabanlarına ve adı değiştirilmiş indekslere. Satır ve belge sayıları canlı veriyle, örnek haberlerin metinleri birebir karşılaştırılır; geri yükleme süresi ölçülür. Canlı verinin üzerine tam geri dönüş, uygulamalar durdurularak denenir.
 
 - **Hedef:** Geri dönüş en fazla 2 saatte tamamlanır (RTO); kaybedilen veri en fazla son 24 saattir (RPO) (FOG-10, FOG-11).
-- Yedekleme yöntemi henüz belirlenmemiştir; test adımları o kararla birlikte ayrıntılandırılacaktır.
+- Raporlar `docs/test-raporlari/` altındadır; başlıklar 6.4'teki şablondur.
 
 ### 7.4 Kullanılabilirlik ve erişilebilirlik
 
