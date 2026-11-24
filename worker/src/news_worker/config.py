@@ -47,8 +47,8 @@ class Settings:
     purge_batch_size: int = 500
     # Bakım işi (yaşam döngüsü durumu ve temizlik): işçi açılınca bir kez, sonra bu aralıkla çalışır.
     maintenance_interval_seconds: float = 12 * 60 * 60
-    # Saklama süreleri: bu kadar günden eski yardımcı kayıtlar silinir (05-veri-modeli.md). Kesin süreler veri
-    # büyümesi analizinde (İ-35) belirlenecek; kod değişmeden ayarla değiştirilebilir.
+    # Saklama süreleri: bu kadar günden eski yardımcı kayıtlar silinir. Süreler veri büyümesi analizinde (İ-35)
+    # kesinleşti (05-veri-modeli.md, 9. bölüm); kod değişmeden ayarla değiştirilebilir.
     outbox_retention_days: int = 7
     ingestion_run_retention_days: int = 180
     feed_test_retention_days: int = 1

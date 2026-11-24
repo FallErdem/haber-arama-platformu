@@ -324,6 +324,28 @@ kubectl exec -n haber elasticsearch-0 -c elasticsearch -- curl -s -u "elastic:$E
 
 Geri dönüş denemesinin adımları ve sonucu: `docs/test-raporlari/2026-11-23-yedekten-geri-donus.md`.
 
+### 14. Hacim testi deneme verisi (yalnızca gerektiğinde)
+
+Hacim testi (FOG-07) için 1 milyon haber ve 10 milyon audit kaydı üretilir (`docs/05-veri-modeli.md`, 9. bölüm).
+
+1. Yönetim panelinde kapalı bir kaynak oluşturun: kod `DENEME`, ana sayfa `https://deneme.invalid/`. Kaynak kapalıyken ona bir besleme ekleyin (`https://deneme.invalid/rss`); kapalı kaynağı işçi okumaz.
+2. Haberleri ve audit kayıtlarını üretin:
+
+   ```bash
+   kubectl create job -n haber --from=cronjob/worker-volume-data worker-volume-data-1
+   kubectl logs -n haber job/worker-volume-data-1 -f
+   kubectl exec -i -n haber postgres-1 -c postgres -- psql -U postgres -d news -v ON_ERROR_STOP=1 \
+     < scripts/dev/volume-data/audit-generate.sql
+   ```
+
+   Haberler gerçek toplama yolundan kaydedilir; outbox aktarımı onları Elasticsearch'e yazar. 24 Kasım 2026'da yazma 12,5 dakika, aktarım 30 dakika sürdü (aktarım süresi V18 indeksinden önce ölçüldü). Haber işi yarıda kalırsa yeni bir adla yeniden başlatılır; kayıtlı haberler atlanır.
+3. Test bitince temizleyin: yönetim panelinde `DENEME` kaynağının içeriğini silin ("İçeriği sil"), ardından audit kayıtlarının geçici bölümlerini silin:
+
+   ```bash
+   kubectl exec -i -n haber postgres-1 -c postgres -- psql -U postgres -d news -v ON_ERROR_STOP=1 \
+     < scripts/dev/volume-data/audit-remove.sql
+   ```
+
 ## Doğrulama
 
 | Ne | Komut | Beklenen |

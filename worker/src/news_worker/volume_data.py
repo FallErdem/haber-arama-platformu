@@ -288,6 +288,10 @@ class VolumeDataGenerator:
         generators = {language: TextGenerator(profile, rng) for language, profile in self._profiles.items()}
         inserted = skipped = 0
         async with await self._database.connect() as connection:
+            # autocommit: tek başına çalışan komut hemen kalıcı olur ve her grubun transaction() bloğu gerçek bir
+            # işlemdir. Kapalı olsaydı ilk sorgu örtük bir işlem açardı; grupların işlemleri onun içinde birer kayıt
+            # noktası olur, hiçbir haber çalışma bitene kadar kalıcı olmazdı (toplama servisinde de aynı ayar var).
+            await connection.set_autocommit(True)
             source_id, feed_id = await self._find_target(connection, source_code)
             weights = await self._repository.category_weights(connection, source_code)
             if not weights:

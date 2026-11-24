@@ -8,8 +8,9 @@ from datetime import UTC, datetime, timedelta
 import psycopg
 import pytest
 from elasticsearch import AsyncElasticsearch
+from psycopg.rows import TupleRow
 
-from news_worker.articles import ArticleRepository
+from news_worker.articles import ArticleRepository, NewArticle
 from news_worker.database import Database
 from news_worker.volume_data import (
     PUBLISHED_WITHIN_DAYS,
@@ -163,8 +164,44 @@ def volume_source(admin: psycopg.Connection) -> Iterator[uuid.UUID]:
     admin.execute("DELETE FROM sources WHERE id = %s", (source_id,))
 
 
-def build_generator(database: Database) -> VolumeDataGenerator:
-    return VolumeDataGenerator(database, VolumeDataRepository(), ArticleRepository(), profiles(), batch_size=7, now=NOW)
+def build_generator(database: Database, article_repository: ArticleRepository | None = None) -> VolumeDataGenerator:
+    return VolumeDataGenerator(
+        database,
+        VolumeDataRepository(),
+        article_repository or ArticleRepository(),
+        profiles(),
+        batch_size=7,
+        now=NOW,
+    )
+
+
+class FailingArticleRepository(ArticleRepository):
+    """Belirli sayıda haberden sonra hata veren repository: çalışmanın yarıda kesilmesini taklit eder."""
+
+    def __init__(self, fail_after: int) -> None:
+        self._remaining = fail_after
+
+    async def insert_if_new(self, connection: psycopg.AsyncConnection[TupleRow], new_article: NewArticle) -> bool:
+        if self._remaining == 0:
+            raise RuntimeError("bağlantı koptu")
+        self._remaining -= 1
+        return await super().insert_if_new(connection, new_article)
+
+
+async def test_each_batch_is_committed_on_its_own(
+    database: Database, admin: psycopg.Connection, volume_source: uuid.UUID
+) -> None:
+    """Her grup kendi işleminde kalıcı olur: çalışma yarıda kesilirse biten gruplar kaybolmaz.
+
+    Bağlantının autocommit'i kapalıyken grupların işlemleri tek bir büyük işlemin içinde kayıt noktası
+    olmuştu; kümede 1 milyon haber ancak en sonda kalıcı olmuştu (24 Kasım 2026).
+    """
+    with pytest.raises(RuntimeError, match="bağlantı koptu"):
+        await build_generator(database, FailingArticleRepository(fail_after=9)).run(20, SOURCE_CODE)
+
+    # İlk grubun 7 haberi kalıcı; 2. grubun yazılan 2 haberi o grubun işlemiyle birlikte geri alındı.
+    row = admin.execute("SELECT count(*) FROM articles WHERE source_id = %s", (volume_source,)).fetchone()
+    assert row == (7,)
 
 
 async def test_articles_are_written_through_the_ingestion_path(

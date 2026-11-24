@@ -243,7 +243,7 @@ Başlangıç verisi:
 
 - İndeksler: `(feed_id, started_at)` ve saklama süresi dolan kayıtların silinmesi için `started_at`.
 - Kaynakların günlük istek sınırı, bu tablodaki son 24 saatlik kayıtlardan hesaplanır.
-- 180 günden eski kayıtlar bakım işiyle silinir (`INGESTION_RUN_RETENTION_DAYS`); kesin süre veri büyümesi analizinde belirlenecektir.
+- 180 günden eski kayıtlar bakım işiyle silinir (`INGESTION_RUN_RETENTION_DAYS`; 9. bölüm).
 
 ### 3.10 `outbox_events` (modül: search)
 
@@ -310,7 +310,7 @@ Başlangıç verisi:
 | `details` | `jsonb` | | Yalnızca işleme göre önceden tanımlanmış alanlar |
 
 - Birincil anahtar: `(id, occurred_at)`.
-- Tablo `occurred_at` alanına göre aylara bölümlenir; bölümler geçiş betikleriyle 2028 sonuna kadar oluşturulur ve bir varsayılan bölüm bulunur.
+- Tablo `occurred_at` alanına göre aylara bölümlenir; bölümler geçiş betikleriyle 2028 sonuna kadar oluşturulur ve bir varsayılan bölüm bulunur. Sonraki yıllar için yöntem 9. bölümdedir.
 - İndeksler: `occurred_at`, `(actor_user_id, occurred_at)`, `(action, occurred_at)`, `(target_type, target_id)`.
 - Tablodaki güncelleme, silme ve `TRUNCATE` işlemleri tetikleyicilerle reddedilir.
 - Kısıt: `actor_type` `USER` ise `actor_user_id` dolu, `SYSTEM` ise boş olmalıdır.
@@ -504,4 +504,41 @@ PostgreSQL (uygulama ve Keycloak veritabanları) ve Elasticsearch her gece yedek
 - Sonradan eklenen kategori eşlemeleri yalnızca yeni haberlere uygulanır; önceden `OTHER` kategorisine atanmış haberler yeniden kategorilenmez. Gerekirse ileride bir yeniden kategorileme işi eklenebilir.
 - Türkçe aramada ses düşmesi olan kelimeler (şehir / şehri, burun / burnu) birbirini her zaman bulmaz; `folded` alt alanı kaba eşleşmeler üretebilir (türkiye / türkistan). Ayrıntı: ADR-0017, 11. bölüm.
 - Kaynaklar arası gruplama (FG-VT-11) yöntemi henüz seçilmemiştir; seçilen yöntem `articles` tablosuna ek bir sütun gerektirebilir.
-- `ingestion_runs`, işlenmiş `outbox_events` kayıtları ve `audit_events` için saklama süreleri veri büyümesi analizinde belirlenecektir.
+
+## 9. Veri Büyümesi ve Saklama Süreleri
+
+Veri büyümesi analizinde (İ-35, 24 Kasım 2026) ölçülen ve belirlenen değerler.
+
+**Büyüme.** Bugünkü dört kaynak günde 447–715 haber üretir. Geliştirme bilgisayarı günün yalnızca %43'ünde açık olduğundan 447 ölçülen alt sınır, 715 ise açık saatlerdeki yayın hızından hesaplanan üst sınırdır. Planlanan 10–15 Türk kaynağı ve NYT ile yılda 0,8–1,6 milyon haber beklenir. FOG-07'deki 1 milyon haber yaklaşık bir yıllık veridir.
+
+| Veri | Birim başına (1 milyon haberlik deneme verisiyle ölçüldü) | Yılda |
+|---|---|---|
+| PostgreSQL: haber ve kategorileri | ~0,75 KB | 0,6–1,2 GB |
+| Elasticsearch: haber belgesi | ~2,2 KB | 1,8–3,5 GB |
+| MinIO: görseller (haber başına 0,9 görsel, görsel başına ~62 KB) | ~56 KB | 45–90 GB |
+| PostgreSQL: audit kaydı (indeksler dahil) | ~400 bayt | Onlarca MB |
+
+Birikimin %90'ından fazlası görsellerdir. Bu hızla disk %80'e (uyarı eşiği, İ-33) yaklaşık 7–14 yılda ulaşır.
+
+**Saklama süreleri (FOG-42).**
+
+| Veri | Süre | Silen |
+|---|---|---|
+| Haberler ve metinleri, görseller | Süresiz (FOG-42, ADR-0011) | — |
+| Audit kayıtları | Süresiz | — |
+| Toplama kayıtları (`ingestion_runs`) | 180 gün | Bakım işi |
+| İşlenmiş outbox notları | 7 gün | Bakım işi |
+| Besleme testleri | 1 gün | Bakım işi |
+| Uygulama logları | Kapsayıcı başına 10 MB × 5 dosya (Kubernetes'in varsayılanı) | Kubernetes |
+| Keycloak olayları | 30 gün | Keycloak |
+| Prometheus ölçümleri | 15 gün veya 4 GB | Prometheus |
+| Yedekler | 7 gün | MinIO'nun kuralı, Elasticsearch'ün snapshot politikası |
+
+**Audit bölümleri.** Bölümler 2028 sonuna kadar hazırdır (V8). Her yıl gelecek yılın 12 bölümünü ekleyen bir geçiş betiği yazılır. Son bölümün bitmesine 3 aydan az kaldığında `DatabaseMigrationTests`'teki bir test kırılır ve bunu hatırlatır. Bölüm yetişmezse kayıt kaybolmaz, varsayılan bölüme düşer. Ancak PostgreSQL, varsayılan bölümde o aya ait kayıt varken o ayın bölümünü açmaz; kayıtların önce varsayılan bölümden taşınması gerekir.
+
+**Hacim arttıkça hızın korunması (FOG-43).**
+
+- Audit tablosu aylara bölümlenmiştir. Arama her zaman iki tarih sınırıyla yapılır; PostgreSQL yalnızca aralığa düşen bölümleri okur.
+- Outbox aktarımı bekleyen notları kısmi bir indeksten okur (V18); hızı, işlenmiş not sayısından etkilenmez.
+- Arama PostgreSQL'e değil Elasticsearch'e gider. Elasticsearch'te haberler aylık indekslerdedir ve indeksler yaşlandıkça yaşam döngüsü politikasıyla daha az kaynak kullanır (5.3).
+- Hacim testi deneme verisiyle yapılır: 1 milyon haber ve 10 milyon audit kaydı (`deploy/README.md`, 14. adım).
