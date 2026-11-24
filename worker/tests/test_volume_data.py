@@ -96,6 +96,24 @@ async def test_samples_are_read_from_elasticsearch(search_client: AsyncElasticse
     assert samples == [TextSample("tr", "Başlık", "Özet", "<p>Metin</p>")]
 
 
+async def test_rare_language_is_sampled_too(search_client: AsyncElasticsearch) -> None:
+    """Örnekler her dilden ayrı istenir: az olan İngilizce haberler de örneğe girer.
+
+    Kümede 5.300 Türkçe habere karşı 18 İngilizce haber vardı; dil ayırmadan istenen 3.000 örneğe hiç
+    girmemişlerdi (24 Kasım 2026).
+    """
+    index = f"articles-volume-test-{uuid.uuid4().hex}"
+    for number in range(3):
+        await search_client.index(index=index, document={"language": "tr", "title_tr": f"Türkçe {number}"})
+    await search_client.index(index=index, document={"language": "en", "title_en": "English"}, refresh=True)
+    try:
+        samples = await load_samples(search_client, size=2, index=index)
+    finally:
+        await search_client.indices.delete(index=index)
+
+    assert sorted(sample.language for sample in samples) == ["en", "tr", "tr"]
+
+
 # --- Veritabanına yazma -----------------------------------------------------------------------------
 
 

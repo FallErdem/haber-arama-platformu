@@ -59,6 +59,7 @@ SAMPLE_SIZE = 3000
 PUBLISHED_WITHIN_DAYS = 730
 # Haberlerin İngilizce olanlarının oranı; kalanı Türkçe.
 ENGLISH_RATIO = 0.1
+LANGUAGES = ("tr", "en")
 URL_PREFIX = "https://deneme.invalid/haber/"
 
 _HTML_TAG = re.compile(r"<[^>]+>")
@@ -178,22 +179,29 @@ class TextGenerator:
 
 
 async def load_samples(client: AsyncElasticsearch, size: int = SAMPLE_SIZE, index: str = ALIAS) -> list[TextSample]:
-    """Gerçek haberlerin metinlerini Elasticsearch'ten okur."""
-    response = await client.search(
-        index=index, size=size, source_includes=["language", "title_*", "summary_*", "content_*"]
-    )
+    """Gerçek haberlerin metinlerini Elasticsearch'ten, her dilden `size` habere kadar okur.
+
+    Diller ayrı ayrı istenir: İngilizce haberler azdır (yalnızca Global Voices) ve dil ayırmadan istenen bir
+    örneğe hiç girmeyebilirler.
+    """
     samples = []
-    for hit in response["hits"]["hits"]:
-        document: dict[str, Any] = hit["_source"]
-        language = document["language"]
-        samples.append(
-            TextSample(
-                language=language,
-                title=document.get(f"title_{language}"),
-                summary=document.get(f"summary_{language}"),
-                content=document.get(f"content_{language}"),
-            )
+    for language in LANGUAGES:
+        response = await client.search(
+            index=index,
+            size=size,
+            query={"term": {"language": language}},
+            source_includes=[f"title_{language}", f"summary_{language}", f"content_{language}"],
         )
+        for hit in response["hits"]["hits"]:
+            document: dict[str, Any] = hit["_source"]
+            samples.append(
+                TextSample(
+                    language=language,
+                    title=document.get(f"title_{language}"),
+                    summary=document.get(f"summary_{language}"),
+                    content=document.get(f"content_{language}"),
+                )
+            )
     return samples
 
 
@@ -201,7 +209,7 @@ def build_profiles(samples: Iterable[TextSample]) -> dict[str, LanguageProfile]:
     by_language: dict[str, list[TextSample]] = {}
     for sample in samples:
         by_language.setdefault(sample.language, []).append(sample)
-    missing = {"tr", "en"} - by_language.keys()
+    missing = set(LANGUAGES) - by_language.keys()
     if missing:
         raise VolumeDataError(f"Örnek haberlerde şu dillerde haber yok: {', '.join(sorted(missing))}")
     return {language: LanguageProfile.from_samples(items) for language, items in by_language.items()}
