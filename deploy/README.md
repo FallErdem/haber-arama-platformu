@@ -188,6 +188,8 @@ printf 'initial-admin-email=%s\n' 'YONETICI_EPOSTASI' > deploy/k8s/overlays/dev/
 chmod 600 deploy/k8s/overlays/dev/secrets/api-settings.env
 ```
 
+New York Times haberleri için bir API anahtarı gerekir (isteğe bağlı). Betik `nyt-api.env` dosyasını boş oluşturur. Anahtar [developer.nytimes.com](https://developer.nytimes.com)'da bir uygulama açılıp Top Stories API etkinleştirilerek alınır ve dosyadaki `api_key=` satırının sonuna yazılır. Anahtar yazılmazsa işçi NYT beslemelerini okumaz ve bunu açılışta audit kayıtlarına yazar; diğer kaynaklar etkilenmez.
+
 ### 5. `haber.localhost` adresi
 
 Uygulamaya `http://haber.localhost` adresinden erişilir. `.localhost` ile biten adresler kendiliğinden bu bilgisayarı gösterir; `/etc/hosts` dosyasına kayıt eklemek gerekmez.

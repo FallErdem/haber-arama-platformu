@@ -7,11 +7,11 @@ images:
   # Kümede çalışan imajların etiketleri: imajın derlendiği commit'in kısa özeti.
   # scripts/dev/ altındaki deploy-*.sh betikleri her dağıtımda kendi satırını günceller.
   - name: haber-registry.localhost:5000/newssearch-api
-    newTag: "4939419"
+    newTag: "a0becf8-dirty"
   - name: haber-registry.localhost:5000/newssearch-frontend
     newTag: "0e9402c"
   - name: haber-registry.localhost:5000/newssearch-worker
-    newTag: "4939419"
+    newTag: "a0becf8-dirty"
 generatorOptions:
   # CloudNativePG, Secret'lara adlarıyla başvurur; Kustomize'ın adlara eklediği özet sonekini kapatıyoruz.
   disableNameSuffixHash: true
@@ -66,3 +66,7 @@ secretGenerator:
   - name: api-media-signing
     envs:
       - secrets/api-media-signing.env
+  # NYT Top Stories API anahtarı (ADR-0009); boşsa işçi NYT beslemelerini okumaz.
+  - name: nyt-api
+    envs:
+      - secrets/nyt-api.env

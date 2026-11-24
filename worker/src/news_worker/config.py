@@ -55,6 +55,9 @@ class Settings:
     # Beslemelerin art arda hata sayılarının veritabanından okunup ölçüme yazılma aralığı (metrics.py).
     # Prometheus da 30 saniyede bir okur.
     metrics_interval_seconds: float = 30.0
+    # NYT Top Stories API anahtarı (ADR-0009). Zorunlu değildir: tanımlı değilse NYT beslemeleri okunmaz ve
+    # durum açılışta audit'e yazılır (sıfırdan kuran birinin anahtarı olmayabilir).
+    nyt_api_key: str | None = field(default=None, repr=False)
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str] | None = None) -> Settings:
@@ -109,6 +112,7 @@ class Settings:
             ),
             feed_test_retention_days=_positive_int(env, "FEED_TEST_RETENTION_DAYS", cls.feed_test_retention_days),
             metrics_interval_seconds=_positive_float(env, "METRICS_INTERVAL_SECONDS", cls.metrics_interval_seconds),
+            nyt_api_key=env.get("NYT_API_KEY", "").strip() or None,
         )
 
 

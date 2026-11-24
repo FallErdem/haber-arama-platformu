@@ -1,0 +1,204 @@
+{
+  "status": "OK",
+  "copyright": "Copyright (c) 2026 The New York Times Company. All Rights Reserved.",
+  "section": "World News",
+  "last_updated": "2026-11-24T08:49:46-05:00",
+  "num_results": 3,
+  "results": [
+    {
+      "section": "world",
+      "subsection": "middleeast",
+      "title": "Woman in Iran Lashed 74 Times for Singing With No Hijab",
+      "abstract": "Parastoo Ahmadi sang without wearing the mandatory veil in a virtual concert in 2024 that spread quickly online and drew the ire of the Islamic republic authorities.",
+      "url": "https://www.nytimes.com/2026/11/24/world/middleeast/iran-singer-parastoo-ahmadi-flogging-lashes.html",
+      "uri": "nyt://article/415ac0a1-72ee-549f-978f-2cda6341673a",
+      "byline": "By Ephrat Livni and Leily Nikounazar",
+      "item_type": "Article",
+      "updated_date": "2026-11-24T07:49:18-05:00",
+      "created_date": "2026-11-24T07:34:52-05:00",
+      "published_date": "2026-11-24T07:34:52-05:00",
+      "material_type_facet": "",
+      "kicker": "",
+      "des_facet": [
+        "Muslim Veiling",
+        "Corporal Punishment",
+        "US and Israeli Attack on Iran (2026)"
+      ],
+      "org_facet": [],
+      "per_facet": [
+        "Ahmadi, Parastoo"
+      ],
+      "geo_facet": [
+        "Iran"
+      ],
+      "multimedia": [
+        {
+          "url": "https://static01.nyt.com/images/2026/06/23/world/24int-Iran-Lashes-aaa/23int-iran-singer-lashing-anfi-superJumbo.jpg",
+          "format": "Super Jumbo",
+          "height": 1366,
+          "width": 2048,
+          "type": "image",
+          "subtype": "photo",
+          "caption": "A screenshot from a performance by Parastoo Ahmadi. Women in Iran can be arrested or whipped for not donning the hijab.",
+          "copyright": ""
+        },
+        {
+          "url": "https://static01.nyt.com/images/2026/06/23/world/24int-Iran-Lashes-aaa/23int-iran-singer-lashing-anfi-threeByTwoSmallAt2X.jpg",
+          "format": "threeByTwoSmallAt2X",
+          "height": 400,
+          "width": 600,
+          "type": "image",
+          "subtype": "photo",
+          "caption": "A screenshot from a performance by Parastoo Ahmadi. Women in Iran can be arrested or whipped for not donning the hijab.",
+          "copyright": ""
+        },
+        {
+          "url": "https://static01.nyt.com/images/2026/06/23/world/24int-Iran-Lashes-aaa/23int-iran-singer-lashing-anfi-thumbLarge.jpg",
+          "format": "Large Thumbnail",
+          "height": 150,
+          "width": 150,
+          "type": "image",
+          "subtype": "photo",
+          "caption": "A screenshot from a performance by Parastoo Ahmadi. Women in Iran can be arrested or whipped for not donning the hijab.",
+          "copyright": ""
+        }
+      ],
+      "short_url": ""
+    },
+    {
+      "section": "business",
+      "subsection": "",
+      "title": "Stocks Set to Slide as Tech Stocks Partly Reverse Nvidia-Sparked Rally",
+      "abstract": "Markets have veered wildly for days, pushed and pulled by the drama at Nvidia and the record-breaking trading debut of Anthropic.",
+      "url": "https://www.nytimes.com/2026/11/24/business/stocks-sp500-huang-nvidia.html",
+      "uri": "nyt://article/77a5d59d-305c-56de-a913-64be20a18cf4",
+      "byline": "By Jason Karaian",
+      "item_type": "Article",
+      "updated_date": "2026-11-24T08:14:53-05:00",
+      "created_date": "2026-11-24T07:05:47-05:00",
+      "published_date": "2026-11-24T07:05:47-05:00",
+      "material_type_facet": "",
+      "kicker": "",
+      "des_facet": [
+        "Stocks and Bonds",
+        "Standard & Poor's 500-Stock Index",
+        "Artificial Intelligence",
+        "Nasdaq Composite Index",
+        "Company Reports"
+      ],
+      "org_facet": [
+        "NVIDIA Corporation",
+        "Anthropic AI LLC"
+      ],
+      "per_facet": [
+        "Huang, Jen-Hsun"
+      ],
+      "geo_facet": [
+        "United States"
+      ],
+      "multimedia": [
+        {
+          "url": "https://static01.nyt.com/images/2026/11/24/multimedia/24biz-markets-zjwk/24biz-markets-zjwk-superJumbo.jpg",
+          "format": "Super Jumbo",
+          "height": 1363,
+          "width": 2048,
+          "type": "image",
+          "subtype": "photo",
+          "caption": "Shares of Nvidia dropped a day after they surged on the reinstatement of Jensen Huang as the company’s chief executive.",
+          "copyright": "Evelyn Hockstein/Reuters"
+        },
+        {
+          "url": "https://static01.nyt.com/images/2026/11/24/multimedia/24biz-markets-zjwk/24biz-markets-zjwk-threeByTwoSmallAt2X.jpg",
+          "format": "threeByTwoSmallAt2X",
+          "height": 400,
+          "width": 600,
+          "type": "image",
+          "subtype": "photo",
+          "caption": "Shares of Nvidia dropped a day after they surged on the reinstatement of Jensen Huang as the company’s chief executive.",
+          "copyright": "Evelyn Hockstein/Reuters"
+        },
+        {
+          "url": "https://static01.nyt.com/images/2026/11/24/multimedia/24biz-markets-zjwk/24biz-markets-zjwk-thumbLarge.jpg",
+          "format": "Large Thumbnail",
+          "height": 150,
+          "width": 150,
+          "type": "image",
+          "subtype": "photo",
+          "caption": "Shares of Nvidia dropped a day after they surged on the reinstatement of Jensen Huang as the company’s chief executive.",
+          "copyright": "Evelyn Hockstein/Reuters"
+        }
+      ],
+      "short_url": ""
+    },
+    {
+      "section": "climate",
+      "subsection": "",
+      "title": "The U.N. Climate Talks Broke Down. Now What?",
+      "abstract": "With big diplomatic efforts faltering, smaller pacts, local leaders and booming clean energy take center stage.",
+      "url": "https://www.nytimes.com/2026/11/23/climate/cop31-collapse-what-next.html",
+      "uri": "nyt://article/6bbd2e3b-54a3-56a3-b003-a578a78cfc8e",
+      "byline": "By Lisa Friedman and Chico Harlan",
+      "item_type": "Article",
+      "updated_date": "2026-11-23T21:13:41-05:00",
+      "created_date": "2026-11-23T09:20:21-05:00",
+      "published_date": "2026-11-23T09:20:21-05:00",
+      "material_type_facet": "",
+      "kicker": "",
+      "des_facet": [
+        "United Nations Framework Convention on Climate Change",
+        "Global Warming",
+        "Greenhouse Gas Emissions",
+        "Alternative and Renewable Energy",
+        "Developing Countries",
+        "Oil (Petroleum) and Gasoline",
+        "Regulation and Deregulation of Industry",
+        "United States Politics and Government"
+      ],
+      "org_facet": [
+        "United Nations",
+        "European Union"
+      ],
+      "per_facet": [
+        "Trump, Donald J"
+      ],
+      "geo_facet": [
+        "Antalya (Turkey)",
+        "Saudi Arabia",
+        "Russia"
+      ],
+      "multimedia": [
+        {
+          "url": "https://static01.nyt.com/images/2026/11/23/multimedia/23CLI-COP31-WHAT-NOW-1-fpgh/23CLI-COP31-WHAT-NOW-1-fpgh-superJumbo.jpg",
+          "format": "Super Jumbo",
+          "height": 1366,
+          "width": 2048,
+          "type": "image",
+          "subtype": "photo",
+          "caption": "Chris Bowen, the Australian president of negotiations, on Sunday in Antalya, Turkey.",
+          "copyright": "Chris McGrath/Getty Images"
+        },
+        {
+          "url": "https://static01.nyt.com/images/2026/11/23/multimedia/23CLI-COP31-WHAT-NOW-1-fpgh/23CLI-COP31-WHAT-NOW-1-fpgh-threeByTwoSmallAt2X.jpg",
+          "format": "threeByTwoSmallAt2X",
+          "height": 400,
+          "width": 600,
+          "type": "image",
+          "subtype": "photo",
+          "caption": "Chris Bowen, the Australian president of negotiations, on Sunday in Antalya, Turkey.",
+          "copyright": "Chris McGrath/Getty Images"
+        },
+        {
+          "url": "https://static01.nyt.com/images/2026/11/23/multimedia/23CLI-COP31-WHAT-NOW-1-fpgh/23CLI-COP31-WHAT-NOW-1-fpgh-thumbLarge.jpg",
+          "format": "Large Thumbnail",
+          "height": 150,
+          "width": 150,
+          "type": "image",
+          "subtype": "photo",
+          "caption": "Chris Bowen, the Australian president of negotiations, on Sunday in Antalya, Turkey.",
+          "copyright": "Chris McGrath/Getty Images"
+        }
+      ],
+      "short_url": ""
+    }
+  ]
+}

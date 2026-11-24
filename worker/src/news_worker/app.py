@@ -19,6 +19,7 @@ from news_worker.maintenance import Maintenance, MaintenanceRepository, Retentio
 from news_worker.media import MediaRepository
 from news_worker.media_downloader import MediaDownloader
 from news_worker.metrics import FeedFailureMetricsUpdater, WorkerMetrics
+from news_worker.nyt_reader import API_KEY_PARAMETER, NYT_READER_TYPE, NytTopStoriesReader
 from news_worker.object_storage import ObjectStorage, create_storage_client
 from news_worker.outbox import OutboxRepository
 from news_worker.outbox_relay import OutboxRelay
@@ -26,8 +27,32 @@ from news_worker.rate_limiter import SourceRateLimiter
 from news_worker.scheduler import Scheduler
 from news_worker.search_index import SearchIndex, create_search_client
 from news_worker.source_purge import SourcePurger, SourcePurgeRepository
+from news_worker.sources import SourceRepository
 
 log = logging.getLogger(__name__)
+
+# Anahtarı tanımlı olmadığı için okunmayan kaynak; işçinin her açılışında kaynak başına bir audit kaydı.
+API_KEY_MISSING_ACTION = "SOURCE_API_KEY_MISSING"
+
+
+async def report_missing_api_key(database: Database, reader_type: str, setting_name: str) -> None:
+    """Anahtarı tanımlı olmayan okuyucu türünün etkin kaynaklarını audit'e ve loga yazar.
+
+    Bu kaynakların beslemeleri okunmaz (zamanlayıcı onları seçmez); yönetici durumu audit kayıtlarında görür.
+    """
+    try:
+        async with await database.connect() as connection:
+            await connection.set_autocommit(True)
+            source_ids = await SourceRepository().find_enabled_ids(connection, reader_type)
+            for source_id in source_ids:
+                await AuditRepository().insert_system_event(
+                    connection, API_KEY_MISSING_ACTION, "SOURCE", source_id, {"setting": setting_name}
+                )
+    except Exception:
+        log.exception("Eksik anahtar audit'e yazılamadı")
+        return
+    if source_ids:
+        log.warning("%s tanımlı değil; %s kaynaklarının beslemeleri okunmayacak", setting_name, reader_type)
 
 
 async def run(settings: Settings, stop: asyncio.Event) -> None:
@@ -51,14 +76,28 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
         # Tek sınırlayıcı: bir kaynağa giden bütün istekler (besleme ve görsel) aynı sırayı ve aynı
         # bekleme süresini paylaşır.
         rate_limiter = SourceRateLimiter()
+        feed_reader = FeedReader()
         ingestion_service = IngestionService(
             database,
             FeedFetcher(http_client, settings.http_total_timeout_seconds),
-            FeedReader(),
+            # Okuyucu, kaynağın okuyucu türüne (`sources.reader_type`) göre seçilir.
+            {"RSS": feed_reader, "ATOM": feed_reader, NYT_READER_TYPE: NytTopStoriesReader()},
             rate_limiter,
             metrics,
+            # NYT anahtarı yalnızca istek anında adrese eklenir.
+            secret_params_by_reader_type=(
+                {NYT_READER_TYPE: {API_KEY_PARAMETER: settings.nyt_api_key}} if settings.nyt_api_key else {}
+            ),
         )
-        scheduler = Scheduler(database, FeedRepository(), ingestion_service.ingest, settings.scheduler_interval_seconds)
+        # Anahtar tanımlı değilse NYT beslemeleri hiç seçilmez: istek atılmaz, beslemeler hata alıp kapanmaz.
+        skipped_reader_types = frozenset() if settings.nyt_api_key else frozenset({NYT_READER_TYPE})
+        scheduler = Scheduler(
+            database,
+            FeedRepository(),
+            ingestion_service.ingest,
+            settings.scheduler_interval_seconds,
+            skipped_reader_types=skipped_reader_types,
+        )
         outbox_relay = OutboxRelay(
             database,
             OutboxRepository(),
@@ -119,6 +158,8 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
             log.info("İşçi başladı; tabloların hazır olması bekleniyor")
             await database.wait_until_ready(stop)
             if not stop.is_set():
+                if not settings.nyt_api_key:
+                    await report_missing_api_key(database, NYT_READER_TYPE, "NYT_API_KEY")
                 log.info("Tablolar hazır; zamanlayıcı başlıyor")
                 # gather: döngüler aynı anda çalışır; durdurma istenince hepsi elindeki işi bitirip döner.
                 await asyncio.gather(
@@ -150,4 +191,6 @@ def main() -> None:
     except ConfigurationError as error:
         log.error("Yapılandırma hatası: %s", error)
         raise SystemExit(2) from None
+    # Anahtar ayarlardan okunduktan sonra loglama yeniden kurulur: anahtar bir log satırına karışırsa maskelenir.
+    configure_logging(masked_values=[settings.nyt_api_key] if settings.nyt_api_key else [])
     asyncio.run(_run_until_signalled(settings))

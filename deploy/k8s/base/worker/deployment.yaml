@@ -66,6 +66,14 @@ spec:
                 secretKeyRef:
                   name: minio-news-worker
                   key: password
+            # NYT Top Stories API anahtarı (ADR-0009). Zorunlu değildir: boşsa veya Secret'ta yoksa işçi NYT
+            # beslemelerini okumaz ve durumu açılışta audit'e yazar. Anahtar yalnızca istek anında adrese eklenir.
+            - name: NYT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nyt-api
+                  key: api_key
+                  optional: true
           resources:
             requests:
               cpu: 50m

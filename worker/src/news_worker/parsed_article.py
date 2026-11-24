@@ -3,6 +3,10 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from urllib.parse import urlsplit
+
+# Adresi bu yolla başlayan haberler videodur (CNN Türk: /video/dunya/...).
+_VIDEO_PATH_PREFIX = "/video/"
 
 
 class ItemType(StrEnum):
@@ -11,6 +15,11 @@ class ItemType(StrEnum):
     ARTICLE = "ARTICLE"
     VIDEO = "VIDEO"
     GALLERY = "GALLERY"
+
+
+def item_type_of(url: str) -> ItemType:
+    """Haberin türü adresinden bulunur: yolu `/video/` ile başlayan haber videodur, diğerleri haberdir."""
+    return ItemType.VIDEO if urlsplit(url).path.startswith(_VIDEO_PATH_PREFIX) else ItemType.ARTICLE
 
 
 @dataclass(frozen=True)

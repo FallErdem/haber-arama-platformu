@@ -149,6 +149,7 @@ Sonuç değerleri:
 - **Archive gözlemi (04.11.2026):** Kasım 2026 arşivi 1.315 haber ve 3 MB'tı; en yeni haber yaklaşık 12 saat öncesine aitti (tek ölçüm). Alan yapısı Top Stories'ten farklı; `uri` değerleri aynı (Top Stories'ten alınan 5 haberin 4'ü arşivde aynı kimlikle bulundu, biri henüz arşive girmemişti).
 - **Kullanım hakkı:** Ticari olmayan kullanım. Branding Guide'a göre atıf zorunlu; içerik değiştirilemez; NYT sayfaları çerçeve içinde gösterilemez. Saklama hükmünün yorumu ADR-0009'dadır.
 - **Not:** Geliştirici portalı 10.12.2025'te güncellenmiştir. Portalda Times Newswire API bulunmamaktadır.
+- **Top Stories gözlemi (24.11.2026, İ-13):** Yanıtta `ETag` ve `Last-Modified` yok; her okuma tam bir istektir. Bir bölümün yanıtında başka bölümlerin haberleri de var. sports bölümü boş (`results: null`, son güncelleme Nisan 2025); books/review 401 döndü ("Invalid ApiKey for given resource"). Bazı yanıtlarda başlığı ve adresi boş yer tutucular (`section: admin`) bulunuyor.
 
 ## 5. Teknik Bulgular
 

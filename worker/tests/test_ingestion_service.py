@@ -26,6 +26,7 @@ from news_worker.ingestion_service import (
     IngestionService,
 )
 from news_worker.metrics import FetchResult, WorkerMetrics
+from news_worker.nyt_reader import API_KEY_PARAMETER, NYT_READER_TYPE, NytTopStoriesReader
 from news_worker.parsed_article import ItemType, ParsedArticle
 from news_worker.rate_limiter import SourceRateLimiter
 
@@ -48,15 +49,20 @@ def metrics() -> WorkerMetrics:
     return WorkerMetrics()
 
 
+NYT_TEST_KEY = "nyt-test-anahtari"
+
+
 def build_service(
     database: Database, fetcher: FeedFetcher, reader: FeedReader, metrics: WorkerMetrics | None = None
 ) -> IngestionService:
+    """RSS ve Atom beslemeleri verilen okuyucuyla, NYT beslemeleri NYT okuyucusuyla ve test anahtarıyla okunur."""
     return IngestionService(
         database,
         fetcher,
-        reader,
+        {"RSS": reader, "ATOM": reader, NYT_READER_TYPE: NytTopStoriesReader()},
         SourceRateLimiter(sleep=no_sleep),
         metrics or WorkerMetrics(),
+        secret_params_by_reader_type={NYT_READER_TYPE: {API_KEY_PARAMETER: NYT_TEST_KEY}},
         clock=lambda: NOW,
     )
 
@@ -612,7 +618,7 @@ async def test_request_waits_for_the_source_rate_limit(
     limiter = SourceRateLimiter(clock=lambda: 0.0, sleep=record_sleep)
     async with create_http_client("HaberAramaPlatformuTest/0.1", timeout_seconds=5) as client:
         service = IngestionService(
-            database, FeedFetcher(client, total_timeout_seconds=5), FeedReader(), limiter, WorkerMetrics()
+            database, FeedFetcher(client, total_timeout_seconds=5), {"RSS": FeedReader()}, limiter, WorkerMetrics()
         )
 
         await service.ingest(first)
@@ -685,3 +691,111 @@ async def test_manual_request_arriving_during_a_read_is_not_lost(
     assert manual_request_is_pending(admin, feed) is True
     assert feed_state(admin, feed)["next_fetch_in_minutes"] == 0
     assert (await due_feed(database, "TRT", "gundem")).manual_fetch_requested_at is not None
+
+
+# --- NYT (İ-13, ADR-0009) ---------------------------------------------------------------------------
+
+
+def add_recent_runs(admin: psycopg.Connection, feed: DueFeed, count: int, hours_ago: float) -> None:
+    """NYT'ye önceden atılmış istekleri taklit eder: beslemeye `hours_ago` saat kadar önce başlamış okumalar yazar."""
+    admin.execute(
+        "INSERT INTO ingestion_runs (feed_id, trigger, status, started_at, finished_at) "
+        "SELECT %s, 'SCHEDULED', 'SUCCEEDED', now() - make_interval(secs => %s * 3600 - g), now() "
+        "FROM generate_series(1, %s) AS g",
+        (feed.id, hours_ago, count),
+    )
+
+
+async def test_nyt_section_is_read_with_the_api_key_which_is_not_stored(
+    service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
+) -> None:
+    """NYT bölümü anahtarla okunur, anahtar okuma kaydına yazılmaz; kategori haberin kendi bölümünden bulunur."""
+    feed = await due_feed(database, "NYT", "world")
+    route = respx_mock.get(feed.url, params={API_KEY_PARAMETER: NYT_TEST_KEY}).respond(
+        200, content=fixture_body("nyt-world.json")
+    )
+
+    await service.ingest(feed)
+
+    assert route.called
+    run = last_run(admin, feed)
+    assert (run["status"], run["items_new"]) == ("SUCCEEDED", 3)
+    assert run["final_url"] == f"{feed.url}?api-key=***"
+    # world yanıtındaki üç haber: world, business ve climate bölümlerinden (V22'deki eşlemeler).
+    categories = admin.execute(
+        "SELECT c.code FROM articles a JOIN article_categories ac ON ac.article_id = a.id "
+        "JOIN categories c ON c.id = ac.category_id WHERE a.feed_id = %s ORDER BY a.published_at DESC",
+        (feed.id,),
+    ).fetchall()
+    assert categories == [("WORLD",), ("ECONOMY",), ("SCIENCE_TECH",)]
+
+
+async def test_api_key_is_not_stored_when_nyt_rejects_the_request(
+    service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
+) -> None:
+    """NYT isteği reddederse (401) de anahtar ne okuma kaydına ne beslemenin son hatasına yazılır."""
+    feed = await due_feed(database, "NYT", "world")
+    respx_mock.get(feed.url).respond(401)
+
+    await service.ingest(feed)
+
+    stored = admin.execute(
+        "SELECT r.status, r.final_url, r.error_message, f.last_error "
+        "FROM ingestion_runs r JOIN feeds f ON f.id = r.feed_id WHERE r.feed_id = %s",
+        (feed.id,),
+    ).fetchall()
+    assert [row[0] for row in stored] == ["FAILED"]
+    assert NYT_TEST_KEY not in str(stored)
+
+
+async def test_no_request_is_made_when_the_daily_budget_is_used_up(
+    service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
+) -> None:
+    """Son 24 saatte NYT'ye 400 istek atılmışsa istek atılmaz; besleme, en eski isteğin 24 saati dolunca okunur.
+
+    Taklit edilmiş adres olmadığı için bir istek atılsaydı test hata verirdi.
+    """
+    feed = await due_feed(database, "NYT", "world")
+    # Bütçe kaynağın bütün bölümleri için ortaktır: istekler başka bir bölüme atılmış olsa da sayılır.
+    add_recent_runs(admin, await due_feed(database, "NYT", "us"), count=400, hours_ago=20)
+    runs_before = count(admin, "ingestion_runs")
+
+    await service.ingest(feed)
+
+    assert count(admin, "ingestion_runs") == runs_before
+    state = feed_state(admin, feed)
+    assert "bütçe" in state["last_error"]
+    # En eski istek 20 saat önceydi: 4 saat sonra bir istek hakkı açılır.
+    assert state["next_fetch_in_minutes"] == 240
+
+
+async def test_requests_older_than_a_day_do_not_count_against_the_budget(
+    service: IngestionService, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
+) -> None:
+    """Bütçe takvim gününe değil son 24 saate göre sayılır (mimari 7. bölüm); daha eski istekler sayılmaz."""
+    feed = await due_feed(database, "NYT", "world")
+    add_recent_runs(admin, feed, count=400, hours_ago=25)
+    route = respx_mock.get(feed.url).respond(200, content=fixture_body("nyt-world.json"))
+
+    await service.ingest(feed)
+
+    assert route.called
+
+
+async def test_feed_without_a_configured_reader_fails_clearly(
+    fetcher: FeedFetcher, database: Database, admin: psycopg.Connection, respx_mock: respx.MockRouter
+) -> None:
+    """Okuyucu türü için okuyucu tanımlı değilse okuma, kaynağa istek atılmadan ve nedeni yazılarak başarısız olur.
+
+    Taklit edilmiş adres olmadığı için bir istek atılsaydı test hata verirdi.
+    """
+    feed = await due_feed(database, "NTV", "turkiye")
+    service = IngestionService(
+        database, fetcher, {"RSS": FeedReader()}, SourceRateLimiter(sleep=no_sleep), WorkerMetrics()
+    )
+
+    await service.ingest(feed)
+
+    run = last_run(admin, feed)
+    assert run["status"] == "FAILED"
+    assert "ATOM" in run["error_message"]

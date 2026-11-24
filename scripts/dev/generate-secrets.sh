@@ -53,3 +53,13 @@ create_key() {
 
 # Görsel adreslerini imzalayan anahtar (API sözleşmesi 4.4); 64 karakter.
 create_key api-media-signing
+
+# NYT API anahtarı üretilemez; developer.nytimes.com'da alınıp `api_key=` satırına elle yazılır. Dosya boş
+# oluşturulur: Kustomize dosya eksik diye hata vermez, anahtar yazılmazsa işçi NYT beslemelerini okumaz (ADR-0009).
+NYT_FILE="$SECRETS_DIR/nyt-api.env"
+if [[ -f "$NYT_FILE" ]]; then
+  echo "Var olduğu için atlandı: nyt-api"
+else
+  printf 'api_key=\n' > "$NYT_FILE"
+  echo "Oluşturuldu: nyt-api (anahtarı elle yazın)"
+fi

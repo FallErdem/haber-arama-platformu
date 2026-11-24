@@ -16,7 +16,12 @@ class FailingFeedRepository(FeedRepository):
     def __init__(self) -> None:
         self.calls = 0
 
-    async def find_due(self, connection: psycopg.AsyncConnection[TupleRow], limit: int) -> list[DueFeed]:
+    async def find_due(
+        self,
+        connection: psycopg.AsyncConnection[TupleRow],
+        limit: int,
+        skipped_reader_types: frozenset[str] = frozenset(),
+    ) -> list[DueFeed]:
         self.calls += 1
         raise RuntimeError("deneme hatası")
 
@@ -81,7 +86,9 @@ async def test_feeds_of_a_source_run_in_order_while_sources_run_together(
         await asyncio.sleep(0.01)
         running[feed.source_code] -= 1
 
-    scheduler = Scheduler(database, FeedRepository(), ingest, interval_seconds=30)
+    scheduler = Scheduler(
+        database, FeedRepository(), ingest, interval_seconds=30, batch_size=count_enabled_feeds(admin) + 1
+    )
 
     await scheduler.tick()
 
@@ -100,7 +107,9 @@ async def test_failing_feed_does_not_stop_other_feeds(database: Database, admin:
         if feed.source_code == "TRT":
             raise RuntimeError("deneme hatası")
 
-    scheduler = Scheduler(database, FeedRepository(), ingest, interval_seconds=30)
+    scheduler = Scheduler(
+        database, FeedRepository(), ingest, interval_seconds=30, batch_size=count_enabled_feeds(admin) + 1
+    )
 
     await scheduler.tick()
 
@@ -121,12 +130,36 @@ async def test_remaining_feeds_are_not_started_after_stop_is_requested(
         await asyncio.sleep(0.01)
         stop.set()
 
-    scheduler = Scheduler(database, FeedRepository(), ingest_and_request_stop, interval_seconds=30)
+    scheduler = Scheduler(
+        database,
+        FeedRepository(),
+        ingest_and_request_stop,
+        interval_seconds=30,
+        batch_size=count_enabled_feeds(admin) + 1,
+    )
 
     await scheduler.tick(stop)
 
     # Bütün kaynakların ilk beslemeleri aynı anda başlamıştı; hiçbir kaynağın ikinci beslemesi başlamadı.
     assert Counter(feed.source_code for feed in ingest.feeds) == Counter(dict.fromkeys(source_codes, 1))
+
+
+async def test_feeds_of_skipped_reader_types_are_not_ingested(database: Database, admin: psycopg.Connection) -> None:
+    """API anahtarı tanımlı değilse NYT beslemeleri hiç toplatılmaz; diğerleri her zamanki gibi okunur."""
+    ingest = RecordingIngest()
+    scheduler = Scheduler(
+        database,
+        FeedRepository(),
+        ingest,
+        interval_seconds=30,
+        batch_size=count_enabled_feeds(admin) + 1,
+        skipped_reader_types=frozenset({"NYT_TOP_STORIES"}),
+    )
+
+    await scheduler.tick()
+
+    assert ingest.feeds
+    assert "NYT" not in {feed.source_code for feed in ingest.feeds}
 
 
 async def test_not_healthy_before_first_tick(database: Database) -> None:

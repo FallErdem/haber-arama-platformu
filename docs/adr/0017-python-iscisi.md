@@ -344,12 +344,22 @@ Prometheus, işçinin ölçümlerini sağlık sunucusunun `/metrics` adresinden 
 
 | Ölçüm | Ne gösterir | Nasıl üretilir |
 |---|---|---|
-| `news_worker_feed_fetches_total{source, result}` | Okuma sonuçları: `succeeded`, `not_modified`, `failed`, `postponed` (429) | Her okuma bitince, sonuç veritabanına yazıldıktan sonra ilgili sayaç bir artar |
+| `news_worker_feed_fetches_total{source, result}` | Okuma sonuçları: `succeeded`, `not_modified`, `failed`, `postponed` (429 veya günlük istek bütçesi) | Her okuma bitince, sonuç veritabanına yazıldıktan sonra ilgili sayaç bir artar |
 | `news_worker_feed_consecutive_failures{source, feed}` | Beslemenin art arda hata sayısı | 30 saniyede bir `feeds.consecutive_failures` sütunundan okunur |
 
 - **Hata sayısı veritabanından okunur.** Gerçek sayı oradadır; işçi yeniden başlasa da kaybolmaz. Kendiliğinden kapanan besleme artık okunmaz ama sayısı 5'te kalır; bu yüzden "art arda başarısız kaynak" uyarısı (FOG-41), yönetici beslemeyi yeniden açıp sayı sıfırlanana kadar sürer. Elle kapatılan beslemeler ve kapalı kaynakların beslemeleri ölçüme girmez.
 - **Sayaçlar işçi yeniden başlayınca sıfırdan başlar.** Prometheus'un artış hesapları (`increase`, `rate`) sıfırlanmayı tanır; sonuç bozulmaz.
 - İşçinin CPU ve bellek kullanımını Kubernetes ölçer; işçi ayrıca yayımlamaz.
+
+### 14. NYT okuyucusu (İ-13)
+
+- **Okuyucu kaynağın türüne göre seçilir.** Toplama servisi okuyucuları `sources.reader_type`'a göre tutar: RSS ve Atom için `FeedReader`, `NYT_TOP_STORIES` için `NytTopStoriesReader`. İkisi de aynı arayüzü (`ArticleReader`) uygular ve aynı `FeedReadResult`'ı döner; kaydetme, kategori ve görsel akışı ortaktır. Tanımlı okuyucusu olmayan tür için istek atılmaz, okuma nedeni yazılarak başarısız olur.
+- **Alanlar:** kimlik `uri`, başlık, özet `abstract`, yazar `byline` (ADR-0009 gereği değiştirilmeden), yayın tarihi New York saatinden UTC'ye çevrilir. Top Stories tam metin vermez. Görsel: NYT aynı görseli birkaç boyutta verir, yalnızca en genişi (2048 px) alınır ve bizde 1600 px'e küçültülür.
+- **Kategori haberin kendi `section`'ından bulunur.** Bir bölümün yanıtında başka bölümlerin haberleri de gelir (world yanıtında business, climate, travel); bu yüzden beslemelerin varsayılan kategorisi yoktur (`V22`).
+- **Yanıt kuralları:** JSON olmayan ya da `status` değeri "OK" olmayan yanıt okuma hatasıdır. "OK" ile gelen `results: null` sıfır haberdir (boş RSS beslemesi gibi). Başlığı ve adresi boş yer tutucular (`section: admin`) zorunlu alan kuralıyla atlanır.
+- **Anahtar yoksa** zamanlayıcı NYT beslemelerini seçmez: istek atılmaz, beslemeler hata alıp kendiliğinden kapanmaz. İşçi açılışta durumu loga ve audit'e (`SOURCE_API_KEY_MISSING`) yazar.
+- **Günlük istek bütçesi (ADR-0009):** Okumadan önce kaynağın son 24 saatteki okuma sayısına bakılır (`ingestion_runs`; değişmedi ve başarısız okumalar da istek sayılır). Sınıra (`sources.daily_request_limit`, 400) ulaşılmışsa okuma kaydı açılmadan, istek atılmadan ertelenir; besleme en eski isteğin üzerinden 24 saat geçince okunur. Erteleme `postponed` ölçümüne sayılır.
+- NYT görsellerinin indirilmesi de aynı kaynak sırasını (12 saniye) paylaşır; bu yüzden bölümler arası süre 12 saniyeden uzun olabilir.
 
 ## Sonuçlar
 

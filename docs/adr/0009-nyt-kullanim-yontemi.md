@@ -23,6 +23,14 @@ ADR-0006 ile kaynak setine eklenen NYT API'nin kullanım koşulları, API anahta
 5. **Atıf:** NYT içeriği gösteren her ekranda NYT API logosu gösterilir. İçerik değiştirilmeden gösterilir; bağlantılar NYT'nin özgün sayfasına gider. Arama sonuçlarındaki vurgulama, içeriği değil yalnızca görünümünü değiştirdiğinden bu kurala aykırı kabul edilmez.
 6. **Tekrar eden haber:** Aynı haber birden fazla bölümde yer alabilir. Haber, `uri` kimliğiyle tespit edilir; ilk kaydedilen kayıt korunur.
 
+## Uygulama (İ-13, 24 Kasım 2026)
+
+- **Bölümler ve sıklıklar (3. madde):** 11 bölüm okunur: world 30 dakikada bir; us, politics, business, technology, science, health, arts, movies, travel ve food saatte bir. Günde 288 istek eder; 400'lük bütçenin kalanı hata sonrası yeniden denemelere ve elle okumalara kalır (`V22`).
+- **Alınmayan bölümler:** Ön denemede sports boş döndü (Nisan 2025'ten beri güncellenmiyor), books/review 401 verdi. home (karışık içerik), opinion (köşe yazısı), nyregion (New York yerel haberleri) ve kalan bölümler bütçe için alınmadı.
+- **Kategori eşlemesi:** Kategori, haberin kendi bölümünden bulunur. ABD'nin iç haberleri (us, politics, nyregion) bu uygulamanın okuru için dış haber olduğundan Dünya'ya eşlenir; eşlenmeyen bölümler (opinion, magazine, podcasts gibi) Diğer'e düşer. Tablo `V22`'dedir.
+- **Bütçe:** Son 24 saatteki istekler sayılır; sınıra ulaşılınca istek atılmaz (ADR-0017, 14. bölüm).
+- **Atıf metni:** Kaynağın atıf metni "Data provided by The New York Times"tır (`sources.attribution_text`).
+
 ## Sonuçlar
 
 - NYT haberlerinin tazeliği, istek limitleriyle sınırlıdır.

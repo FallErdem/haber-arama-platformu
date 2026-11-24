@@ -6,13 +6,17 @@ erteleme, devre dışı bırakma) toplama akışı karar verir.
 """
 
 import asyncio
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
 from enum import StrEnum
+from urllib.parse import quote
 
 import httpx
 
 # En fazla bu kadar yönlendirme takip edilir (ADR-0013).
 MAX_REDIRECTS = 3
+# Gizli parametre değerlerinin sonuçta yerine yazılan işaret.
+_MASK = "***"
 
 _NOT_MODIFIED = 304
 _UNAUTHORIZED = 401
@@ -84,8 +88,24 @@ class FeedFetcher:
         # Bu değer bir indirmenin baştan sona en fazla ne kadar sürebileceğini sınırlar.
         self._total_timeout_seconds = total_timeout_seconds
 
-    async def fetch(self, url: str, etag: str | None = None, last_modified: str | None = None) -> FetchResult:
-        """Beslemeyi indirir. `etag` ve `last_modified` önceki başarılı indirmeden kalan değerlerdir."""
+    async def fetch(
+        self,
+        url: str,
+        etag: str | None = None,
+        last_modified: str | None = None,
+        secret_params: Mapping[str, str] | None = None,
+    ) -> FetchResult:
+        """Beslemeyi indirir. `etag` ve `last_modified` önceki başarılı indirmeden kalan değerlerdir.
+
+        `secret_params` adrese eklenen gizli parametrelerdir (NYT API anahtarı). Değerleri isteğe girer, ama
+        dönen sonuçta (adres ve hata metni) maskelenir: bu sonuç okuma kaydına ve yönetim paneline yazılır.
+        """
+        result = await self._download(url, etag, last_modified, secret_params)
+        return _mask(result, list((secret_params or {}).values()))
+
+    async def _download(
+        self, url: str, etag: str | None, last_modified: str | None, params: Mapping[str, str] | None
+    ) -> FetchResult:
         # Koşullu istek: kaynak içeriğin değişmediğini görürse gövde göndermeden 304 döner.
         headers: dict[str, str] = {}
         if etag is not None:
@@ -95,7 +115,7 @@ class FeedFetcher:
 
         try:
             async with asyncio.timeout(self._total_timeout_seconds):
-                response = await self._client.get(url, headers=headers)
+                response = await self._client.get(url, headers=headers, params=params)
         except TimeoutError:
             return FetchFailed(FailureKind.NETWORK_ERROR, f"İndirme {self._total_timeout_seconds:g} saniyede bitmedi")
         except httpx.TooManyRedirects:
@@ -128,6 +148,26 @@ class FeedFetcher:
                 _retry_after_seconds(response.headers.get("Retry-After")),
             )
         return FetchFailed(FailureKind.HTTP_ERROR, f"Beklenmeyen yanıt (HTTP {status})", status, final_url)
+
+
+def _mask(result: FetchResult, secrets: Sequence[str]) -> FetchResult:
+    """Gizli değerleri sonucun adresinde ve hata metninde `***` ile değiştirir."""
+    secrets = [secret for secret in secrets if secret]
+    if not secrets:
+        return result
+
+    def hide(text: str) -> str:
+        for secret in secrets:
+            # Adreste değer kodlanmış biçimde de (örneğin `%2B`) yazılabilir; iki biçim de gizlenir.
+            for written in {secret, quote(secret, safe="")}:
+                text = text.replace(written, _MASK)
+        return text
+
+    if isinstance(result, FetchFailed):
+        return replace(
+            result, message=hide(result.message), final_url=hide(result.final_url) if result.final_url else None
+        )
+    return replace(result, final_url=hide(result.final_url))
 
 
 def _retry_after_seconds(value: str | None) -> float | None:

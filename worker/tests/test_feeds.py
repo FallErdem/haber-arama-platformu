@@ -5,9 +5,11 @@ from news_worker.database import Database
 from news_worker.feeds import DueFeed, FeedRepository
 
 
-async def find_due(database: Database, limit: int = 100) -> list[DueFeed]:
+async def find_due(
+    database: Database, limit: int = 100, skipped_reader_types: frozenset[str] = frozenset()
+) -> list[DueFeed]:
     async with await database.connect() as connection:
-        return await FeedRepository().find_due(connection, limit)
+        return await FeedRepository().find_due(connection, limit, skipped_reader_types)
 
 
 async def test_all_newly_seeded_feeds_are_due(database: Database, admin: psycopg.Connection) -> None:
@@ -70,6 +72,29 @@ async def test_disabled_feed_is_not_returned(database: Database, admin: psycopg.
 
     assert len(due_feeds) == remaining_feed_count
     assert disabled[0] not in [feed.id for feed in due_feeds]
+
+
+async def test_due_feed_carries_reader_type_and_daily_request_limit(
+    database: Database, admin: psycopg.Connection
+) -> None:
+    """Okuyucunun seçimi ve günlük istek bütçesi için kaynağın okuyucu türü ve günlük sınırı da gelir (V22)."""
+    due_feeds = await find_due(database, limit=count_enabled_feeds(admin) + 1)
+
+    nyt = next(feed for feed in due_feeds if feed.source_code == "NYT")
+    trt = next(feed for feed in due_feeds if feed.source_code == "TRT")
+    assert (nyt.reader_type, nyt.daily_request_limit) == ("NYT_TOP_STORIES", 400)
+    assert (trt.reader_type, trt.daily_request_limit) == ("RSS", None)
+
+
+async def test_feeds_of_skipped_reader_types_are_not_returned(database: Database, admin: psycopg.Connection) -> None:
+    """Anahtarı tanımlı olmayan okuyucu türünün (NYT) beslemeleri hiç seçilmez."""
+    enabled_feed_count = count_enabled_feeds(admin)
+
+    due_feeds = await find_due(database, enabled_feed_count + 1, frozenset({"NYT_TOP_STORIES"}))
+
+    assert due_feeds
+    assert all(feed.reader_type != "NYT_TOP_STORIES" for feed in due_feeds)
+    assert len(due_feeds) == enabled_feed_count - 11
 
 
 async def test_feeds_of_disabled_source_are_not_returned(database: Database, admin: psycopg.Connection) -> None:

@@ -6,7 +6,7 @@ deneme, erteleme veya beslemenin otomatik devre dışı bırakılması.
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -20,7 +20,7 @@ from news_worker.categories import CategoryRepository
 from news_worker.category_resolver import CategoryResolver, FeedCategoryRule
 from news_worker.database import Database
 from news_worker.feed_fetcher import FailureKind, FeedFetcher, FeedNotModified, FetchedFeed
-from news_worker.feed_reader import FeedParseError, FeedReader
+from news_worker.feed_reader import ArticleReader, FeedParseError
 from news_worker.feeds import DueFeed, FeedRepository
 from news_worker.ingestion_runs import IngestionRunRepository, RunResult, RunStatus, RunTrigger
 from news_worker.metrics import FetchResult, WorkerMetrics
@@ -51,14 +51,19 @@ class IngestionService:
         self,
         database: Database,
         fetcher: FeedFetcher,
-        reader: FeedReader,
+        readers: Mapping[str, ArticleReader],
         rate_limiter: SourceRateLimiter,
         metrics: WorkerMetrics,
+        secret_params_by_reader_type: Mapping[str, Mapping[str, str]] | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._database = database
         self._fetcher = fetcher
-        self._reader = reader
+        # Okuyucu türü (`sources.reader_type`) → o türün yanıtını okuyan okuyucu.
+        self._readers = readers
+        # Okuyucu türü → isteğe eklenecek gizli parametreler (NYT: {"api-key": ...}). İndirici bunları
+        # sonuçta maskeler; veritabanındaki besleme adreslerinde anahtar bulunmaz.
+        self._secret_params_by_reader_type = secret_params_by_reader_type or {}
         self._rate_limiter = rate_limiter
         # Okuma sonuçları sayılır. Sayaç, sonuç veritabanına yazıldıktan sonra artar; yazma hata verirse
         # okuma "başarısız" sayılır ve iki kez sayılmaz.
@@ -78,6 +83,9 @@ class IngestionService:
             # gereken komutlar açıkça `connection.transaction()` bloğuna alınır. Böylece okumanın
             # "başladı" kaydı, indirme sürerken de veritabanında görünür.
             await connection.set_autocommit(True)
+            # Bütçe dolduysa okuma kaydı da açılmaz: kayıt atılmış bir istek sayılırdı.
+            if await self._postpone_if_daily_budget_is_used_up(connection, feed):
+                return
             # Yönetici bu besleme için elle toplama istediyse okuma MANUAL olarak kaydedilir (FG-YP-08).
             trigger = RunTrigger.SCHEDULED if feed.manual_fetch_requested_at is None else RunTrigger.MANUAL
             run_id = await self._runs.start(connection, feed.id, trigger)
@@ -89,10 +97,38 @@ class IngestionService:
                 log.exception("Besleme toplanırken beklenmeyen hata: %s", feed.url)
                 await self._fail(connection, feed, run_id, f"Beklenmeyen hata: {type(error).__name__}")
 
+    async def _postpone_if_daily_budget_is_used_up(
+        self, connection: psycopg.AsyncConnection[TupleRow], feed: DueFeed
+    ) -> bool:
+        """Kaynağın günlük istek sınırı varsa ve son 24 saatte dolduysa okumayı istek atmadan erteler (ADR-0009).
+
+        Besleme, en eski isteğin üzerinden 24 saat geçip yeni bir istek hakkı açılana kadar ertelenir.
+        """
+        if feed.daily_request_limit is None:
+            return False
+        recent = await self._runs.count_recent_requests(connection, feed.source_id)
+        if recent.count < feed.daily_request_limit:
+            return False
+        message = f"Günlük istek bütçesi doldu (son 24 saatte {recent.count} istek, sınır {feed.daily_request_limit})"
+        await self._feeds.record_postponed(
+            connection, feed.id, message, recent.seconds_until_next_slot, feed.manual_fetch_requested_at
+        )
+        self._metrics.record_fetch(feed.source_code, FetchResult.POSTPONED)
+        log.warning("Besleme ertelendi: %s (%s)", feed.url, message)
+        return True
+
     async def _collect(self, connection: psycopg.AsyncConnection[TupleRow], feed: DueFeed, run_id: UUID) -> None:
+        reader = self._readers.get(feed.reader_type)
+        if reader is None:
+            # İstek atılmadan önce: okunamayacak bir yanıt için kaynağa gidilmez.
+            await self._fail(connection, feed, run_id, f"Okuyucu türü için okuyucu tanımlı değil: {feed.reader_type}")
+            return
+
         # Aynı kaynağa iki istek arasında kaynağın istek aralığı kadar beklenir (FG-VT-05).
         async with self._rate_limiter.request_slot(feed.source_code, feed.request_interval_seconds):
-            fetched = await self._fetcher.fetch(feed.url, feed.etag, feed.last_modified)
+            fetched = await self._fetcher.fetch(
+                feed.url, feed.etag, feed.last_modified, self._secret_params_by_reader_type.get(feed.reader_type)
+            )
 
         if isinstance(fetched, FeedNotModified):
             async with connection.transaction():
@@ -136,7 +172,7 @@ class IngestionService:
             return
 
         try:
-            read = self._reader.read(fetched.body, feed.field_mapping, feed.feed_time_zone)
+            read = reader.read(fetched.body, feed.field_mapping, feed.feed_time_zone)
         except FeedParseError as error:
             await self._fail(connection, feed, run_id, str(error), fetched.http_status, fetched.final_url)
             return

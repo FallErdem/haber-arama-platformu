@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, tzinfo
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import urlsplit
 from xml.etree import ElementTree
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import feedparser
 
 from news_worker.html_cleaner import clean_content, to_plain_text
-from news_worker.parsed_article import ItemType, ParsedArticle
+from news_worker.parsed_article import ParsedArticle, item_type_of
 from news_worker.url_normalizer import is_http_url, normalize_url
 
 log = logging.getLogger(__name__)
@@ -30,8 +30,6 @@ IMAGE_FIELD = "image"
 
 # Bir haberi saran etiket: RSS'te <item>, Atom'da <entry>.
 _ITEM_TAGS = frozenset({"item", "entry"})
-# Adresi bu yolla başlayan haberler videodur (CNN Türk: /video/dunya/...).
-_VIDEO_PATH_PREFIX = "/video/"
 _IMAGE_TYPE_PREFIX = "image/"
 # Özetin sonundaki "devamı" bağlantısının yazısı; haberin parçası değildir. Sabah her özetin sonuna
 # haberin kendisine dönen "Devamı için tıklayınız" bağlantısı koyar.
@@ -48,6 +46,18 @@ class FeedReadResult:
     articles: tuple[ParsedArticle, ...]
     # Zorunlu bir alanı (kimlik, adres, başlık, tarih) eksik olduğu için atlanan haber sayısı.
     skipped_count: int
+
+
+class ArticleReader(Protocol):
+    """Bir kaynak türünün yanıtını haberlere çeviren okuyucu (RSS/Atom için `FeedReader`, NYT için
+    `NytTopStoriesReader`). Toplama akışı okuyucuyu kaynağın okuyucu türüne (`sources.reader_type`) göre seçer."""
+
+    def read(
+        self,
+        body: bytes,
+        field_mapping: Mapping[str, str] | None = None,
+        feed_time_zone: str | None = None,
+    ) -> FeedReadResult: ...
 
 
 class FeedReader:
@@ -119,7 +129,7 @@ def _to_article(entry: Any, custom_images: Mapping[str, str], time_zone: tzinfo 
         content=(cleaned.html or None) if cleaned else None,
         author=_text(entry.get("author")),
         published_at=published_at,
-        item_type=ItemType.VIDEO if urlsplit(url).path.startswith(_VIDEO_PATH_PREFIX) else ItemType.ARTICLE,
+        item_type=item_type_of(url),
         image_urls=_image_urls(entry, custom_images.get(external_id), cleaned.image_urls if cleaned else ()),
         source_categories=_source_categories(entry, url),
     )

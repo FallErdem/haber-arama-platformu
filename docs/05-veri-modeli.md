@@ -337,6 +337,7 @@ Başlangıç verisi:
 | `FEED_ENABLED`, `FEED_DISABLED` | API, besleme etkinleştirildiğinde veya devre dışı bırakıldığında | `USER` (yönetici) | `FEED` | `SUCCESS` veya `FAILURE` | `FEED_ENABLED`'da `previousReason` (`MANUAL`, `AUTO`) |
 | `FEED_AUTO_DISABLED` | İşçi (ADR-0017, 10. bölüm) | `SYSTEM` | `FEED` | `SUCCESS` | `consecutive_failures`, `last_error` |
 | `SOURCE_PURGE_REQUESTED` | API, yönetici kaynağın içeriğinin silinmesini istediğinde (FG-YP-14) | `USER` (yönetici) | `SOURCE` | `SUCCESS` veya `FAILURE` | `code`, `articleCount` (istek anındaki haber sayısı) |
+| `SOURCE_API_KEY_MISSING` | İşçi, açılışta kaynağın API anahtarı tanımlı değilse; her açılışta kaynak başına bir kez (ADR-0017, 14. bölüm) | `SYSTEM` | `SOURCE` | `SUCCESS` | `setting` (ortam değişkeninin adı, `NYT_API_KEY`; anahtar yazılmaz) |
 | `SOURCE_PURGED` | İşçi, kaynağın içeriğini silmeyi bitirdiğinde (FG-YP-14) | `SYSTEM` | `SOURCE` | `SUCCESS` | `article_count`, `media_count` (silmeyi bitiren turda silinen haber ve görsel dosyası sayıları) |
 | `ARTICLE_HIDDEN` | API, yönetici bir haberi gizlediğinde (FG-YP-09) | `USER` (yönetici) | `ARTICLE` | `SUCCESS` veya `FAILURE` | `reason` (gerekçe); başarısız denemede `code` |
 | `ARTICLE_UNHIDDEN` | API, yönetici gizlemeyi geri aldığında | `USER` (yönetici) | `ARTICLE` | `SUCCESS` veya `FAILURE` | Başarısız denemede `code` |

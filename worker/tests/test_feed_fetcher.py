@@ -198,6 +198,45 @@ async def test_connection_problem_is_a_network_error(fetcher: FeedFetcher, respx
     assert result.http_status is None
 
 
+# Maskelenmesi gereken parametre değeri (sahte).
+HIDDEN_VALUE = "deneme-degeri-123"
+
+
+async def test_secret_parameter_is_sent_but_hidden_in_the_reported_address(
+    fetcher: FeedFetcher, respx_mock: respx.MockRouter
+) -> None:
+    """NYT anahtarı adresin parametresiyle gönderilir; dönen adreste (okuma kaydına yazılır) maskelenir."""
+    route = respx_mock.get(FEED_URL).respond(200, content=BODY)
+
+    result = await fetcher.fetch(FEED_URL, secret_params={"api-key": HIDDEN_VALUE})
+
+    assert route.calls.last.request.url.params["api-key"] == HIDDEN_VALUE
+    assert isinstance(result, FetchedFeed)
+    assert result.final_url == f"{FEED_URL}?api-key=***"
+
+
+async def test_secret_parameter_is_hidden_in_failures(fetcher: FeedFetcher, respx_mock: respx.MockRouter) -> None:
+    """Başarısız indirmede de anahtar ne adreste ne de hata metninde görünür."""
+    respx_mock.get(FEED_URL).respond(401)
+
+    denied = await fetcher.fetch(FEED_URL, secret_params={"api-key": HIDDEN_VALUE})
+
+    def failing_connection(request: httpx.Request) -> httpx.Response:
+        # Hata metni isteğin adresini, dolayısıyla anahtarı da içerir.
+        raise httpx.ConnectError(f"{request.url} adresine bağlanılamadı")
+
+    respx_mock.get(FEED_URL).mock(side_effect=failing_connection)
+
+    unreachable = await fetcher.fetch(FEED_URL, secret_params={"api-key": HIDDEN_VALUE})
+
+    assert isinstance(denied, FetchFailed)
+    assert isinstance(unreachable, FetchFailed)
+    for text in (denied.final_url, denied.message, unreachable.message):
+        assert text is not None
+        assert HIDDEN_VALUE not in text
+    assert "api-key=***" in unreachable.message
+
+
 async def test_download_slower_than_total_timeout_is_a_network_error(
     fetcher: FeedFetcher, respx_mock: respx.MockRouter
 ) -> None:
