@@ -509,7 +509,7 @@ PostgreSQL (uygulama ve Keycloak veritabanları) ve Elasticsearch her gece yedek
 
 Veri büyümesi analizinde (İ-35, 24 Kasım 2026) ölçülen ve belirlenen değerler.
 
-**Büyüme.** Bugünkü dört kaynak günde 447–715 haber üretir. Geliştirme bilgisayarı günün yalnızca %43'ünde açık olduğundan 447 ölçülen alt sınır, 715 ise açık saatlerdeki yayın hızından hesaplanan üst sınırdır. Planlanan 10–15 Türk kaynağı ve NYT ile yılda 0,8–1,6 milyon haber beklenir. FOG-07'deki 1 milyon haber yaklaşık bir yıllık veridir.
+**Büyüme.** Bugünkü dört kaynak günde 447–715 haber üretir. Geliştirme bilgisayarı günün yalnızca %43'ünde açık olduğundan 447 ölçülen alt sınır, 715 ise açık saatlerdeki yayın hızından hesaplanan üst sınırdır. Planlanan 10–15 Türk kaynağı ve NYT ile yılda 0,8–1,6 milyon haber beklenir. İ-41'de 16 Türk kaynağı eklendi (`V19`); tahmin bu kaynakların günlük hacmi ölçülmeden önce yapıldı. FOG-07'deki 1 milyon haber yaklaşık bir yıllık veridir.
 
 | Veri | Birim başına (1 milyon haberlik deneme verisiyle ölçüldü) | Yılda |
 |---|---|---|

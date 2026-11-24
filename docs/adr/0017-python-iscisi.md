@@ -106,18 +106,20 @@ Okuyucu yazılmadan önce dört kaynaktan on bir besleme indirilip incelendi (13
 - İçerik `nh3` ile, kütüphanenin varsayılan izin verilen etiketler listesi kullanılarak temizlenir; listeden yalnızca `<img>` çıkarılmıştır. Yasaklı liste yerine izin listesi kullanıldığı için, bilinmeyen bir etiket de kendiliğinden elenir.
 - İçerikteki `<img>` etiketleri çıkarılır ve adresleri görsel listesine alınır; görseller ayrıca indirilip kendi depomuzdan sunulur (ADR-0010).
 - Başlık ve özet düz metne çevrilir; HTML içermezler.
+- **Gömülü kutular (İ-41):** Kaynağın metne gömdüğü ve haberin parçası olmayan kutular, temizlikten ve görseller toplanmadan önce içerikleriyle birlikte atılır. Kutular sınıflarından tanınır: Milliyet'in haber editörünün düzenlenemez blokları (`mceNonEditable`: görsel yer tutucuları, ilgili haberler, reklam) ve BirGün'ün "İlgili haberler" kutusu (`inline-related`). Milliyet bu kutularda görselin adresini değil yalnızca kimliğini verir; adres görsel sunucusunun yapısından tahmin edilmediği için bu görseller alınmaz. `<aside>` etiketinin tamamı atılmaz, çünkü Global Voices haberin kendi metnini de `<aside>` içinde verir.
+- **"Devamı" bağlantısı (İ-41):** Sabah her özetin sonuna haberin kendisine dönen "Devamı için tıklayınız" bağlantısı koyar; bu yazı özetten atılır.
 - `feedparser` da kendi içinde HTML temizler. Temizliğin başka bir kütüphanenin varsayılan ayarına bağlı kalmaması için `nh3` yine de uygulanır; testler `nh3` katmanını kaynağın gönderdiği ham HTML ile sınar.
 
 **Görseller**
 
-- Öncelik sırası: kaynağa özgü alan (alan eşlemesi), `<enclosure>` (yalnızca görsel türündekiler), içerikteki `<img>` etiketleri. İlk görsel haberin ana görselidir.
-- `media:content` yalnızca başka görsel bulunamadığında kullanılır: Global Voices'ta bu alan küçük bir önizleme resmidir, büyük görsel içeriktedir.
+- Öncelik sırası: kaynağa özgü alan (alan eşlemesi), `<enclosure>` (yalnızca görsel türündekiler), içerikteki `<img>` etiketleri. İlk görsel haberin ana görselidir. Kaynağa özgü alandan görsel geldiyse `<enclosure>` okunmaz (Akşam'da `<enclosure>` adresi bozuk).
+- Bunlar yoksa yedekler sırayla denenir ve ilk bulunan tek görsel kullanılır: `media:content` (Global Voices'ta küçük bir önizleme resmidir, büyük görsel içeriktedir), özetteki `<img>` (Milliyet ve Karar görseli yalnızca özette verir), `media:thumbnail` (BBC Türkçe yalnızca küçük önizleme verir). Yedekler İ-41'de eklendi.
 - Aynı görsel farklı parametrelerle tekrar gelirse (NTV: `?width=930&format=webp`) tek sayılır; karşılaştırma adresin parametresiz haliyle yapılır.
 
 **Alan eşlemesi (FG-VT-03)**
 
 - `feedparser` standart dışı etiketleri atar. CNN Türk görseli haberin içindeki `<image>` etiketinde verdiği için bu görsel `feedparser`'ın sonucunda yer almaz.
-- `sources.field_mapping` bu tür etiketleri okuyucuya tanıtır. Şu an tek anahtar `image`'dır: ana görselin okunacağı etiketin adı. CNN Türk'ün eşlemesi `{"image": "image"}` olarak `V12` betiğiyle yazıldı; diğer üç kaynak görseli standart alanlarda verdiği için eşlemeleri boştur.
+- `sources.field_mapping` bu tür etiketleri okuyucuya tanıtır. Şu an tek anahtar `image`'dır: ana görselin okunacağı etiketin adı. CNN Türk'ün eşlemesi `{"image": "image"}` olarak `V12` betiğiyle yazıldı. Akşam'ın eşlemesi de aynıdır (`V20`): Akşam `<enclosure>` adresinde eğik çizgiyi eksik yazar (`imgsdisk2026/...`, 404 döner), doğru adres `<image>` etiketindedir; `V20` daha önce bozuk adresle kaydedilmiş görselleri de düzeltip yeniden sıraya koyar. Diğer kaynaklar görseli standart alanlarda doğru verdiği için eşlemeleri boştur.
 - Eşleme tanımlıysa okuyucu beslemeyi Python'un kendi XML okuyucusuyla ikinci kez açar ve yalnızca o etiketi okur. Değerlendirilen alternatif, `feedparser`'ı bırakıp bütün ayrıştırmayı elle yazmaktı; dört farklı biçim için çok daha fazla kod gerektirdiğinden seçilmedi.
 - Python'un XML okuyucusu dış varlıkları yüklemez; iç içe varlıklarla belleği doldurma saldırısına karşı koruma expat 2.4.1'den beri vardır (işçi imajında 2.9.0). Bu yüzden ek bir kütüphane eklenmedi.
 - Besleme geçerli bir XML değilse (`feedparser` bozuk XML'i de okuyabilir) haberler özel alan olmadan döner ve durum loga yazılır.

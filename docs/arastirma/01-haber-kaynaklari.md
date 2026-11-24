@@ -69,7 +69,7 @@ Sonuç değerleri:
 |---|---|---|---|
 | The Guardian Open Platform | API | Seçildi, sonra çıkarıldı | Ücretsiz Developer anahtarı ticari olmayan kullanıma açık; tam metin veriyor. Kısıtları 4.1 bölümünde. 24 saat saklama kuralı nedeniyle ADR-0006 ile kaynak setinden çıkarıldı. |
 | Global Voices | RSS | Seçildi | İçerik CC BY lisanslı; besleme aktif; robots.txt beslemeye izin veriyor. Kısıtları 4.2 bölümünde. |
-| New York Times Developer API | API | Seçildi | Ücretsiz katmanı var, atıf zorunlu. Tam metin yerine özet ve giriş paragrafı veriyor. Guardian'ın yerine ADR-0006 ile kaynak setine alındı. Kısıtları 4.6 bölümünde. |
+| New York Times Developer API | API | Seçildi | Ücretsiz katmanı var, atıf zorunlu. Tam metin yerine özet ve giriş paragrafı veriyor. Guardian'ın yerine ADR-0006 ile kaynak setine alındı. Kısıtları 4.7 bölümünde. |
 | Eurasianet | RSS | İleride eklenebilir | İçerik CC BY-ND 4.0 lisanslı (yayıncının kendi yeniden yayın sayfası). Fotoğraf ve multimedya içerik lisansa dahil değil. Beslemesi incelenmedi. |
 | ProPublica | RSS | İleride eklenebilir | İçerik Creative Commons lisanslı (yayıncının kendi sayfası). Kaynak gösterme, bağlantı verme ve içeriği düzenlememe şartı var. Lisansın tam türü ve beslemesi incelenmedi. |
 | BBC News | RSS | Elendi | Beslemenin telif alanı, yeniden kullanım için BBC kullanım koşullarının "Metadata and RSS feeds" bölümüne yönlendiriyor. Bu bölüme göre beslemeden meta veri (metin, görsel, bağlantı) ayıklanması lisansa, ticari kullanım izne tabi. Not: Bu bilgi resmi sayfanın bir kopyasından okundu. |
@@ -130,7 +130,15 @@ Sonuç değerleri:
 - **Gelen alanlar:** `guid` (`isPermaLink="true"` beyan edilmiş, ancak değer bir adres değil), bağlantı, başlık, özet (CDATA), yayın tarihi (GMT) ve öğe içinde `<image>` (standart dışı). Kategori alanı yok; kategori haber adresinde yer alıyor. Tam metin gelmiyor.
 - **Not:** 03.11.2026 tarihinde kategori beslemelerinin her biri 35 haber döndürüyordu; `bilim-teknoloji` beslemesi boştu. `news` beslemelerinde video sayfalarına giden haberler de bulunuyor.
 
-### 4.6 New York Times Developer API
+### 4.6 Ek Türk kaynakları (İ-41, 24 Kasım 2026)
+
+- **Kaynaklar:** Hürriyet, Milliyet, Sabah, Sözcü, Cumhuriyet, BirGün, Yeni Şafak, Star, Akşam, Haberler.com, Karar, Euronews Türkçe, DW Türkçe, BBC Türkçe, Bloomberg HT, Sputnik Türkiye. Hepsi RSS 2.0; besleme listesi ve kategori eşlemeleri `V19` betiğinde, seçim ve alınmayan kaynaklar ADR-0004'ün 5. bölümündedir.
+- **Kullanım hakkı:** Şirket kararı (ADR-0004).
+- **Ön deneme:** Eklemeden önce 50 beslemenin hepsi gerçek okuyucu ve kategori kurallarıyla okundu; okuma hatası ve gelecek tarihli haber çıkmadı, Diğer kategorisinin payı kaynak başına %0–8 idi (Akşam'ın küçük örneğinde %20).
+- **Görseller:** Euronews ve DW beslemelerinde görsel yok; Sputnik'te haberlerin yaklaşık %13'ünde var. Milliyet ve Karar görseli yalnızca özetteki `<img>` ile, BBC Türkçe yalnızca `media:thumbnail` ile verir. Akşam'ın `<enclosure>` adresi bozuktur; doğrusu öğe içindeki `<image>` etiketindedir.
+- **Metin:** Milliyet haberin tamamını özet alanında (`<description>`) verir; metnin içinde editörün gömdüğü kutular (görsel yer tutucusu, ilgili haber, reklam) bulunur ve kutudaki görsellerin adresi verilmez. BirGün'ün tam metninin sonunda "İlgili haberler" kutusu vardır. Sabah'ın özeti haberin kendisine dönen "Devamı için tıklayınız" bağlantısıyla biter. Sözcü özetleri 120 karakterde keser. Okuyucunun bunlara göre yaptığı değişiklikler ADR-0017'nin 8. bölümündedir.
+
+### 4.7 New York Times Developer API
 
 - **Erişim:** REST API; yalnızca anahtar (`api-key` parametresi) ile. Anahtar depoya girmez.
 - **Dil:** İngilizce.
@@ -264,7 +272,7 @@ Global Voices'ta incelenen bir haberin görseli Flickr'dan alınmış ve görsel
 
 1. **Türkçe canlı kaynak.** *Çözüldü:* TRT Haber, NTV ve CNN Türk, şirket kararıyla kaynak setine alındı (ADR-0004).
 2. **Guardian'ın 24 saat kuralının uygulanması.** *Kapandı:* Guardian kaynak setinden çıkarıldı (ADR-0006).
-3. **NYT API'nin kullanım şartları, istek limitleri, gelen alanları, bölüm listesi ve atıf gereklilikleri.** *Çözüldü:* Doğrulama sonuçları 4.6 bölümünde ve ADR-0009'dadır.
+3. **NYT API'nin kullanım şartları, istek limitleri, gelen alanları, bölüm listesi ve atıf gereklilikleri.** *Çözüldü:* Doğrulama sonuçları 4.7 bölümünde ve ADR-0009'dadır.
 4. **Görsel gösterim kuralı.** *Çözüldü:* Görseller kaynaktan indirilip nesne depolamada saklanır (ADR-0010).
 
 ## 8. Yöntem ve Kaynaklar

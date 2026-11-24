@@ -1,6 +1,6 @@
 # ADR-0004: Türk Haber Kaynaklarının Eklenmesi
 
-- **Durum:** Kabul edildi; Guardian ile ilgili kısımları ADR-0006 ile geçersiz kılındı; görsel kuralı ADR-0010 ile değiştirildi
+- **Durum:** Kabul edildi; Guardian ile ilgili kısımları ADR-0006 ile geçersiz kılındı; görsel kuralı ADR-0010 ile değiştirildi; kaynak listesi İ-41'de genişletildi (5. bölüm)
 - **Tarih:** 2026-11-03
 - **İlişki:** ADR-0003'ü genişletir. ADR-0003'teki Guardian ve Global Voices kararları geçerliliğini korur.
 
@@ -100,6 +100,15 @@ Adres biçimi: `https://www.cnnturk.com/feed/rss/{besleme}/news`
 
 - **Guardian:** Haber düzeyinde, haberin bölüm (section) bilgisine göre eşlenir. Eşleme tablosu API anahtarı alındıktan sonra hazırlanacaktır.
 - **Global Voices:** Varsayılan kategori Dünya'dır. Haberin konu kategorilerinden ortak listeyle eşleşenler ek olarak eşlenir; bölge kategorileri eşlenmez.
+
+### 5. Ek Türk kaynakları (İ-41, 24 Kasım 2026)
+
+Aynı şirket kararı ve 2. bölümdeki kurallarla 16 kaynak daha eklendi: Hürriyet, Milliyet, Sabah, Sözcü, Cumhuriyet, BirGün, Yeni Şafak, Star, Akşam, Haberler.com, Karar, Euronews Türkçe, DW Türkçe, BBC Türkçe, Bloomberg HT ve Sputnik Türkiye. Beslemeler, kategori eşlemeleri ve istek aralıkları `V19` betiğindedir.
+
+- **Alınmayanlar:** Anadolu Ajansı (beslemesi yalnızca başlık veriyor), T24 (RSS adresi yanıt vermiyor), Halk TV (beslemesi güncellenmiyor; son haber 9 Kasım).
+- **Kategori:** Konu beslemesi olan kaynaklarda besleme düzeyinde eşleme kullanıldı. Sabah'ın genel beslemesindeki kategori etiketi ("Son 24 Saat") konu bildirmediği için Sabah ve Sözcü yalnızca konu beslemeleriyle okunur. Tek beslemeli kaynaklarda haberler varsayılan bir kategori alır: Euronews Dünya, Bloomberg HT Ekonomi, DW, BBC ve Sputnik Gündem. Siyaset ve politika kategorileri Gündem'e, magazin ve benzerleri Yaşam'a eşlenir.
+- **İstek aralığı ve sıklık:** Diğer Türk kaynakları gibi 5 saniye ve 15 dakika; Milliyet'in son dakika beslemesi 5 dakika.
+- **Görsel ve metin farklılıkları:** Okuyucuda bu kaynaklar için yapılan değişiklikler ADR-0017'nin 8. bölümündedir.
 
 ## Sonuçlar
 
