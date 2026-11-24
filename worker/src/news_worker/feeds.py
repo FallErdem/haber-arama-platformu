@@ -17,8 +17,12 @@ class DueFeed:
     source_code: str
     # Kaynağın dili (`tr`, `en`); haberlerin diline ve kategori değerlerinin küçük harfe çevrilmesine yön verir.
     language: str
+    # Yanıtı ayrıştıracak okuyucu (`RSS`, `ATOM`, `NYT_TOP_STORIES`).
+    reader_type: str
     # Aynı kaynağa iki istek arasında beklenecek süre.
     request_interval_seconds: int
+    # Kaynağa son 24 saatte atılabilecek en fazla istek; boşsa sınır yoktur (NYT için 400, ADR-0009).
+    daily_request_limit: int | None
     # Kaynağın standart dışı etiketleri (ör. CNN Türk {"image": "image"}); yoksa None.
     field_mapping: dict[str, str] | None
     # Beslemedeki saatlerin gerçekte yazıldığı saat dilimi (ör. CNN Türk "Europe/Istanbul"); yoksa None
@@ -56,15 +60,16 @@ class FeedFailureCount:
 # Elle toplama da bu sorguyla çalışır: API beslemenin next_fetch_at değerini şimdiye çeker ve
 # manual_fetch_requested_at'i doldurur, işçi bir sonraki turda onu burada bulur (ADR-0013).
 _FIND_DUE_QUERY = """
-    SELECT f.id, s.id AS source_id, s.code AS source_code, s.language, s.request_interval_seconds,
-           s.field_mapping, s.feed_time_zone, f.name, f.url, c.code AS default_category_code, f.use_item_categories,
-           f.etag, f.last_modified, f.next_fetch_at, f.manual_fetch_requested_at
+    SELECT f.id, s.id AS source_id, s.code AS source_code, s.language, s.reader_type, s.request_interval_seconds,
+           s.daily_request_limit, s.field_mapping, s.feed_time_zone, f.name, f.url, c.code AS default_category_code,
+           f.use_item_categories, f.etag, f.last_modified, f.next_fetch_at, f.manual_fetch_requested_at
     FROM feeds f
     JOIN sources s ON s.id = f.source_id
     LEFT JOIN categories c ON c.id = f.default_category_id
     WHERE f.enabled
       AND s.enabled
       AND f.next_fetch_at <= now()
+      AND s.reader_type <> ALL(%(skipped_reader_types)s::text[])
     ORDER BY f.next_fetch_at, f.id
     LIMIT %(limit)s
 """
@@ -180,11 +185,22 @@ _RECORD_FAILURE_QUERY = """
 
 
 class FeedRepository:
-    async def find_due(self, connection: psycopg.AsyncConnection[TupleRow], limit: int) -> list[DueFeed]:
-        """Etkin bir kaynağa ait, etkin ve okuma zamanı gelmiş beslemeleri en çok bekleyenden başlayarak döner."""
+    async def find_due(
+        self,
+        connection: psycopg.AsyncConnection[TupleRow],
+        limit: int,
+        skipped_reader_types: frozenset[str] = frozenset(),
+    ) -> list[DueFeed]:
+        """Etkin bir kaynağa ait, etkin ve okuma zamanı gelmiş beslemeleri en çok bekleyenden başlayarak döner.
+
+        `skipped_reader_types`: okunamayacak okuyucu türleri; örneğin API anahtarı tanımlı değilse NYT.
+        """
         # class_row: her satırı, sütun adlarını alan adlarıyla eşleştirerek DueFeed'e çevirir.
         async with connection.cursor(row_factory=class_row(DueFeed)) as cursor:
-            await cursor.execute(_FIND_DUE_QUERY, {"limit": limit})
+            # `<> ALL(dizi)`: dizideki hiçbir değere eşit değil; dizi boşsa koşul her satır için doğrudur.
+            await cursor.execute(
+                _FIND_DUE_QUERY, {"limit": limit, "skipped_reader_types": sorted(skipped_reader_types)}
+            )
             return await cursor.fetchall()
 
     # Sonucu yazan dört metottaki `manual_requested_at`: okumanın başında okunan elle toplama isteğinin

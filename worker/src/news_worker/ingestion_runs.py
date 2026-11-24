@@ -38,6 +38,15 @@ class RunResult:
     error_message: str | None = None
 
 
+@dataclass(frozen=True)
+class RecentRequests:
+    """Bir kaynağa son 24 saatte atılan istekler (günlük istek bütçesi, ADR-0009)."""
+
+    count: int
+    # En eski isteğin üzerinden 24 saat geçmesine, yani yeni bir istek hakkı açılmasına kalan süre; istek yoksa None.
+    seconds_until_next_slot: float | None
+
+
 _START_QUERY = """
     INSERT INTO ingestion_runs (feed_id, trigger, status, started_at)
     VALUES (%(feed_id)s, %(trigger)s, 'RUNNING', now())
@@ -58,8 +67,27 @@ _FINISH_QUERY = """
     WHERE id = %(run_id)s
 """
 
+# Her okuma kaynağa atılmış bir istek sayılır (değişmedi ve başarısız okumalar dahil). Sayım takvim gününe göre
+# değil, son 24 saate göre yapılır (mimari 7. bölüm); (feed_id, started_at) indeksi kullanılır.
+_COUNT_RECENT_REQUESTS_QUERY = """
+    SELECT count(*), extract(epoch FROM min(r.started_at) + interval '24 hours' - now())::double precision
+    FROM ingestion_runs r
+    JOIN feeds f ON f.id = r.feed_id
+    WHERE f.source_id = %(source_id)s
+      AND r.started_at > now() - interval '24 hours'
+"""
+
 
 class IngestionRunRepository:
+    async def count_recent_requests(
+        self, connection: psycopg.AsyncConnection[TupleRow], source_id: UUID
+    ) -> RecentRequests:
+        """Kaynağın bütün beslemelerine son 24 saatte atılan istekleri sayar."""
+        cursor = await connection.execute(_COUNT_RECENT_REQUESTS_QUERY, {"source_id": source_id})
+        row = await cursor.fetchone()
+        assert row is not None  # count(*) her zaman bir satır döner.
+        return RecentRequests(count=row[0], seconds_until_next_slot=row[1])
+
     async def start(self, connection: psycopg.AsyncConnection[TupleRow], feed_id: UUID, trigger: RunTrigger) -> UUID:
         """Okumanın başladığını kaydeder ve kaydın kimliğini döner."""
         cursor = await connection.execute(_START_QUERY, {"feed_id": feed_id, "trigger": trigger.value})

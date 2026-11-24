@@ -3,13 +3,23 @@
 import json
 import logging
 import sys
+from collections.abc import Iterable
 from datetime import UTC, datetime
 
 SERVICE_NAME = "news-worker"
+_MASK = "***"
 
 
 class JsonFormatter(logging.Formatter):
-    """Alan adları, API'nin loglarındaki gibi Elastic Common Schema'yı izler."""
+    """Alan adları, API'nin loglarındaki gibi Elastic Common Schema'yı izler.
+
+    `masked_values` loga hiç yazılmaması gereken değerlerdir (NYT API anahtarı). Bir mesaja veya yığın izine
+    karışırlarsa `***` ile değiştirilir; anahtarın kendisi her yerde zaten maskelenir, bu son bir güvencedir.
+    """
+
+    def __init__(self, masked_values: Iterable[str] = ()) -> None:
+        super().__init__()
+        self._masked_values = tuple(value for value in masked_values if value)
 
     def format(self, record: logging.LogRecord) -> str:
         entry: dict[str, str] = {
@@ -17,17 +27,22 @@ class JsonFormatter(logging.Formatter):
             "log.level": record.levelname,
             "log.logger": record.name,
             "service.name": SERVICE_NAME,
-            "message": record.getMessage(),
+            "message": self._mask(record.getMessage()),
         }
         if record.exc_info:
-            entry["error.stack_trace"] = self.formatException(record.exc_info)
+            entry["error.stack_trace"] = self._mask(self.formatException(record.exc_info))
         # ensure_ascii=False: Türkçe karakterler \u kaçışlarıyla değil olduğu gibi yazılır.
         return json.dumps(entry, ensure_ascii=False)
 
+    def _mask(self, text: str) -> str:
+        for value in self._masked_values:
+            text = text.replace(value, _MASK)
+        return text
 
-def configure_logging() -> None:
+
+def configure_logging(masked_values: Iterable[str] = ()) -> None:
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JsonFormatter())
+    handler.setFormatter(JsonFormatter(masked_values))
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(logging.INFO)

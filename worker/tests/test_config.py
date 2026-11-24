@@ -148,6 +148,26 @@ def test_invalid_numeric_setting_is_rejected(name: str, value: str) -> None:
         )
 
 
+@pytest.mark.parametrize("value", [None, "", "   "])
+def test_nyt_api_key_is_optional(value: str | None) -> None:
+    """NYT anahtarı zorunlu değildir; tanımlı değilse ya da boşsa yok sayılır (NYT okunmaz)."""
+    environment = {"DB_PASSWORD": "gizli", "ES_PASSWORD": "arama-gizli", "MINIO_SECRET_KEY": "depo-gizli"}
+    if value is not None:
+        environment["NYT_API_KEY"] = value
+
+    assert Settings.from_environment(environment).nyt_api_key is None
+
+
+def test_nyt_api_key_is_read_and_hidden_in_repr() -> None:
+    """Anahtar ortam değişkeninden okunur; ayarların yazdırılan halinde görünmez."""
+    settings = Settings.from_environment(
+        {"DB_PASSWORD": "gizli", "ES_PASSWORD": "arama-gizli", "MINIO_SECRET_KEY": "depo-gizli", "NYT_API_KEY": "nyt-1"}
+    )
+
+    assert settings.nyt_api_key == "nyt-1"
+    assert "nyt-1" not in repr(settings)
+
+
 def test_password_is_hidden_in_repr() -> None:
     """Şifreler, ayarların yazdırılan halinde görünmez."""
     settings = Settings.from_environment(

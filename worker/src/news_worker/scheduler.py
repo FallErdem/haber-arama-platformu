@@ -25,6 +25,7 @@ class Scheduler:
         interval_seconds: float,
         batch_size: int = 100,
         clock: Callable[[], float] = time.monotonic,
+        skipped_reader_types: frozenset[str] = frozenset(),
     ) -> None:
         self._database = database
         self._feed_repository = feed_repository
@@ -32,6 +33,8 @@ class Scheduler:
         self._ingest = ingest
         self._interval_seconds = interval_seconds
         self._batch_size = batch_size
+        # Okunamayacak okuyucu türleri (API anahtarı tanımlı değilse NYT); bu türlerin beslemeleri hiç seçilmez.
+        self._skipped_reader_types = skipped_reader_types
         # Testlerde sahte bir saat verilebilir. monotonic: sistem saati değişse de geri gitmez.
         self._clock = clock
         self._last_alive_at: float | None = None
@@ -44,7 +47,7 @@ class Scheduler:
         """
         # Her turda yeni bağlantı: veritabanı yeniden başlasa bile sonraki tur kendiliğinden toparlanır.
         async with await self._database.connect() as connection:
-            due_feeds = await self._feed_repository.find_due(connection, self._batch_size)
+            due_feeds = await self._feed_repository.find_due(connection, self._batch_size, self._skipped_reader_types)
         self._mark_alive()
         log.info("Okuma zamanı gelmiş besleme sayısı: %d", len(due_feeds))
 

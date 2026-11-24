@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import sys
 from dataclasses import replace
 
 import httpx
@@ -61,6 +62,14 @@ async def test_worker_finds_tables_ingests_due_feeds_relays_outbox_and_stops_on_
     assert "Tablolar hazır; zamanlayıcı başlıyor" in messages
     assert "Okuma zamanı gelmiş besleme sayısı: 2" in messages
     assert messages[-1] == "İşçi durdu"
+    # Test ayarlarında NYT anahtarı yok: NYT okunmaz, durum açılışta loga ve audit'e yazılır.
+    assert "NYT_API_KEY tanımlı değil; NYT_TOP_STORIES kaynaklarının beslemeleri okunmayacak" in messages
+    missing_key_events = admin.execute(
+        "SELECT a.actor_type, a.target_type, a.details FROM audit_events a JOIN sources s ON s.id = a.target_id "
+        "WHERE a.action = 'SOURCE_API_KEY_MISSING' AND s.code = 'NYT'"
+    ).fetchall()
+    assert missing_key_events
+    assert all(event == ("SYSTEM", "SOURCE", {"setting": "NYT_API_KEY"}) for event in missing_key_events)
     runs = admin.execute(
         "SELECT f.url, r.status FROM ingestion_runs r JOIN feeds f ON f.id = r.feed_id ORDER BY f.url"
     ).fetchall()
@@ -97,6 +106,24 @@ def test_log_lines_are_json() -> None:
     assert entry["log.logger"] == "news_worker.test"
     assert entry["service.name"] == "news-worker"
     assert "@timestamp" in entry
+
+
+def test_secret_values_are_masked_in_log_lines() -> None:
+    """Verilen gizli değer (NYT anahtarı) log satırına karışırsa, mesajda da yığın izinde de maskelenir."""
+    try:
+        raise RuntimeError("https://api.nytimes.com/svc/topstories/v2/world.json?api-key=nyt-gizli adresi")
+    except RuntimeError:
+        exc_info = sys.exc_info()
+    record = logging.LogRecord(
+        "news_worker.test", logging.ERROR, __file__, 1, "İstek: %s", ("api-key=nyt-gizli",), exc_info
+    )
+
+    line = JsonFormatter(masked_values=["nyt-gizli"]).format(record)
+
+    assert "nyt-gizli" not in line
+    entry = json.loads(line)
+    assert entry["message"] == "İstek: api-key=***"
+    assert "api-key=*** adresi" in entry["error.stack_trace"]
 
 
 def test_http_client_request_lines_are_not_logged() -> None:

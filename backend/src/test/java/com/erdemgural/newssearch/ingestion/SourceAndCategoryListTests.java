@@ -54,13 +54,13 @@ class SourceAndCategoryListTests {
         MvcTestResult result = get(SOURCES_PATH, activeUser());
 
         assertThat(result).hasStatusOk();
-        // Başlangıç verisi: V11'in 4 ve V19'un 16 kaynağı.
+        // Başlangıç verisi: V11'in 4, V19'un 16 ve V22'nin 1 (NYT) kaynağı.
         assertThat(result)
                 .bodyJson()
                 .extractingPath("$.items[*].code")
                 .asArray()
-                .hasSize(20)
-                .contains("CNNTURK", "GLOBALVOICES", "NTV", "TRT", "HURRIYET", "SPUTNIK");
+                .hasSize(21)
+                .contains("CNNTURK", "GLOBALVOICES", "NTV", "TRT", "HURRIYET", "SPUTNIK", "NYT");
         // Veritabanının sıralama kuralı C (kod noktası sırası); Java'nın metin karşılaştırmasıyla aynıdır.
         assertThat(result)
                 .bodyJson()
@@ -99,7 +99,7 @@ class SourceAndCategoryListTests {
                     .bodyJson()
                     .extractingPath("$.items[*].code")
                     .asArray()
-                    .hasSize(19)
+                    .hasSize(20)
                     .contains("CNNTURK", "GLOBALVOICES", "TRT")
                     .doesNotContain("NTV");
         } finally {
