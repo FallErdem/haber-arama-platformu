@@ -2,7 +2,7 @@ import asyncio
 from collections import Counter
 
 import psycopg
-from conftest import count_enabled_feeds
+from conftest import count_enabled_feeds, enabled_source_codes
 from psycopg.rows import TupleRow
 
 from news_worker.database import Database
@@ -61,8 +61,11 @@ async def test_tick_ingests_every_due_feed(database: Database, admin: psycopg.Co
     assert len({feed.id for feed in ingest.feeds}) == enabled_feed_count
 
 
-async def test_feeds_of_a_source_run_in_order_while_sources_run_together(database: Database) -> None:
+async def test_feeds_of_a_source_run_in_order_while_sources_run_together(
+    database: Database, admin: psycopg.Connection
+) -> None:
     """Aynı kaynağın beslemeleri sırayla, farklı kaynaklar aynı anda okunur (ADR-0013)."""
+    source_codes = enabled_source_codes(admin)
     running: Counter[str] = Counter()
     max_running_per_source: Counter[str] = Counter()
     max_running_in_total = 0
@@ -82,9 +85,9 @@ async def test_feeds_of_a_source_run_in_order_while_sources_run_together(databas
 
     await scheduler.tick()
 
-    assert set(max_running_per_source) == {"TRT", "NTV", "CNNTURK", "GLOBALVOICES"}
+    assert set(max_running_per_source) == source_codes
     assert set(max_running_per_source.values()) == {1}
-    assert max_running_in_total == 4
+    assert max_running_in_total == len(source_codes)
 
 
 async def test_failing_feed_does_not_stop_other_feeds(database: Database, admin: psycopg.Connection) -> None:
@@ -104,8 +107,11 @@ async def test_failing_feed_does_not_stop_other_feeds(database: Database, admin:
     assert len(attempted) == enabled_feed_count
 
 
-async def test_remaining_feeds_are_not_started_after_stop_is_requested(database: Database) -> None:
+async def test_remaining_feeds_are_not_started_after_stop_is_requested(
+    database: Database, admin: psycopg.Connection
+) -> None:
     """Durdurma istenince elindeki beslemeyi bitirir; kaynağın sıradaki beslemelerine başlamaz."""
+    source_codes = enabled_source_codes(admin)
     stop = asyncio.Event()
     ingest = RecordingIngest()
 
@@ -119,10 +125,8 @@ async def test_remaining_feeds_are_not_started_after_stop_is_requested(database:
 
     await scheduler.tick(stop)
 
-    # Dört kaynağın ilk beslemeleri aynı anda başlamıştı; hiçbir kaynağın ikinci beslemesi başlamadı.
-    assert Counter(feed.source_code for feed in ingest.feeds) == Counter(
-        {"TRT": 1, "NTV": 1, "CNNTURK": 1, "GLOBALVOICES": 1}
-    )
+    # Bütün kaynakların ilk beslemeleri aynı anda başlamıştı; hiçbir kaynağın ikinci beslemesi başlamadı.
+    assert Counter(feed.source_code for feed in ingest.feeds) == Counter(dict.fromkeys(source_codes, 1))
 
 
 async def test_not_healthy_before_first_tick(database: Database) -> None:

@@ -169,8 +169,10 @@ def _image_urls(entry: Any, custom_image: str | None, content_images: tuple[str,
     """Haberin görsellerini öncelik sırasıyla döner; ilki ana görseldir.
 
     Sıra: kaynağa özgü alan (alan eşlemesi), <enclosure>, içerikteki <img> etiketleri.
-    `media:content` yalnızca başka görsel bulunamadığında kullanılır: bazı kaynaklarda
-    (Global Voices) küçük bir önizleme resmidir ve büyük görsel içeriktedir.
+    Bunlar yoksa yedekler sırayla denenir ve ilk bulunan tek görsel kullanılır:
+    - `media:content`: bazı kaynaklarda (Global Voices) küçük bir önizleme resmidir; büyük görsel içeriktedir.
+    - Özetteki <img>: Milliyet ve Karar görseli yalnızca özette verir.
+    - `media:thumbnail`: BBC Türkçe görseli yalnızca küçük bir önizleme resmi olarak verir.
     """
     candidates: list[str] = []
     if custom_image is not None:
@@ -195,6 +197,17 @@ def _image_urls(entry: Any, custom_image: str | None, content_images: tuple[str,
         url = _text(media.get("url"))
         is_image = media.get("medium") == "image" or _is_image_type(media.get("type"))
         if url is not None and is_image and is_http_url(url):
+            return (url,)
+
+    summary = _text(entry.get("summary"))
+    if summary is not None:
+        for url in clean_content(summary).image_urls:
+            if is_http_url(url):
+                return (url,)
+
+    for thumbnail in entry.get("media_thumbnail") or []:
+        url = _text(thumbnail.get("url"))
+        if url is not None and is_http_url(url):
             return (url,)
     return ()
 

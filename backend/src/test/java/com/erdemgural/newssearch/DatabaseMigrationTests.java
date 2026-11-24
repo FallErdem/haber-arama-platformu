@@ -56,7 +56,8 @@ class DatabaseMigrationTests {
                 jdbcClient.sql("SELECT count(*) FROM feeds").query(Long.class).single();
 
         assertThat(categoryCount).isEqualTo(10);
-        assertThat(feedCount).isEqualTo(42);
+        // V11'in 42 ve V19'un 50 beslemesi.
+        assertThat(feedCount).isEqualTo(92);
     }
 
     @Test

@@ -10,6 +10,7 @@ import com.erdemgural.newssearch.TestUsers;
 import com.erdemgural.newssearch.TestUsers.TestUser;
 import com.erdemgural.newssearch.identity.UserRole;
 import com.erdemgural.newssearch.identity.UserStatus;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,15 +54,29 @@ class SourceAndCategoryListTests {
         MvcTestResult result = get(SOURCES_PATH, activeUser());
 
         assertThat(result).hasStatusOk();
-        // Başlangıç verisi (V11): dört kaynak.
+        // Başlangıç verisi: V11'in 4 ve V19'un 16 kaynağı.
         assertThat(result)
                 .bodyJson()
                 .extractingPath("$.items[*].code")
                 .asArray()
-                .containsExactly("CNNTURK", "GLOBALVOICES", "NTV", "TRT");
-        assertThat(result).bodyJson().extractingPath("$.items[0].name").isEqualTo("CNN Türk");
-        assertThat(result).bodyJson().extractingPath("$.items[0].language").isEqualTo("tr");
-        assertThat(result).bodyJson().extractingPath("$.items[1].language").isEqualTo("en");
+                .hasSize(20)
+                .contains("CNNTURK", "GLOBALVOICES", "NTV", "TRT", "HURRIYET", "SPUTNIK");
+        // Veritabanının sıralama kuralı C (kod noktası sırası); Java'nın metin karşılaştırmasıyla aynıdır.
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.items[*].name")
+                .asInstanceOf(InstanceOfAssertFactories.list(String.class))
+                .isSorted();
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.items[?(@.code == 'CNNTURK')].name")
+                .asArray()
+                .containsExactly("CNN Türk");
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.items[?(@.code == 'GLOBALVOICES')].language")
+                .asArray()
+                .containsExactly("en");
     }
 
     @Test
@@ -84,7 +99,9 @@ class SourceAndCategoryListTests {
                     .bodyJson()
                     .extractingPath("$.items[*].code")
                     .asArray()
-                    .containsExactly("CNNTURK", "GLOBALVOICES", "TRT");
+                    .hasSize(19)
+                    .contains("CNNTURK", "GLOBALVOICES", "TRT")
+                    .doesNotContain("NTV");
         } finally {
             // Testler aynı veritabanını paylaşır; kaynak diğer testler için yeniden etkinleştirilir.
             setSourceEnabled("NTV", true);

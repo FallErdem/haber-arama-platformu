@@ -281,6 +281,42 @@ def test_media_content_is_used_when_there_is_no_other_image() -> None:
     assert article.image_urls == ("https://example.test/onizleme.jpg",)
 
 
+def test_summary_image_is_used_when_there_is_no_other_image() -> None:
+    """Milliyet ve Karar görseli yalnızca özetteki <img> etiketinde verir; başka görsel yoksa o kullanılır."""
+    body = rss(
+        VALID_ITEM.format(
+            extra='<description><![CDATA[<img src="https://example.test/ozet.jpg"/> Haberin özeti]]></description>'
+        ),
+    )
+
+    article = FeedReader().read(body).articles[0]
+
+    assert article.image_urls == ("https://example.test/ozet.jpg",)
+    assert article.summary == "Haberin özeti"
+
+
+def test_media_thumbnail_is_used_when_there_is_no_other_image() -> None:
+    """BBC Türkçe görseli yalnızca <media:thumbnail> ile verir; başka görsel yoksa o kullanılır."""
+    body = rss(VALID_ITEM.format(extra='<media:thumbnail url="https://example.test/kucuk.jpg" width="240"/>'))
+
+    article = FeedReader().read(body).articles[0]
+
+    assert article.image_urls == ("https://example.test/kucuk.jpg",)
+
+
+def test_media_content_comes_before_summary_image_and_summary_image_before_thumbnail() -> None:
+    """Yeni yedekler en sondadır: `media:content` önce, özetteki görsel sonra, küçük önizleme en son."""
+    summary = '<description><![CDATA[<img src="https://example.test/ozet.jpg"/> Özet]]></description>'
+    thumbnail = '<media:thumbnail url="https://example.test/kucuk.jpg"/>'
+    media = '<media:content url="https://example.test/onizleme.jpg" medium="image"/>'
+
+    with_media = FeedReader().read(rss(VALID_ITEM.format(extra=media + summary + thumbnail))).articles[0]
+    without_media = FeedReader().read(rss(VALID_ITEM.format(extra=summary + thumbnail))).articles[0]
+
+    assert with_media.image_urls == ("https://example.test/onizleme.jpg",)
+    assert without_media.image_urls == ("https://example.test/ozet.jpg",)
+
+
 def test_non_image_enclosure_is_not_an_image() -> None:
     """<enclosure> ses dosyası da taşıyabilir; görsel türünde olmayan alınmaz."""
     body = rss(
