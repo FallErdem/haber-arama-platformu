@@ -7,8 +7,8 @@ import java.util.UUID;
 /**
  * Audit kayıtlarının filtreleri (API sözleşmesi 6.8); {@code null} alan filtrelenmez.
  *
- * <p>Alt sınır her zaman vardır: tablo aylara bölümlenmiştir ve sorgu yalnızca aralığa düşen bölümlere
- * bakar. Varsayılan aralığı (son 30 gün) isteği okuyan taraf belirler.
+ * <p>Alt ve üst sınır her zaman vardır: tablo aylara bölümlenmiştir ve sorgu yalnızca aralığa düşen bölümlere
+ * bakar. Varsayılanları (son 30 gün, üst sınır şimdi) isteği okuyan taraf belirler.
  *
  * @param action işlem kodu; API'nin ve işçinin kodları ({@code FEED_AUTO_DISABLED} gibi) birlikte aranır
  * @param targetType hedefin türü ({@link AuditTargetType} adlarından biri)
@@ -21,5 +21,6 @@ public record AuditEventFilter(
 
     public AuditEventFilter {
         Objects.requireNonNull(from, "from");
+        Objects.requireNonNull(to, "to");
     }
 }

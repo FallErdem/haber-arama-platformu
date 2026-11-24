@@ -8,6 +8,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +23,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @SpringBootTest
 @Import({TestDatabaseConfiguration.class, TestElasticsearchConfiguration.class, TestStorageConfiguration.class})
 class DatabaseMigrationTests {
+
+    /** Audit bölümlerinin adındaki ay (V8): audit_events_2026_11. */
+    private static final DateTimeFormatter PARTITION_SUFFIX = DateTimeFormatter.ofPattern("yyyy_MM");
 
     private final JdbcClient jdbcClient;
     private final PostgreSQLContainer postgres;
@@ -78,6 +84,24 @@ class DatabaseMigrationTests {
             assertThatThrownBy(() -> statement.executeUpdate("DELETE FROM categories"))
                     .isInstanceOf(SQLException.class)
                     .hasMessageContaining("permission denied");
+        }
+    }
+
+    @Test
+    @DisplayName("audit tablosunun aylık bölümleri en az 3 ay sonrasına kadar hazır")
+    void auditPartitionsExistForTheNextThreeMonths() {
+        // Bölümleri geçiş betikleri ekler (V8: Aralık 2028'e kadar). Son bölümün bitmesine 3 aydan az kaldığında
+        // bu test kırılır ve gelecek yılın bölümlerini ekleyen yeni bir betiğin yazılmasını hatırlatır. Bölüm
+        // yetişmezse kayıt kaybolmaz; varsayılan bölüme (audit_events_default) düşer.
+        YearMonth thisMonth = YearMonth.now(ZoneOffset.UTC);
+        for (int months = 0; months <= 3; months++) {
+            String partition = "audit_events_" + thisMonth.plusMonths(months).format(PARTITION_SUFFIX);
+            Boolean exists = jdbcClient
+                    .sql("SELECT to_regclass(:name) IS NOT NULL")
+                    .param("name", partition)
+                    .query(Boolean.class)
+                    .single();
+            assertThat(exists).as(partition).isTrue();
         }
     }
 
