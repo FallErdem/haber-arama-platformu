@@ -21,6 +21,7 @@ atlanır, kalanlar eklenir.
 
 import argparse
 import asyncio
+import html
 import logging
 import random
 import re
@@ -86,7 +87,8 @@ class TextSample:
 def _words(text: str | None) -> list[str]:
     if not text:
         return []
-    return _WORD.findall(_HTML_TAG.sub(" ", text))
+    # Etiketler silinir, &nbsp; ve &amp; gibi karakter kodları çözülür; yoksa "nbsp" bir kelime sayılırdı.
+    return _WORD.findall(html.unescape(_HTML_TAG.sub(" ", text)))
 
 
 def _average(lengths: list[int]) -> int:

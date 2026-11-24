@@ -57,6 +57,13 @@ def test_profile_counts_words_and_measures_lengths() -> None:
     assert (turkish.summary_ratio, turkish.content_ratio) == (1.0, 0.5)
 
 
+def test_html_character_references_are_not_counted_as_words() -> None:
+    """Tam metindeki &nbsp; gibi HTML karakter kodları kelime sayılmaz (kümede ikinci en sık "kelime" nbsp'ydi)."""
+    profile = LanguageProfile.from_samples([TextSample("tr", "Başlık", None, "<p>Merkez&nbsp;bankası &amp; faiz</p>")])
+
+    assert set(profile.words) == {"Başlık", "Merkez", "bankası", "faiz"}
+
+
 def test_generated_texts_use_only_the_profile_words() -> None:
     """Üretilen başlık, özet ve tam metin yalnızca örneklerdeki kelimelerden oluşur; tam metin paragraflıdır."""
     turkish = profiles()["tr"]
