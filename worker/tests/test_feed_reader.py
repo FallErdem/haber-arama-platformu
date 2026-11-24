@@ -215,6 +215,22 @@ def test_item_without_custom_image_has_no_image() -> None:
     assert article.image_urls == ()
 
 
+def test_custom_image_field_replaces_enclosure() -> None:
+    """Akşam <enclosure>'da bozuk adres verir; alan eşlemesinden görsel geldiyse <enclosure> okunmaz.
+
+    Haberde eşlenen etiket yoksa <enclosure> yine kullanılır.
+    """
+    enclosure = '<enclosure url="https://example.test/imgsdisk2026/bozuk.jpg" type="image/jpeg" length="1"/>'
+    custom_image = "<image>https://example.test/imgsdisk/2026/dogru.jpg</image>"
+    with_custom_image = VALID_ITEM.format(extra=custom_image + enclosure)
+    without_custom_image = VALID_ITEM.replace("haber-1", "haber-2").format(extra=enclosure)
+
+    articles = FeedReader().read(rss(with_custom_image, without_custom_image), {IMAGE_FIELD: "image"}).articles
+
+    assert articles[0].image_urls == ("https://example.test/imgsdisk/2026/dogru.jpg",)
+    assert articles[1].image_urls == ("https://example.test/imgsdisk2026/bozuk.jpg",)
+
+
 def test_external_id_is_guid_even_when_it_is_not_the_url() -> None:
     """CNN Türk'ün kimliği adres değil, kendi iç kimliğidir; içerik ve yazar gelmez."""
     article = read_fixture("cnnturk-turkiye.xml").articles[0]
@@ -293,6 +309,35 @@ def test_summary_image_is_used_when_there_is_no_other_image() -> None:
 
     assert article.image_urls == ("https://example.test/ozet.jpg",)
     assert article.summary == "Haberin özeti"
+
+
+def test_read_more_link_is_removed_from_summary() -> None:
+    """Sabah özetin sonuna haberin kendisine dönen "Devamı için tıklayınız" bağlantısı koyar; özete alınmaz."""
+    body = rss(
+        VALID_ITEM.format(
+            extra="<description><![CDATA["
+            '<img src="https://example.test/ozet.jpg" alt="Başlık" /><br />Haberin özeti en...'
+            '<a href="https://example.test/haber-1">Devamı için tıklayınız</a>]]></description>'
+        ),
+    )
+
+    article = FeedReader().read(body).articles[0]
+
+    assert article.summary == "Haberin özeti en..."
+
+
+def test_relative_links_in_content_point_to_the_source_site() -> None:
+    """İçerikteki göreli bağlantılar haberin adresine göre tam adrese çevrilir."""
+    body = rss(
+        VALID_ITEM.format(
+            extra='<content:encoded><![CDATA[<p><a href="/diger-haber">Diğer</a></p>]]></content:encoded>'
+        ),
+    ).replace(b"<rss ", b'<rss xmlns:content="http://purl.org/rss/1.0/modules/content/" ')
+
+    article = FeedReader().read(body).articles[0]
+
+    assert article.content is not None
+    assert 'href="https://example.test/diger-haber"' in article.content
 
 
 def test_media_thumbnail_is_used_when_there_is_no_other_image() -> None:
@@ -418,11 +463,27 @@ def test_seeded_field_mapping_reads_cnnturk_images(admin: psycopg.Connection) ->
     assert all(len(article.image_urls) == 1 for article in articles)
 
 
+def test_seeded_field_mapping_reads_correct_aksam_images(admin: psycopg.Connection) -> None:
+    """Akşam'ın <enclosure> adresi bozuktur; veritabanındaki alan eşlemesiyle (V20) doğru adres okunur."""
+    row = admin.execute("SELECT field_mapping FROM sources WHERE code = 'AKSAM'").fetchone()
+    assert row is not None
+    field_mapping: dict[str, str] = row[0]
+
+    without_mapping = read_fixture("aksam.xml").articles
+    with_mapping = read_fixture("aksam.xml", field_mapping).articles
+
+    assert all("/imgsdisk2026/" in article.image_urls[0] for article in without_mapping)
+    assert [article.image_urls for article in with_mapping] == [
+        ("https://img3.aksam.com.tr/imgsdisk/2026/11/24/bayernden-sacha-boey-kara-827_2.jpg",),
+        ("https://img3.aksam.com.tr/imgsdisk/2026/11/24/merkez-bankasi-acikladi-s-753_2.jpg",),
+    ]
+
+
 def test_other_sources_have_no_field_mapping(admin: psycopg.Connection) -> None:
-    """Görseli standart alanlarda veren kaynakların alan eşlemesi boştur."""
+    """Görseli standart alanlarda doğru veren kaynakların alan eşlemesi boştur."""
     rows = admin.execute("SELECT code FROM sources WHERE field_mapping IS NOT NULL ORDER BY code").fetchall()
 
-    assert rows == [("CNNTURK",)]
+    assert rows == [("AKSAM",), ("CNNTURK",)]
 
 
 def test_only_cnnturk_has_a_feed_time_zone(admin: psycopg.Connection) -> None:

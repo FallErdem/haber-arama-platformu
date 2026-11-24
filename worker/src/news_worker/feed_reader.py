@@ -6,6 +6,7 @@ burada değildir (İ-12); bu yüzden okuyucu ağ ve veritabanı olmadan sınanab
 
 import io
 import logging
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, tzinfo
@@ -24,7 +25,7 @@ from news_worker.url_normalizer import is_http_url, normalize_url
 log = logging.getLogger(__name__)
 
 # `sources.field_mapping` içindeki anahtar: haberin ana görselinin okunacağı etiketin adı.
-# Örnek: CNN Türk için {"image": "image"}.
+# Örnek: CNN Türk ve Akşam için {"image": "image"}.
 IMAGE_FIELD = "image"
 
 # Bir haberi saran etiket: RSS'te <item>, Atom'da <entry>.
@@ -32,6 +33,9 @@ _ITEM_TAGS = frozenset({"item", "entry"})
 # Adresi bu yolla başlayan haberler videodur (CNN Türk: /video/dunya/...).
 _VIDEO_PATH_PREFIX = "/video/"
 _IMAGE_TYPE_PREFIX = "image/"
+# Özetin sonundaki "devamı" bağlantısının yazısı; haberin parçası değildir. Sabah her özetin sonuna
+# haberin kendisine dönen "Devamı için tıklayınız" bağlantısı koyar.
+_READ_MORE_SUFFIX = re.compile(r"\s*devamı için tıklayınız\s*$", re.IGNORECASE)
 
 
 class FeedParseError(Exception):
@@ -103,8 +107,8 @@ def _to_article(entry: Any, custom_images: Mapping[str, str], time_zone: tzinfo 
         return None
 
     raw_content = _first_content(entry)
-    cleaned = clean_content(raw_content) if raw_content else None
-    summary = to_plain_text(_text(entry.get("summary")) or "")
+    cleaned = clean_content(raw_content, base_url=url) if raw_content else None
+    summary = _READ_MORE_SUFFIX.sub("", to_plain_text(_text(entry.get("summary")) or ""))
 
     return ParsedArticle(
         external_id=external_id,
@@ -168,7 +172,8 @@ def _first_content(entry: Any) -> str | None:
 def _image_urls(entry: Any, custom_image: str | None, content_images: tuple[str, ...]) -> tuple[str, ...]:
     """Haberin görsellerini öncelik sırasıyla döner; ilki ana görseldir.
 
-    Sıra: kaynağa özgü alan (alan eşlemesi), <enclosure>, içerikteki <img> etiketleri.
+    Sıra: kaynağa özgü alan (alan eşlemesi), <enclosure>, içerikteki <img> etiketleri. Kaynağa özgü
+    alandan görsel geldiyse <enclosure> okunmaz: Akşam <enclosure>'da bozuk adres verir.
     Bunlar yoksa yedekler sırayla denenir ve ilk bulunan tek görsel kullanılır:
     - `media:content`: bazı kaynaklarda (Global Voices) küçük bir önizleme resmidir; büyük görsel içeriktedir.
     - Özetteki <img>: Milliyet ve Karar görseli yalnızca özette verir.
@@ -176,12 +181,16 @@ def _image_urls(entry: Any, custom_image: str | None, content_images: tuple[str,
     """
     candidates: list[str] = []
     if custom_image is not None:
+        # Kaynağa özgü alan <enclosure>'ın yerine geçer. Akşam'da ikisi aynı görseli gösterir ama
+        # <enclosure>'daki adresin eğik çizgisi eksiktir (imgsdisk2026/...); ikinci görsel olarak
+        # kaydedilse her haber için siteye 404 dönecek bir istek daha gider.
         candidates.append(custom_image)
-    for enclosure in entry.get("enclosures") or []:
-        url = _text(enclosure.get("href"))
-        # <enclosure> ses veya video da taşıyabilir; yalnızca görsel türündekiler alınır.
-        if url is not None and _is_image_type(enclosure.get("type")):
-            candidates.append(url)
+    else:
+        for enclosure in entry.get("enclosures") or []:
+            url = _text(enclosure.get("href"))
+            # <enclosure> ses veya video da taşıyabilir; yalnızca görsel türündekiler alınır.
+            if url is not None and _is_image_type(enclosure.get("type")):
+                candidates.append(url)
     candidates.extend(content_images)
 
     # Aynı görsel farklı boyut parametreleriyle tekrar gelebilir (NTV: ?width=930&format=webp);

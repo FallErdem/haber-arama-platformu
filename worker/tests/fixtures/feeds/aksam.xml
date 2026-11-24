@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<rss version="2.0"
+	xmlns:media="http://search.yahoo.com/mrss/"
+	xmlns:fn="http://www.w3.org/2004/10/xpath-functions"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:y="http://www.yahoo.com/y-namespace"> 
+<channel> 
+<title>aksam.COM.TR</title> 
+<link>http://www.aksam.com.tr</link> 
+<description>aksam.COM.TR</description> 
+<language>tr</language> 
+<copyright>Copyright &amp;copy; 2012, aksam.COM.TR</copyright> 
+<category>News</category> 
+<lastBuildDate>Tue, 24 Nov 2026 15:19:38 +0300</lastBuildDate> 
+<ttl>1</ttl> 
+<image> 
+	<title>aksam.COM.TR</title> 
+	<link>http://www.aksam.com.tr</link> 
+	<url>http://m.aksam.com.tr/assets/img/aksam-apple-touch-icon.png</url> 
+	<width>257</width> 
+	<height>90</height> 
+</image>
+	<item> 
+		<title>Bayern'den Sacha Boey karar&#305;</title> 
+		<description>Bayern M&#252;nih, Frans&#305;z sa&#287; bek Sacha Boey ile yollar&#305;n&#305; ay&#305;rmay&#305; planl&#305;yor. Bavyera ekibi, 26 ya&#351;&#305;ndaki futbolcu i&#231;in gelecek teklifleri bekliyor.   </description>
+
+	<pubDate>Tue, 24 Nov 2026 15:16:00 +0300</pubDate> 
+	<image>https://img3.aksam.com.tr/imgsdisk/2026/11/24/bayernden-sacha-boey-kara-827_2.jpg</image> 
+	<media:content url="https://img3.aksam.com.tr/imgsdisk/2026/11/24/bayernden-sacha-boey-kara-827_2.jpg" type="image/jpeg" medium="image" /> 
+	<media:thumbnail url="https://img3.aksam.com.tr/imgsdisk/2026/11/24/bayernden-sacha-boey-kara-827_2.jpg" /> 
+	<enclosure url="https://img3.aksam.com.tr/imgsdisk2026/11/24/bayernden-sacha-boey-kara-827_2.jpg" length="50000" type="image/jpeg" /> 
+	<link>https://www.aksam.com.tr/spor/bayernden-sacha-boey-karari/haber-1717006</link> 
+	<guid>https://www.aksam.com.tr/spor/bayernden-sacha-boey-karari/haber-1717006</guid> 
+	
+	</item>
+	<item> 
+		<title>Merkez Bankas&#305; a&#231;&#305;klad&#305;... &#350;irketlerin d&#246;viz a&#231;&#305;&#287;&#305;nda 4,2 milyar dolarl&#305;k gerileme</title> 
+		<description>Finansal kesim d&#305;&#351;&#305;ndaki firmalar&#305;n net d&#246;viz a&#231;&#305;&#287;&#305;, eyl&#252;lde ayl&#305;k bazda 4 milyar 247 milyon dolar azalarak 210 milyar 212 milyon dolar oldu. </description>
+
+	<pubDate>Tue, 24 Nov 2026 15:13:00 +0300</pubDate> 
+	<image>https://img3.aksam.com.tr/imgsdisk/2026/11/24/merkez-bankasi-acikladi-s-753_2.jpg</image> 
+	<media:content url="https://img3.aksam.com.tr/imgsdisk/2026/11/24/merkez-bankasi-acikladi-s-753_2.jpg" type="image/jpeg" medium="image" /> 
+	<media:thumbnail url="https://img3.aksam.com.tr/imgsdisk/2026/11/24/merkez-bankasi-acikladi-s-753_2.jpg" /> 
+	<enclosure url="https://img3.aksam.com.tr/imgsdisk2026/11/24/merkez-bankasi-acikladi-s-753_2.jpg" length="50000" type="image/jpeg" /> 
+	<link>https://www.aksam.com.tr/guncel/merkez-bankasi-acikladi-sirketlerin-doviz-aciginda-42-milyar-dolarlik-gerileme/haber-1717005</link> 
+	<guid>https://www.aksam.com.tr/guncel/merkez-bankasi-acikladi-sirketlerin-doviz-aciginda-42-milyar-dolarlik-gerileme/haber-1717005</guid> 
+	
+	</item>
+</channel>
+</rss>
