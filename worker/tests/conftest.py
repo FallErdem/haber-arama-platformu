@@ -95,6 +95,14 @@ def count_enabled_feeds(admin: psycopg.Connection) -> int:
     return count
 
 
+def enabled_source_codes(admin: psycopg.Connection) -> set[str]:
+    """Etkin beslemesi olan etkin kaynakların kodları (sayımla aynı nedenle veritabanından alınır)."""
+    rows = admin.execute(
+        "SELECT DISTINCT s.code FROM feeds f JOIN sources s ON s.id = f.source_id WHERE f.enabled AND s.enabled"
+    ).fetchall()
+    return {row[0] for row in rows}
+
+
 def metric_value(metrics: WorkerMetrics, name: str, **labels: str) -> float | None:
     """Bir ölçümün, Prometheus'un okuduğu çıktıdaki değeri; çıktıda yoksa None.
 

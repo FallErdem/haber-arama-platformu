@@ -41,7 +41,7 @@ def test_required_settings_are_found_from_the_code() -> None:
     assert required_settings() == ["DB_PASSWORD", "ES_PASSWORD", "MINIO_SECRET_KEY"]
 
 
-@pytest.mark.parametrize("manifest", ["deployment.yaml", "reindex-cronjob.yaml"])
+@pytest.mark.parametrize("manifest", ["deployment.yaml", "reindex-cronjob.yaml", "volume-data-cronjob.yaml"])
 def test_every_required_setting_is_given_to_the_worker_image(manifest: str) -> None:
     """İşçinin imajını çalıştıran her Kubernetes tanımı, işçinin bütün zorunlu ayarlarını verir."""
     content = (WORKER_MANIFESTS / manifest).read_text(encoding="utf-8")

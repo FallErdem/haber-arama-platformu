@@ -26,7 +26,7 @@ Performans testlerinde yük üreten araç ve test edilen sistem aynı bilgisayar
 
 - **Birim ve entegrasyon testleri:** Her test kendi verisini hazırlar ve başka testlerin verisine bağlı değildir. Beslemeler için kaynaklardan alınmış gerçek örnek RSS, Atom ve NYT yanıtları test dosyası olarak saklanır; bunlara bozuk ve zararlı içerikli örnekler eklenir.
 - **Kullanıcılar ve token'lar:** API testlerinde token'lar testin kendi anahtarıyla üretilir ve doğrulama bu anahtarın açık eşiyle yapılır; böylece testler Keycloak'a bağımlı olmadan hızlı çalışır. Uçtan uca testlerde gerçek Keycloak ve Mailpit kullanılır.
-- **Hacim testi:** 1 milyon haberlik veri, NYT Archive API'den alınan geçmiş yıllara ait gerçek haberler ve üretilmiş haberlerle oluşturulur. Üretilmiş veri gerçek veriden ayrı tutulur ve işaretlenir (R-26).
+- **Hacim testi:** 1 milyon haber ve 10 milyon audit kaydı üretilir (`deploy/README.md`, 14. adım). Haberlerin metinleri gerçek haberlerin kelime dağılımına ve uzunluklarına göre üretilir ve gerçek toplama yolundan kaydedilir. Deneme verisi gerçek veriden ayrı tutulur ve işaretlenir (R-26): haberler kapalı `DENEME` kaynağına, audit kayıtları Kasım 2026 öncesine ait geçici bölümlere yazılır; iş bitince silinir. NYT Archive API kullanılmaz: haberleri yalnızca İngilizce ve tam metinsizdir, NYT içeriği gösteren her ekranda NYT logosu da zorunludur.
 
 ## 5. Fonksiyonel Testler
 

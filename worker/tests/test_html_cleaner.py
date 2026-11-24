@@ -150,6 +150,64 @@ def test_plain_text_decodes_entities_and_collapses_whitespace() -> None:
     assert to_plain_text("  Ekonomi &amp; Finans\n\n  haberleri&nbsp;burada ") == "Ekonomi & Finans haberleri burada"
 
 
+def test_embedded_editor_blocks_are_removed_from_text() -> None:
+    """Milliyet'in editörünün metne gömdüğü kutular (görsel yer tutucusu, ilgili haber) yazıya karışmaz."""
+    html = (
+        "<p>Birinci.</p>"
+        '<section class="insert insert-controls mceNonEditable" data-controls="%5B%5D" data-type="Control">'
+        "Infografik Görsel (Quality Image)</section>"
+        "<p>İkinci.</p>"
+        '<section class="insert insert-contents mceNonEditable" data-type="Content">Başka bir haberin başlığı</section>'
+    )
+
+    assert to_plain_text(html) == "Birinci. İkinci."
+    assert clean_content(html).html == "<p>Birinci.</p><p>İkinci.</p>"
+
+
+def test_related_news_box_and_its_images_are_removed_from_content() -> None:
+    """BirGün'ün "İlgili haberler" kutusundaki başlık ve küçük resimler başka haberlerindir; alınmaz."""
+    html = (
+        "<p>Haberin metni.</p>"
+        '<aside class="inline-related font-sans" aria-label="İlgili haberler"><article>'
+        '<a href="/haber/baska-haber"><img src="https://static.example.test/list-haber/baska.jpg"></a>'
+        '<h3><a href="/haber/baska-haber">Başka haber</a></h3>'
+        "</article></aside>"
+    )
+
+    cleaned = clean_content(html)
+
+    assert cleaned.html == "<p>Haberin metni.</p>"
+    assert cleaned.image_urls == ()
+
+
+def test_aside_without_related_news_class_is_kept() -> None:
+    """Global Voices <aside> içinde haberin kendi metnini verir; yalnızca işaretli kutular atılır."""
+    cleaned = clean_content("<p>Giriş.</p><aside><div>Haberin bir parçası.</div></aside>")
+
+    assert "Haberin bir parçası." in cleaned.html
+
+
+def test_same_tag_nested_in_removed_block_does_not_end_it_early() -> None:
+    """Kutunun içindeki aynı adlı etiketin kapanışı kutuyu bitirmez; kutu kendi kapanışına kadar atılır."""
+    html = '<section class="mceNonEditable"><section>iç</section>hâlâ kutu</section><p>Sonra.</p>'
+
+    assert to_plain_text(html) == "Sonra."
+
+
+def test_unclosed_block_is_kept() -> None:
+    """Kapanmayan kutu atılmaz: yazının geri kalanını kaybetmektense kutunun yazısı kalır."""
+    assert to_plain_text('<p>Önce.</p><section class="mceNonEditable">kutu') == "Önce. kutu"
+
+
+def test_relative_links_are_resolved_against_the_article_address() -> None:
+    """NTV ve BirGün metin içinde göreli bağlantı verir; bizim sitemizde açılmasınlar diye tam adrese çevrilir."""
+    cleaned = clean_content(
+        '<p><a href="/sporskor/diger-haber">Wenger</a></p>', base_url="https://www.ntv.com.tr/sporskor/bu-haber"
+    )
+
+    assert 'href="https://www.ntv.com.tr/sporskor/diger-haber"' in cleaned.html
+
+
 def test_empty_input_gives_empty_result() -> None:
     """Boş veya yalnızca boşluk içeren girdi hata vermez."""
     assert clean_content("   ") == clean_content("")

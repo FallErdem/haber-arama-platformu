@@ -135,7 +135,7 @@ class AuditEventAdminController {
             throw new InvalidRequestException(errors);
         }
         // Üst sınır dışa aktarmanın başladığı ana sabitlenir: sayım ile dosya aynı kayıtları kapsar ve bu
-        Instant to = requested.to() == null || requested.to().isAfter(now) ? now : requested.to();
+        Instant to = requested.to().isAfter(now) ? now : requested.to();
         AuditEventFilter filter = new AuditEventFilter(
                 requested.actorUserId(),
                 requested.action(),
@@ -242,8 +242,10 @@ class AuditEventAdminController {
         if (from != null && to != null && from.isAfter(to)) {
             errors.add(new FieldError("from", Code.INVALID_RANGE));
         }
-        Instant lowerBound = from != null ? from : (to != null ? to : now).minus(DEFAULT_RANGE);
-        return new AuditEventFilter(actorUserId, action, targetType, targetId, result, lowerBound, to);
+        // Üst sınır verilmezse şimdi: veritabanı ancak iki sınır da belliyse aralık dışındaki bölümleri atlar.
+        Instant upperBound = to != null ? to : now;
+        Instant lowerBound = from != null ? from : upperBound.minus(DEFAULT_RANGE);
+        return new AuditEventFilter(actorUserId, action, targetType, targetId, result, lowerBound, upperBound);
     }
 
     private static String blankToNull(String value) {

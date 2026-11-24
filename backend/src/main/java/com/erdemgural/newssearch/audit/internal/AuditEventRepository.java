@@ -22,7 +22,9 @@ import tools.jackson.databind.json.JsonMapper;
 @Repository
 class AuditEventRepository {
 
-    private static final String SELECT = """
+    // SELECT, FILTER ve ORDER paket içinden erişilebilir: sorgu planının testi (AuditEventQueryPlanTests) aynı
+    // sorguyu kullanır.
+    static final String SELECT = """
 			SELECT id, occurred_at, actor_type, actor_user_id, action, target_type, target_id, result,
 			       request_id, host(ip_address) AS ip_address, details::text AS details
 			FROM audit_events
@@ -30,12 +32,15 @@ class AuditEventRepository {
 
     /**
      * Filtreler: verilmeyen ({@code null}) filtre koşulu her satırda doğrudur. {@code CAST}: PostgreSQL,
-     * yalnızca {@code IS NULL} ile karşılaştırılan bir parametrenin türünü kendisi çıkaramaz. Alt sınır
-     * ({@code from}) her zaman verilir; PostgreSQL yalnızca aralığa düşen aylık bölümlere bakar.
+     * yalnızca {@code IS NULL} ile karşılaştırılan bir parametrenin türünü kendisi çıkaramaz.
+     *
+     * <p>Alt ve üst sınır ({@code from}, {@code to}) her zaman verilir ve "boşsa" kalıbı olmadan yazılır:
+     * PostgreSQL ancak böyle iki sınıra göre de aylık bölüm atlayabilir. "Boşsa" kalıbıyla yazılan üst sınırda,
+     * aralıktan sonraki bütün bölümler de okunuyordu.
      */
-    private static final String FILTER = """
+    static final String FILTER = """
 			WHERE occurred_at >= :from
-			  AND (CAST(:to AS timestamptz) IS NULL OR occurred_at <= :to)
+			  AND occurred_at <= :to
 			  AND (CAST(:actorUserId AS uuid) IS NULL OR actor_user_id = :actorUserId)
 			  AND (CAST(:action AS text) IS NULL OR action = :action)
 			  AND (CAST(:targetType AS text) IS NULL OR target_type = :targetType)
@@ -44,7 +49,7 @@ class AuditEventRepository {
 			""";
 
     /** Aynı anda yazılan kayıtların sırası kimlikle sabitlenir; yoksa sayfalar arasında bir kayıt kayabilirdi. */
-    private static final String ORDER = " ORDER BY occurred_at DESC, id DESC";
+    static final String ORDER = " ORDER BY occurred_at DESC, id DESC";
 
     private static final TypeReference<Map<String, Object>> DETAILS_TYPE = new TypeReference<>() {};
 
@@ -123,10 +128,9 @@ class AuditEventRepository {
 
     private static JdbcClient.StatementSpec withFilter(JdbcClient.StatementSpec statement, AuditEventFilter filter) {
         // Zaman parametreleri, projedeki diğer sorgulardaki gibi Timestamp olarak verilir.
-        Timestamp to = filter.to() == null ? null : Timestamp.from(filter.to());
         return statement
                 .param("from", Timestamp.from(filter.from()))
-                .param("to", to)
+                .param("to", Timestamp.from(filter.to()))
                 .param("actorUserId", filter.actorUserId())
                 .param("action", filter.action())
                 .param("targetType", filter.targetType())

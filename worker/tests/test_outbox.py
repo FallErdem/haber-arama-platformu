@@ -5,7 +5,7 @@ from uuid import UUID
 import psycopg
 
 from news_worker.database import Database
-from news_worker.outbox import OutboxEvent, OutboxRepository
+from news_worker.outbox import _FIND_DUE_QUERY, OutboxEvent, OutboxRepository
 
 ARTICLE_ID = UUID("019a0000-0000-7000-8000-000000000001")
 
@@ -74,3 +74,23 @@ async def test_failed_event_stays_pending_and_is_postponed(database: Database, a
     ).fetchone()
     assert row == ("PENDING", 1, "örnek hata", True)
     assert await find_due(database) == []
+
+
+def test_due_events_are_found_without_reading_processed_ones(admin: psycopg.Connection) -> None:
+    """Bekleyen notlar, işlenmiş notların üzerinden geçilmeden bulunur (V18).
+
+    1 milyon deneme haberinin aktarımında sorgu birincil anahtar indeksinde baştan yürüyordu; işlenen not
+    arttıkça her tur yavaşladı (dakikada 114.600 nottan 11.000'e; 24 Kasım 2026).
+    """
+    # Önce işlenmiş, sonra bekleyen notlar: aktarımın ortasındaki durum. Kimlikler oluşturulma sırasıyla artar.
+    admin.execute(
+        "INSERT INTO outbox_events (article_id, operation, status, next_attempt_at, processed_at) "
+        "SELECT gen_random_uuid(), 'INDEX', CASE WHEN g <= 20000 THEN 'PROCESSED' ELSE 'PENDING' END, "
+        "       now() - interval '1 minute', CASE WHEN g <= 20000 THEN now() END "
+        "FROM generate_series(1, 40000) AS g"
+    )
+    admin.execute("ANALYZE outbox_events")
+
+    plan = admin.execute("EXPLAIN " + _FIND_DUE_QUERY.replace("%(limit)s", "200")).fetchall()
+
+    assert "outbox_events_pending_id_idx" in "\n".join(line for (line,) in plan)
