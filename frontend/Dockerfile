@@ -14,6 +14,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 COPY frontend/index.html frontend/vite.config.ts ./
 COPY frontend/tsconfig.json frontend/tsconfig.app.json frontend/tsconfig.node.json ./
 COPY frontend/src src
+# public/: olduğu gibi sunulan dosyalar (sekme simgesi); Vite derlemede dist'e kopyalar.
+COPY frontend/public public
 RUN npm run build
 
 # ---- 2. aşama: çalışma (yalnızca nginx ve derlenmiş dosyalar) ----

@@ -78,11 +78,11 @@ spec:
             requests:
               cpu: 50m
               memory: 96Mi
-            # 384Mi: işçi yaklaşık 80 MB kullanır. Görsel dönüştürme komutu (news-worker-convert-media)
-            # aynı kapsayıcıda çalıştırıldığında en kötü durumda (1920 × 1280 saydam PNG) yaklaşık 150 MB
-            # daha kullanır; 256Mi'lik sınır bu durumda aşılmıştı (17 Kasım 2026, OOMKilled).
+            # 640Mi: NYT eklendikten sonra işçi 384Mi sınırında, NYT'nin 2048 piksellik görsellerini işlerken art arda
+            # öldürüldü (24 Kasım 2026, OOMKilled). 768Mi ile çalıştığı 35 saatte ortalama 400 MB, en çok 480 MB
+            # kullandı; 640Mi bu tepenin üstünde yaklaşık %33 pay bırakır.
             limits:
-              memory: 384Mi
+              memory: 640Mi
           startupProbe:
             httpGet:
               path: /healthz/live

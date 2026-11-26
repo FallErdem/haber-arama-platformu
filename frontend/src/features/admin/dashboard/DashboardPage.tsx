@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { fetchStats, type ComponentStatus, type Stats } from '../../../api/adminStats'
 import { useAccessToken } from '../../../auth/accessToken'
+import { ListSkeleton } from '../../../components/ListSkeleton'
 import { Button } from '../../../components/ui/button'
 import { formatPublishedAt, TIME_ZONE } from '../../../lib/time'
 
@@ -42,7 +43,7 @@ export function DashboardPage() {
         )}
       </div>
       {stats.isPending ? (
-        <p className="text-muted-foreground">{t('admin.dashboard.loading')}</p>
+        <ListSkeleton label={t('admin.dashboard.loading')} rows={4} />
       ) : stats.isError ? (
         <div role="alert">
           <p>{t('admin.dashboard.loadFailed')}</p>
@@ -63,6 +64,8 @@ function Dashboard({ stats, fetchedAt }: { stats: Stats; fetchedAt: number }) {
   const { locale } = useLocale()
   const number = new Intl.NumberFormat(locale)
   const { articles, users, feeds, searchIndex, components } = stats
+  // Oran çubuklarının ölçeği; hiç haber yoksa sıfıra bölünmesin diye en az 1.
+  const maxLast24h = Math.max(1, ...articles.bySource.map((source) => source.last24h))
   const workerActivity = components.workerLastActivityAt
   const isWorkerStale = workerActivity === null || fetchedAt - Date.parse(workerActivity) > WORKER_STALE_MS
 
@@ -169,9 +172,20 @@ function Dashboard({ stats, fetchedAt }: { stats: Stats; fetchedAt: number }) {
             </thead>
             <tbody className="divide-y divide-border">
               {articles.bySource.map((source) => (
-                <tr key={source.code}>
-                  <th scope="row" className="py-2.5 text-left font-normal">
+                <tr key={source.code} className="transition-colors hover:bg-muted/50">
+                  <th scope="row" className="py-2.5 pr-6 text-left font-normal">
                     {source.name}
+                    {/*
+                      Oran çubuğu: son 24 saatte en çok haber getiren kaynağa göre. Toplam yerine son 24 saat
+                      alınır: toplamda 1 milyonluk deneme verisi bütün çubukları ezerdi; son 24 saat ise hangi
+                      kaynağın şu an ne kadar getirdiğini gösterir. Sayı yanında yazdığı için ekran okuyucuya okunmaz.
+                    */}
+                    <div aria-hidden className="mt-1.5 h-1.5 w-full max-w-64 rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary/70"
+                        style={{ width: `${(source.last24h / maxLast24h) * 100}%` }}
+                      />
+                    </div>
                   </th>
                   <td className="py-2.5 text-right tabular-nums">{number.format(source.total)}</td>
                   <td className="py-2.5 text-right text-muted-foreground tabular-nums">

@@ -19,6 +19,7 @@
 !frontend/tsconfig.node.json
 !frontend/nginx.conf
 !frontend/src
+!frontend/public
 
 !worker/pyproject.toml
 !worker/uv.lock

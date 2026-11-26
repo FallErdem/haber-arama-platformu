@@ -73,6 +73,6 @@ newssearch:
     secret-key: ${MINIO_SECRET_KEY}
     bucket: media
   identity:
-    # Bu e-postayla gelen ve e-postası doğrulanmış kullanıcı ilk girişinde aktif
-    # yönetici olur (ADR-0014). Boşsa kimse kendiliğinden yönetici olmaz.
+    # Bu e-postayla gelen kullanıcı ilk girişinde aktif yönetici olur (ADR-0014).
+    # Boşsa kimse kendiliğinden yönetici olmaz.
     initial-admin-email: ${INITIAL_ADMIN_EMAIL:}

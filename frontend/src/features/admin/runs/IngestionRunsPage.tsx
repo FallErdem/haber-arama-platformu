@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { fetchIngestionRuns, fetchSources, type IngestionRun } from '../../../api/adminSources'
 import { useAccessToken } from '../../../auth/accessToken'
+import { ListSkeleton } from '../../../components/ListSkeleton'
 import { Button } from '../../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { formatDateTime } from '../../../lib/time'
@@ -106,7 +107,7 @@ export function IngestionRunsPage() {
       </div>
 
       {runs.isPending ? (
-        <p className="mt-8 text-muted-foreground">{t('admin.runs.loading')}</p>
+        <ListSkeleton label={t('admin.runs.loading')} className="mt-6" />
       ) : runs.isError ? (
         <div role="alert" className="mt-8">
           <p>{t('admin.runs.loadFailed')}</p>
@@ -126,7 +127,7 @@ export function IngestionRunsPage() {
             )}
           >
             {runs.data.items.map((run) => (
-              <li key={run.id}>
+              <li key={run.id} className="transition-colors hover:bg-muted/40">
                 <RunRow run={run} />
               </li>
             ))}

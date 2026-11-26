@@ -125,16 +125,16 @@ class MeEndpointTests {
     }
 
     @Test
-    @DisplayName("yönetici e-postası doğrulanmamışsa kullanıcı sıradan bir kullanıcı gibi oluşturulur")
-    void unverifiedInitialAdminStaysPendingUser() {
+    @DisplayName("yapılandırılan e-postayla gelen kullanıcı, e-postası doğrulanmamış olsa da aktif yönetici olur")
+    void unverifiedInitialAdminBecomesActiveAdmin() {
         String token = tokenIssuer.token(claims -> claims.claim("email", TestKeycloakConfiguration.INITIAL_ADMIN_EMAIL)
                 .claim("email_verified", false));
 
         MvcTestResult result = getMe(token);
 
         assertThat(result).hasStatusOk();
-        assertThat(result).bodyJson().extractingPath("$.role").isEqualTo("USER");
-        assertThat(result).bodyJson().extractingPath("$.status").isEqualTo("PENDING");
+        assertThat(result).bodyJson().extractingPath("$.role").isEqualTo("ADMIN");
+        assertThat(result).bodyJson().extractingPath("$.status").isEqualTo("ACTIVE");
     }
 
     @Test

@@ -8,6 +8,7 @@ import type { ArticleDetail } from '../../api/articles'
 import type { UserRole } from '../../api/me'
 import { AccessTokenContext } from '../../auth/accessToken'
 import { CurrentUserContext } from '../../auth/currentUser'
+import { getHistory } from '../../lib/readingHistory'
 import { ArticlePage } from './ArticlePage'
 
 const ID = '0193f1a2-0000-7000-8000-000000000001'
@@ -321,5 +322,101 @@ describe('ArticlePage', () => {
     ])
     await userEvent.click(within(notice).getByRole('link', { name: 'Gizlenen haberler' }))
     expect(await screen.findByText('Gizlenen haberler ekranı')).toBeInTheDocument()
+  })
+})
+
+describe('ArticlePage okuma araçları', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    localStorage.clear()
+    document.title = ''
+  })
+
+  it('açılan haberi kullanıcının okuma geçmişine ekler', async () => {
+    stubDetail(detail())
+    renderDetail()
+    await screen.findByText('Ekipler sahada.')
+
+    expect(getHistory('u1')).toEqual([
+      expect.objectContaining({ id: ID, title: 'Deprem sonrası son durum', sourceName: 'TRT Haber', language: 'tr' }),
+    ])
+  })
+
+  it('tam metin varken tahmini okuma süresini gösterir', async () => {
+    stubDetail(detail())
+    renderDetail()
+
+    expect(await screen.findByText('1 dk okuma')).toBeInTheDocument()
+  })
+
+  it('yazı boyutunu büyütür, küçültür, sınırda düğmeyi kapatır ve seçimi saklar', async () => {
+    stubDetail(detail())
+    renderDetail()
+    await screen.findByText('Ekipler sahada.')
+    const body = () => document.querySelector('.article-body')!
+
+    await userEvent.click(screen.getByRole('button', { name: 'Yazıyı büyüt' }))
+    expect(body()).toHaveClass('text-xl')
+    expect(localStorage.getItem('articleTextSize')).toBe('2')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Yazıyı küçült' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Yazıyı küçült' }))
+    expect(body()).toHaveClass('text-base')
+    expect(screen.getByRole('button', { name: 'Yazıyı küçült' })).toBeDisabled()
+  })
+
+  it('paylaşma menüsü olmayan tarayıcıda kaynaktaki adresi panoya kopyalar ve duyurur', async () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    vi.stubGlobal('navigator', { ...navigator, share: undefined, clipboard: { writeText } })
+    stubDetail(detail())
+    renderDetail()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Paylaş' }))
+
+    expect(writeText).toHaveBeenCalledWith('https://www.trthaber.com/haber/1')
+    expect(await screen.findByRole('status')).toHaveTextContent('Haberin bağlantısı kopyalandı.')
+  })
+
+  it('aynı konudaki en yeni haberleri haberin kendisi olmadan gösterir', async () => {
+    const searches: URLSearchParams[] = []
+    const related = (id: string, title: string) => ({
+      id,
+      title,
+      summary: null,
+      source: { code: 'NTV', name: 'NTV' },
+      language: 'tr',
+      itemType: 'ARTICLE',
+      categories: ['GENERAL'],
+      publishedAt: '2026-11-05T09:00:00Z',
+      url: `https://www.ntv.com.tr/${id}`,
+      image: null,
+      otherSourcesCount: 0,
+      saved: false,
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string) => {
+        const url = new URL(input, 'http://haber.localhost')
+        if (url.pathname !== '/api/v1/articles') return Promise.resolve(Response.json(detail()))
+        searches.push(url.searchParams)
+        return Promise.resolve(
+          Response.json({
+            items: [related(ID, 'Haberin kendisi'), related('0193f1a2-0000-7000-8000-000000000002', 'Benzer haber')],
+            page: 0,
+            size: 5,
+            totalElements: 2,
+            totalPages: 1,
+            totalRelation: 'eq',
+          }),
+        )
+      }),
+    )
+    renderDetail()
+
+    const section = (await screen.findByRole('heading', { name: 'İlgili haberler' })).closest('section')!
+    expect(within(section).getByRole('link', { name: 'Benzer haber' })).toBeInTheDocument()
+    expect(within(section).queryByText('Haberin kendisi')).not.toBeInTheDocument()
+    // Haberin ilk konu kategorisi (GENERAL) istenir; kendisi de gelebileceği için bir fazlası.
+    expect(Object.fromEntries(searches[0])).toEqual({ categories: 'GENERAL', size: '5' })
   })
 })

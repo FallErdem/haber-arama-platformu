@@ -49,7 +49,7 @@ function Dialog({
     <ModalOverlayPrimitive
       data-slot="dialog-overlay"
       isDismissable={isDismissable}
-      className="fixed inset-0 isolate z-50 bg-black/10 duration-100 data-entering:animate-in data-entering:fade-in-0 data-exiting:animate-out data-exiting:fade-out-0 supports-backdrop-filter:backdrop-blur-xs"
+      className="fixed inset-0 isolate z-50 bg-black/10 duration-100 dark:bg-black/50 data-entering:animate-in data-entering:fade-in-0 data-exiting:animate-out data-exiting:fade-out-0 supports-backdrop-filter:backdrop-blur-xs"
       {...props}
     >
       <ModalPrimitive

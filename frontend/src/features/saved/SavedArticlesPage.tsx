@@ -42,7 +42,8 @@ export function SavedArticlesPage() {
   }, [page])
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+    // Arama sonuçları gibi bütün genişliği kullanır; çok geniş ekranda liste iki sütuna geçer.
+    <div className="px-4 py-8 sm:px-6 sm:py-10">
       <h1 className="mb-5 text-3xl font-semibold tracking-tight">{t('saved.title')}</h1>
 
       {saved.isPending ? (
@@ -60,13 +61,14 @@ export function SavedArticlesPage() {
         <>
           <ol
             aria-busy={saved.isFetching}
+            // Çok geniş ekranda iki sütun (satır satır: 1-2, 3-4); ayırıcı çizgi bu yüzden her öğenin altındadır.
             className={cn(
-              'divide-y divide-border border-t border-border transition-opacity',
+              'border-t border-border transition-opacity 2xl:grid 2xl:grid-cols-2 2xl:gap-x-10',
               saved.isPlaceholderData && 'opacity-50',
             )}
           >
             {saved.data.items.map((item) => (
-              <li key={item.articleId}>
+              <li key={item.articleId} className="border-b border-border">
                 <SavedItem item={item} />
               </li>
             ))}

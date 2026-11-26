@@ -14,13 +14,46 @@
     "button": "Sign out"
   },
   "layout": {
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "darkTheme": "Dark theme",
+    "backToTop": "Back to top"
   },
   "nav": {
     "label": "Main menu",
     "search": "Search",
     "saved": "Saved",
-    "admin": "Admin"
+    "admin": "Admin",
+    "categories": "Categories"
+  },
+  "history": {
+    "title": "Reading history",
+    "clear": "Clear",
+    "clearLabel": "Clear reading history",
+    "empty": "Stories you open appear here."
+  },
+  "home": {
+    "heading": "Latest news by category",
+    "updatedAt": "Last updated: {{time}}",
+    "refresh": "Refresh",
+    "seeAll": "See all",
+    "seeAllIn": "See all in {{category}}",
+    "sectionFailed": "This section could not be loaded.",
+    "loadFailed": "Categories could not be loaded.",
+    "allNews": "List all news, newest first",
+    "headline": {
+      "label": "Top stories",
+      "carousel": "carousel",
+      "slide": "slide",
+      "position": "{{index}} of {{count}}",
+      "previous": "Previous story",
+      "next": "Next story",
+      "show": "Show story {{index}}",
+      "pause": "Pause",
+      "pauseLabel": "Pause story rotation",
+      "play": "Play",
+      "playLabel": "Play story rotation",
+      "list": "Stories in the carousel"
+    }
   },
   "admin": {
     "noPermission": "You do not have permission to view this page.",
@@ -34,7 +67,9 @@
       "sources": "Sources",
       "runs": "Collection history",
       "hidden": "Hidden stories",
-      "audit": "Audit log"
+      "audit": "Audit log",
+      "pendingCount_one": "{{count}} awaiting approval",
+      "pendingCount_other": "{{count}} awaiting approval"
     },
     "errors": {
       "VERSION_CONFLICT": "This record was changed by another administrator in the meantime. The page was refreshed; please try again.",
@@ -376,6 +411,17 @@
     }
   },
   "article": {
+    "readingTime_one": "{{count}} min read",
+    "readingTime_other": "{{count}} min read",
+    "share": "Share",
+    "linkCopied": "Link to the story copied.",
+    "shareFailed": "Could not copy the link.",
+    "textSize": {
+      "label": "Text size",
+      "decrease": "Decrease text size",
+      "increase": "Increase text size"
+    },
+    "related": "Related news",
     "back": "Back to search",
     "backToSaved": "Back to saved",
     "byAuthor": "By {{author}}",

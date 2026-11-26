@@ -3,6 +3,8 @@ import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
 import '../i18n'
 
+window.scrollTo = (() => {}) as typeof window.scrollTo
+
 // Her testten sonra ekrana çizilenler temizlenir; testler birbirini etkilemez.
 afterEach(() => {
   cleanup()

@@ -85,6 +85,10 @@ function renderAt(path: string) {
 
 const search = () => new URLSearchParams(window.location.search)
 
+/** Ana sayfadaki kategori bölümlerinin istekleri (6'şar haber); manşetin istekleri ayıklanır. */
+const sectionSearches = (searches: URLSearchParams[]) =>
+  searches.filter((params) => params.get('size') === '6').map((params) => Object.fromEntries(params))
+
 describe('SearchPage', () => {
   beforeEach(() => {
     vi.stubGlobal('scrollTo', vi.fn())
@@ -97,16 +101,16 @@ describe('SearchPage', () => {
     window.history.pushState({}, '', '/')
   })
 
-  it('arama ifadesi yokken en yeni haberleri ister ve listeler', async () => {
+  it('arama ifadesi yokken filtreye uyan en yeni haberleri ister ve listeler', async () => {
     const api = stubApi(() => page([article()]))
 
-    renderAt('/')
+    renderAt('/?sources=TRT')
 
     expect(await screen.findByRole('link', { name: 'Deprem sonrası son durum' })).toHaveAttribute(
       'href',
       '/articles/0193f1a2-0000-7000-8000-000000000001',
     )
-    expect(Object.fromEntries(api.lastSearch())).toEqual({ page: '0', size: '20' })
+    expect(Object.fromEntries(api.lastSearch())).toEqual({ sources: 'TRT', page: '0', size: '20' })
     const result = screen.getByRole('article')
     expect(within(result).getByText('TRT Haber')).toBeInTheDocument()
     expect(within(result).getByText('Bölgede çalışmalar sürüyor.')).toBeInTheDocument()
@@ -164,13 +168,61 @@ describe('SearchPage', () => {
       ]),
     )
 
-    renderAt('/')
+    renderAt('/?q=deprem')
 
     await screen.findByText('Görselsiz haber')
     const images = document.querySelectorAll('img')
     expect(images).toHaveLength(1)
     expect(images[0]).toHaveAttribute('src', '/api/v1/media/m1?exp=1&sig=s')
     expect(images[0]).toHaveAttribute('alt', '')
+  })
+
+  it('son dakika kategorisindeki haberde etiket gösterir', async () => {
+    stubApi(() => page([article({ categories: ['GENERAL', 'BREAKING'] })]))
+
+    renderAt('/?q=deprem')
+
+    const result = await screen.findByRole('article')
+    expect(within(result).getByText('Son Dakika')).toBeInTheDocument()
+  })
+
+  it('adreste parametre yokken konu kategorilerinin bölümlerini gösterir, düz listeyi istemez', async () => {
+    const api = stubApi((params) => page([article({ title: `${params.get('categories')} haberi` })]))
+
+    renderAt('/')
+
+    expect(await screen.findByRole('link', { name: 'GENERAL haberi' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'WORLD haberi' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Gündem' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Dünya' })).toBeInTheDocument()
+    // Son Dakika süreli bir etikettir, konu değildir; ayrı bölümü yoktur.
+    expect(screen.queryByRole('heading', { name: 'Son Dakika' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Gündem: tümünü gör' })).toHaveAttribute('href', '/?categories=GENERAL')
+    // Bölümler 6'şar haber ister; manşetin istekleri (20 aday) ayrıca gider ve burada sayılmaz.
+    expect(sectionSearches(api.searches)).toEqual([
+      { categories: 'GENERAL', size: '6' },
+      { categories: 'WORLD', size: '6' },
+    ])
+  })
+
+  it('Yenile düğmesi bölümleri sayfayı yeniden yüklemeden yeniden ister', async () => {
+    const api = stubApi(() => page([article()]))
+    renderAt('/')
+    await screen.findAllByRole('link', { name: 'Deprem sonrası son durum' })
+    expect(sectionSearches(api.searches)).toHaveLength(2)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Yenile' }))
+
+    await waitFor(() => expect(sectionSearches(api.searches)).toHaveLength(4))
+  })
+
+  it('haberi olmayan kategorinin bölümünü göstermez', async () => {
+    stubApi((params) => page(params.get('categories') === 'WORLD' ? [] : [article()]))
+
+    renderAt('/')
+
+    expect(await screen.findByRole('heading', { name: 'Gündem' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Dünya' })).not.toBeInTheDocument())
   })
 
   it('kaynak seçilince adrese yazılır ve ilk sayfaya dönülür', async () => {

@@ -15,6 +15,7 @@ import {
 } from '../../../api/adminSources'
 import { ApiError } from '../../../api/client'
 import { useAccessToken } from '../../../auth/accessToken'
+import { ListSkeleton } from '../../../components/ListSkeleton'
 import { Button } from '../../../components/ui/button'
 import { formatPublishedAt } from '../../../lib/time'
 import { NotFoundPage } from '../../errors/NotFoundPage'
@@ -62,7 +63,7 @@ export function SourceDetailPage() {
         {t('admin.sources.back')}
       </Link>
       {source.isPending ? (
-        <p className="mt-6 text-muted-foreground">{t('admin.sources.loading')}</p>
+        <ListSkeleton label={t('admin.sources.loading')} rows={4} className="mt-6" />
       ) : source.isError ? (
         <div role="alert" className="mt-6">
           <p>{t('admin.sources.detailLoadFailed')}</p>
@@ -207,7 +208,7 @@ function SourceView({ source }: { source: ManagedSource }) {
         ) : (
           <ul className="divide-y divide-border">
             {source.feeds.map((feed) => (
-              <li key={feed.id}>
+              <li key={feed.id} className="transition-colors hover:bg-muted/40">
                 <FeedRow feed={feed} onSaved={refresh} onError={onError} />
               </li>
             ))}

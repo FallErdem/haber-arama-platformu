@@ -3,7 +3,7 @@ import { cn } from 'cn'
 import { ZapIcon } from 'lucide-react'
 import type { Key } from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
-import { fetchCategories, fetchSources } from '../../api/catalog'
+import { fetchSources } from '../../api/catalog'
 import { useAccessToken } from '../../auth/accessToken'
 import { Button } from '../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
@@ -11,12 +11,8 @@ import { Toggle } from '../../components/ui/toggle'
 import { DateRangeFilter } from './DateRangeFilter'
 import { FilterSelect } from './FilterSelect'
 import type { SearchLanguage, SearchState } from './searchState'
-
-/** Son Dakika, kategori listesinde değil ayrı bir düğmeyle seçilir (ekran akışları 5.1). */
-const BREAKING = 'BREAKING'
-
-/** Kaynak ve kategori listeleri nadiren değişir; 10 dakika boyunca yeniden istenmez. */
-const CATALOG_STALE_TIME = 10 * 60_000
+// Son Dakika, kategori listesinde değil ayrı bir düğmeyle seçilir (ekran akışları 5.1).
+import { BREAKING, CATALOG_STALE_TIME, useCategories } from './useCategories'
 
 interface SearchFiltersProps {
   state: SearchState
@@ -32,11 +28,7 @@ export function SearchFilters({ state, onChange }: SearchFiltersProps) {
     queryFn: () => fetchSources(accessToken),
     staleTime: CATALOG_STALE_TIME,
   })
-  const categories = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => fetchCategories(accessToken),
-    staleTime: CATALOG_STALE_TIME,
-  })
+  const categories = useCategories()
 
   const isBreaking = state.categories.includes(BREAKING)
   const topicCategories = state.categories.filter((code) => code !== BREAKING)

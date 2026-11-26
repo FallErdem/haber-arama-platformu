@@ -15,6 +15,7 @@ import {
 } from '../../../api/adminAudit'
 import { ApiError } from '../../../api/client'
 import { useAccessToken } from '../../../auth/accessToken'
+import { ListSkeleton } from '../../../components/ListSkeleton'
 import { Button } from '../../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { saveFile } from '../../../lib/download'
@@ -166,7 +167,7 @@ export function AuditEventsPage() {
       )}
 
       {events.isPending ? (
-        <p className="mt-8 text-muted-foreground">{t('admin.audit.loading')}</p>
+        <ListSkeleton label={t('admin.audit.loading')} className="mt-6" />
       ) : events.isError ? (
         <div role="alert" className="mt-8">
           <p>{t('admin.audit.loadFailed')}</p>
@@ -186,7 +187,7 @@ export function AuditEventsPage() {
             )}
           >
             {events.data.items.map((event) => (
-              <li key={event.id}>
+              <li key={event.id} className="transition-colors hover:bg-muted/40">
                 <AuditEventRow
                   event={event}
                   onSelectActor={(actorUserId) => update({ actorUserId })}
