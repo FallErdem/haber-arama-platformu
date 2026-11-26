@@ -270,7 +270,8 @@ describe('SourceDetailPage', () => {
     stubApi(() => Response.json(source({ enabled: false, purgeRequestedAt: '2026-11-21T11:02:10Z' })))
     renderPage()
 
-    expect(await screen.findByRole('status')).toHaveTextContent('İçerik siliniyor')
+    // Yüklenirken iskelet de role="status" taşır; kaynak gelip silme durumu yazılana kadar beklenir.
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('İçerik siliniyor'))
     expect(screen.getByRole('button', { name: 'Etkinleştir' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'İçeriği sil' })).toBeDisabled()
   })

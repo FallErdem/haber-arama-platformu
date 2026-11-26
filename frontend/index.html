@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Haber Arama Platformu</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      // Tema, sayfa çizilmeden önce uygulanır; React'in açılmasını beklemek koyu temada beyaz bir parlamaya yol açardı.
+      // Kullanıcı düğmeyle seçim yaptıysa o (lib/theme.ts, anahtar "theme"), yapmadıysa işletim sisteminin ayarı geçerlidir.
+      ;(function () {
+        var dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        try {
+          var saved = localStorage.getItem('theme')
+          if (saved === 'dark' || saved === 'light') dark = saved === 'dark'
+        } catch (error) {
+          // Tarayıcı depolamayı engelliyorsa işletim sisteminin ayarı kalır.
+        }
+        document.documentElement.classList.toggle('dark', dark)
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

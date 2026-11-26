@@ -6,6 +6,7 @@ import type { ArticleImage, ArticleSearchItem } from '../../api/articles'
 import { formatPublishedAt } from '../../lib/time'
 import { BookmarkToggle } from '../saved/BookmarkToggle'
 import { useSaveArticle } from '../saved/useSaveArticle'
+import { BreakingBadge, SourceBadge } from './ArticleBadges'
 import { Highlighted } from './Highlighted'
 
 /**
@@ -25,11 +26,13 @@ export function ResultItem({ item }: { item: ArticleSearchItem }) {
     <article lang={item.language} className="flex gap-4 py-5 sm:gap-5">
       <Thumbnail image={item.image} />
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <SourceBadge source={item.source} />
           <span className="font-medium tracking-wide uppercase">{item.source.name}</span>
-          <span aria-hidden> · </span>
+          <span aria-hidden>·</span>
           <time dateTime={item.publishedAt}>{formatPublishedAt(item.publishedAt, locale)}</time>
         </p>
+        <BreakingBadge categories={item.categories} className="mt-2" />
         <h2 className="mt-1 text-lg leading-snug font-semibold sm:text-xl">
           {/* state: detay sayfasındaki "Aramaya dön" bu aramaya (filtreler ve sayfa dahil) döner. */}
           <Link

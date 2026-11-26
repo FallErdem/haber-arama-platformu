@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { fetchSources, type SourceOverview } from '../../../api/adminSources'
 import { useAccessToken } from '../../../auth/accessToken'
+import { ListSkeleton } from '../../../components/ListSkeleton'
 import { Button } from '../../../components/ui/button'
 import { formatPublishedAt } from '../../../lib/time'
 import { CreateSourceDialog } from './CreateSourceDialog'
@@ -30,7 +31,7 @@ export function SourcesPage() {
       <CreateSourceDialog isOpen={isCreateOpen} onOpenChange={setCreateOpen} />
 
       {sources.isPending ? (
-        <p className="text-muted-foreground">{t('admin.sources.loading')}</p>
+        <ListSkeleton label={t('admin.sources.loading')} rows={8} />
       ) : sources.isError ? (
         <div role="alert">
           <p>{t('admin.sources.loadFailed')}</p>
@@ -41,7 +42,7 @@ export function SourcesPage() {
       ) : (
         <ul className="divide-y divide-border border-t border-border">
           {sources.data.items.map((source) => (
-            <li key={source.id}>
+            <li key={source.id} className="transition-colors hover:bg-muted/40">
               <SourceRow source={source} />
             </li>
           ))}

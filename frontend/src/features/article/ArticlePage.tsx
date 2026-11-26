@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { cn } from 'cn'
 import { ArrowLeftIcon, EyeOffIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocale } from 'react-aria-components'
@@ -9,13 +10,19 @@ import { ApiError } from '../../api/client'
 import { useAccessToken } from '../../auth/accessToken'
 import { useCurrentUser } from '../../auth/currentUser'
 import { Button } from '../../components/ui/button'
+import { rememberArticle } from '../../lib/readingHistory'
 import { formatDateTime } from '../../lib/time'
 import { NotFoundPage } from '../errors/NotFoundPage'
 import { BookmarkToggle } from '../saved/BookmarkToggle'
 import { useSaveArticle } from '../saved/useSaveArticle'
+import { SourceBadge } from '../search/ArticleBadges'
 import { HideArticleDialog } from './HideArticleDialog'
+import { readingMinutes } from './readingTime'
+import { RelatedArticles } from './RelatedArticles'
 import { sanitizeContent } from './sanitize'
+import { ShareButton } from './ShareButton'
 import { SourceAttribution } from './SourceAttribution'
+import { useArticleTextSize } from './textSize'
 
 /** Haber kimlikleri UUID'dir; başka bir değerle API'ye boşuna istek gönderilmez. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -48,6 +55,12 @@ export function ArticlePage() {
   const backTo = `${fromSaved ? '/saved' : '/'}${cameFrom?.search ?? ''}`
   const [isHidden, setHidden] = useState(false)
 
+  // Tarayıcı içi geçişte kaydırma konumu sıfırlanmaz; haber (listeden ya da ilgili haberlerden gelinse de)
+  // başından açılır.
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [articleId])
+
   const article = useQuery({
     queryKey: ['article', articleId],
     queryFn: () => fetchArticle(accessToken, articleId),
@@ -59,6 +72,8 @@ export function ArticlePage() {
     return <NotFoundPage />
   }
 
+  // Diğer sayfalar sola yaslıdır; haber detayı okuma sayfası olduğu için ortada açılır (Son Dakika sütununun
+  // solundaki alanın ortasında). Satır uzunluğu okunur genişlikte kalır (max-w-2xl).
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
       <Link
@@ -117,8 +132,21 @@ function ArticleView({ article, onHidden }: { article: ArticleDetail; onHidden: 
   const currentUser = useCurrentUser()
   const [isHideOpen, setHideOpen] = useState(false)
   const content = useMemo(() => (article.content ? sanitizeContent(article.content) : null), [article.content])
+  // Okuma süresi yalnızca tam metin varken gösterilir; özetten hesaplanan süre yanıltıcı olurdu.
+  const minutes = useMemo(() => (content ? readingMinutes(content) : null), [content])
   const bookmark = useSaveArticle(article.id, article.saved)
+  const textSize = useArticleTextSize()
   const [mainImage, ...otherImages] = article.media
+
+  // Açılan haber okuma geçmişine eklenir (sağdaki sütun; tarayıcıda saklanır).
+  useEffect(() => {
+    rememberArticle(currentUser.id, {
+      id: article.id,
+      title: article.title,
+      sourceName: article.source.name,
+      language: article.language,
+    })
+  }, [currentUser.id, article.id, article.title, article.source.name, article.language])
 
   // Sekmede haberin başlığı görünür; sayfadan çıkınca uygulamanın adına döner.
   useEffect(() => {
@@ -133,10 +161,17 @@ function ArticleView({ article, onHidden }: { article: ArticleDetail; onHidden: 
     <article lang={article.language} className="mt-6">
       <header>
         <div className="flex items-center justify-between gap-4">
-          <p className="text-xs text-muted-foreground">
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+            <SourceBadge source={article.source} />
             <span className="font-medium tracking-wide uppercase">{article.source.name}</span>
-            <span aria-hidden> · </span>
+            <span aria-hidden>·</span>
             <time dateTime={article.publishedAt}>{formatDateTime(article.publishedAt, locale)}</time>
+            {minutes !== null && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{t('article.readingTime', { count: minutes })}</span>
+              </>
+            )}
           </p>
           <div className="flex items-center gap-1">
             {/* Yalnızca yöneticiye görünür; bu bir kolaylıktır, yetki kontrolü backend'dedir. */}
@@ -180,6 +215,32 @@ function ArticleView({ article, onHidden }: { article: ArticleDetail; onHidden: 
             ))}
           </ul>
         )}
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 border-y border-border py-1.5">
+          <div role="group" aria-label={t('article.textSize.label')} className="flex items-center">
+            {/* Görünen "A−"/"A+" yalnızca simgedir; ekran okuyucu düğmenin adını okur. */}
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={t('article.textSize.decrease')}
+              isDisabled={!textSize.canDecrease}
+              onPress={textSize.decrease}
+              className="text-xs"
+            >
+              A−
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={t('article.textSize.increase')}
+              isDisabled={!textSize.canIncrease}
+              onPress={textSize.increase}
+              className="text-base"
+            >
+              A+
+            </Button>
+          </div>
+          <ShareButton title={article.title} url={article.url} />
+        </div>
       </header>
 
       {mainImage && <ArticleFigure media={mainImage} title={article.title} className="mt-6" />}
@@ -187,10 +248,12 @@ function ArticleView({ article, onHidden }: { article: ArticleDetail; onHidden: 
       <div className="mt-6">
         {content ? (
           // Temizlenmiş HTML (sanitize.ts); işçi de kaydederken temizledi (FOG-16).
-          <div className="article-body" dangerouslySetInnerHTML={{ __html: content }} />
+          // Seçilen yazı boyutu sınıfı .article-body'nin boyutunu ezer (Tailwind'de araç sınıfları bileşen
+          // sınıflarından sonra gelir).
+          <div className={cn('article-body', textSize.className)} dangerouslySetInnerHTML={{ __html: content }} />
         ) : article.summary ? (
           // Kaynak tam metin vermiyorsa özet gösterilir (FG-AR-06).
-          <p className="article-body">{article.summary}</p>
+          <p className={cn('article-body', textSize.className)}>{article.summary}</p>
         ) : (
           // Haber yeni kaydedildi, metni arama indeksine birkaç saniye içinde aktarılacak (ADR-0019).
           <p className="text-muted-foreground">{t('article.textPending')}</p>
@@ -217,6 +280,7 @@ function ArticleView({ article, onHidden }: { article: ArticleDetail; onHidden: 
       )}
 
       <SourceAttribution article={article} />
+      <RelatedArticles article={article} />
     </article>
   )
 }

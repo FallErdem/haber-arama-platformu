@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { fetchAdminUsers } from '../../../api/adminUsers'
 import { useAccessToken } from '../../../auth/accessToken'
+import { ListSkeleton } from '../../../components/ListSkeleton'
 import { Button } from '../../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Pagination } from '../../search/Pagination'
@@ -80,7 +81,7 @@ export function AdminUsersPage() {
       )}
 
       {users.isPending ? (
-        <p className="mt-10 text-muted-foreground">{t('admin.users.loading')}</p>
+        <ListSkeleton label={t('admin.users.loading')} className="mt-6" />
       ) : users.isError ? (
         <div role="alert" className="mt-10">
           <p>{t('admin.users.loadFailed')}</p>
@@ -100,7 +101,7 @@ export function AdminUsersPage() {
             )}
           >
             {users.data.items.map((user) => (
-              <li key={user.id}>
+              <li key={user.id} className="transition-colors hover:bg-muted/40">
                 <UserRow user={user} onResult={setActionMessage} />
               </li>
             ))}

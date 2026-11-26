@@ -199,7 +199,8 @@ describe('AuthenticatedApp', () => {
       }),
     )
 
-    renderAt('/')
+    // Arama adresi: ana sayfa (parametresiz adres) düz arama isteği atmaz; 403'ü arama isteği getirir.
+    renderAt('/?q=deprem')
 
     expect(await screen.findByText('Hesabınız pasif duruma alınmış.')).toBeInTheDocument()
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
@@ -213,7 +214,7 @@ describe('AuthenticatedApp', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    renderAt('/')
+    renderAt('/?q=deprem')
 
     expect(await screen.findByText('Sonuçlar alınamadı.')).toBeInTheDocument()
     expect(fetchMock.mock.calls.filter(([url]) => url === '/api/v1/me')).toHaveLength(1)

@@ -63,13 +63,17 @@ export function SearchResults({ state, results, onChange, onClearFilters, hrefFo
       {items.length === 0 ? (
         <EmptyResults isPageEmpty={totalElements > 0} onClearFilters={onClearFilters} hrefFirstPage={hrefForPage(1)} />
       ) : (
-        // Yeni sayfa yüklenirken eski sonuçlar soluk gösterilir; ekran boş kalmaz.
+        // Yeni sayfa yüklenirken eski sonuçlar soluk gösterilir; ekran boş kalmaz. Çok geniş ekranda liste iki
+        // sütuna geçer (satır satır okunur: 1-2, 3-4); ayırıcı çizgi bu yüzden her öğenin altındadır.
         <ol
           aria-busy={results.isFetching}
-          className={cn('divide-y divide-border transition-opacity', results.isPlaceholderData && 'opacity-50')}
+          className={cn(
+            'transition-opacity 2xl:grid 2xl:grid-cols-2 2xl:gap-x-10',
+            results.isPlaceholderData && 'opacity-50',
+          )}
         >
           {items.map((item) => (
-            <li key={item.id}>
+            <li key={item.id} className="border-b border-border">
               <ResultItem item={item} />
             </li>
           ))}

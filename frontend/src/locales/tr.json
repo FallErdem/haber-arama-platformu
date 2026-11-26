@@ -14,13 +14,46 @@
     "button": "Çıkış yap"
   },
   "layout": {
-    "skipToContent": "İçeriğe geç"
+    "skipToContent": "İçeriğe geç",
+    "darkTheme": "Koyu tema",
+    "backToTop": "Başa dön"
   },
   "nav": {
     "label": "Ana menü",
     "search": "Arama",
     "saved": "Kaydedilenler",
-    "admin": "Yönetim"
+    "admin": "Yönetim",
+    "categories": "Kategoriler"
+  },
+  "history": {
+    "title": "Okuma geçmişi",
+    "clear": "Temizle",
+    "clearLabel": "Okuma geçmişini temizle",
+    "empty": "Açtığın haberler burada görünür."
+  },
+  "home": {
+    "heading": "Kategorilere göre son haberler",
+    "updatedAt": "Son güncelleme: {{time}}",
+    "refresh": "Yenile",
+    "seeAll": "Tümünü gör",
+    "seeAllIn": "{{category}}: tümünü gör",
+    "sectionFailed": "Bu bölüm yüklenemedi.",
+    "loadFailed": "Kategoriler alınamadı.",
+    "allNews": "Bütün haberleri en yeniden eskiye listele",
+    "headline": {
+      "label": "Manşet",
+      "carousel": "manşet döngüsü",
+      "slide": "manşet",
+      "position": "{{index}} / {{count}}",
+      "previous": "Önceki manşet",
+      "next": "Sonraki manşet",
+      "show": "{{index}}. manşeti göster",
+      "pause": "Durdur",
+      "pauseLabel": "Manşetin değişmesini durdur",
+      "play": "Başlat",
+      "playLabel": "Manşetin değişmesini başlat",
+      "list": "Manşetteki haberler"
+    }
   },
   "admin": {
     "noPermission": "Bu sayfayı görüntüleme yetkiniz yok.",
@@ -34,7 +67,9 @@
       "sources": "Kaynaklar",
       "runs": "Toplama geçmişi",
       "hidden": "Gizlenen haberler",
-      "audit": "Audit kayıtları"
+      "audit": "Audit kayıtları",
+      "pendingCount_one": "{{count}} onay bekleyen",
+      "pendingCount_other": "{{count}} onay bekleyen"
     },
     "errors": {
       "VERSION_CONFLICT": "Kayıt bu arada başka bir yönetici tarafından değiştirildi. Ekran yenilendi; yeniden deneyin.",
@@ -376,6 +411,17 @@
     }
   },
   "article": {
+    "readingTime_one": "{{count}} dk okuma",
+    "readingTime_other": "{{count}} dk okuma",
+    "share": "Paylaş",
+    "linkCopied": "Haberin bağlantısı kopyalandı.",
+    "shareFailed": "Bağlantı kopyalanamadı.",
+    "textSize": {
+      "label": "Yazı boyutu",
+      "decrease": "Yazıyı küçült",
+      "increase": "Yazıyı büyüt"
+    },
+    "related": "İlgili haberler",
     "back": "Aramaya dön",
     "backToSaved": "Kaydedilenlere dön",
     "byAuthor": "Yazan: {{author}}",

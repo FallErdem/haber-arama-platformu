@@ -53,7 +53,7 @@ class UserProvisioningService {
             throw new InvalidBearerTokenException("Token e-posta bilgisi içermiyor");
         }
 
-        boolean isInitialAdmin = isInitialAdmin(jwt, email);
+        boolean isInitialAdmin = isInitialAdmin(email);
         UserRole role = isInitialAdmin ? UserRole.ADMIN : UserRole.USER;
         UserStatus status = isInitialAdmin ? UserStatus.ACTIVE : UserStatus.PENDING;
         boolean inserted = userRepository.insertIfAbsent(keycloakSub, email, displayNameOf(jwt), role, status);
@@ -93,13 +93,13 @@ class UserProvisioningService {
     }
 
     /**
-     * Doğrulanmamış bir e-postayla yönetici olunamaması için email_verified şarttır.
+     * Yapılandırmadaki e-postayla gelen kullanıcı ilk yöneticidir. Keycloak'ta e-posta doğrulaması yoktur
+     * (ADR-0014); aynı e-posta iki hesapta kullanılamadığı için yönetici kaydolduktan sonra bu e-postayla
+     * başka kimse kaydolamaz.
      */
-    private boolean isInitialAdmin(Jwt jwt, String email) {
+    private boolean isInitialAdmin(String email) {
         String initialAdminEmail = identityProperties.initialAdminEmail();
-        return StringUtils.hasText(initialAdminEmail)
-                && Boolean.TRUE.equals(jwt.getClaimAsBoolean("email_verified"))
-                && initialAdminEmail.equalsIgnoreCase(email);
+        return StringUtils.hasText(initialAdminEmail) && initialAdminEmail.equalsIgnoreCase(email);
     }
 
     private static String displayNameOf(Jwt jwt) {

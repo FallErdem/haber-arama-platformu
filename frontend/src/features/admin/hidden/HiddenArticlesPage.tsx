@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { fetchAdminArticles, unhideArticle, type AdminArticle } from '../../../api/adminArticles'
 import { fetchSources } from '../../../api/adminSources'
 import { useAccessToken } from '../../../auth/accessToken'
+import { ListSkeleton } from '../../../components/ListSkeleton'
 import { Button } from '../../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { endOfDay, formatDateTime, isIsoDay, startOfDay } from '../../../lib/time'
@@ -129,7 +130,7 @@ export function HiddenArticlesPage() {
       )}
 
       {articles.isPending ? (
-        <p className="mt-8 text-muted-foreground">{t('admin.hidden.loading')}</p>
+        <ListSkeleton label={t('admin.hidden.loading')} className="mt-6" />
       ) : articles.isError ? (
         <div role="alert" className="mt-8">
           <p>{t('admin.hidden.loadFailed')}</p>
@@ -149,7 +150,7 @@ export function HiddenArticlesPage() {
             )}
           >
             {articles.data.items.map((article) => (
-              <li key={article.id}>
+              <li key={article.id} className="transition-colors hover:bg-muted/40">
                 <HiddenArticleRow article={article} onNotice={setNotice} />
               </li>
             ))}
