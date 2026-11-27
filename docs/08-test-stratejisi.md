@@ -91,7 +91,7 @@ Performans testlerinde yük üreten araç ve test edilen sistem aynı bilgisayar
 - **Araç:** Playwright.
 - **Ortam:** Bütün bileşenler birlikte çalışır: frontend, API, işçi, gerçek Keycloak, Mailpit ve veri depoları. Haber kaynakları yerine kaydedilmiş besleme örneklerini sunan bir test sunucusu kullanılır.
 - **Senaryolar** (`07-ekran-akislari.md`, 4. bölüm):
-  1. Yeni kullanıcının kaydolması (doğrulama e-postası Mailpit'ten okunur) ve yönetici tarafından onaylanması
+  1. Yeni kullanıcının kaydolması ve yönetici tarafından onaylanması
   2. Arama, filtreleme ve haber kaydetme
   3. Yöneticinin kaynak ve besleme eklemesi, beslemeyi denemesi
   4. Haber gizleme ve gizlemeyi geri alma

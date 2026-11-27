@@ -1,6 +1,6 @@
 # ADR-0014: Kimlik ve Yetki Akışı
 
-- **Durum:** Kabul edildi
+- **Durum:** Kabul edildi; 27 Kasım 2026'da güncellendi (kayıttaki e-posta doğrulaması kaldırıldı, bkz. sondaki "Güncelleme" bölümü)
 - **Tarih:** 2026-11-04
 
 ## Bağlam
@@ -44,7 +44,7 @@
 ### Keycloak
 
 - Uygulama için ayrı bir realm kullanılır.
-- Kullanıcıların kendi kendine kaydolması açıktır; e-posta doğrulaması zorunludur.
+- Kullanıcıların kendi kendine kaydolması açıktır; e-posta doğrulaması zorunludur. (27 Kasım 2026'da kaldırıldı, bkz. "Güncelleme".)
 - Keycloak'ta uygulama rolü tanımlanmaz.
 
 ### Frontend
@@ -64,7 +64,7 @@
 
 ### İlk yönetici
 
-Yapılandırmada belirtilen e-posta adresine sahip ve e-postası doğrulanmış (`email_verified`) kullanıcı, ilk girişinde aktif yönetici olarak tanımlanır.
+Yapılandırmada belirtilen e-posta adresine sahip ve e-postası doğrulanmış (`email_verified`) kullanıcı, ilk girişinde aktif yönetici olarak tanımlanır. (27 Kasım 2026'dan itibaren e-postanın doğrulanmış olması aranmaz, bkz. "Güncelleme".)
 
 - E-posta adresi `INITIAL_ADMIN_EMAIL` ortam değişkeninden okunur (`newssearch.identity.initial-admin-email`); boşsa kimse kendiliğinden yönetici olmaz. Karşılaştırmada büyük/küçük harf ayrımı yapılmaz.
 - Kural yalnızca kullanıcı kaydı oluşturulurken uygulanır; var olan bir kullanıcının rolünü veya durumunu değiştirmez.
@@ -87,3 +87,9 @@ Yapılandırmada belirtilen e-posta adresine sahip ve e-postası doğrulanmış 
 - Her istekte bir veritabanı sorgusu yapılır; etkisi yük testinde ölçülecektir.
 - Geliştirme ortamına Mailpit bileşeni eklenir.
 - Gmail SMTP eklendiğinde uygulama şifresi bir gizli bilgi olarak yönetilecektir (R-16).
+
+## Güncelleme (27 Kasım 2026): E-posta doğrulaması kaldırıldı
+
+- Mentörün isteğiyle Keycloak'ta kayıttaki e-posta doğrulaması kapatıldı (`realm-haber.json`'da `verifyEmail: false`). Kullanıcı kayıt formunu doldurunca doğrudan uygulamaya döner.
+- İlk yönetici kuralı artık `email_verified` aramaz: yapılandırmadaki e-posta adresiyle kaydolan ilk kullanıcı aktif yönetici olur (`UserProvisioningService`).
+- Mailpit kalır: Keycloak'ın şifre sıfırlama e-postaları ve Alertmanager'ın uyarı e-postaları ona gider.

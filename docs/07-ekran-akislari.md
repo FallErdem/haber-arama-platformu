@@ -75,10 +75,9 @@ Bu akışlar, uçtan uca testlerin senaryolarının temelidir.
 
 1. Kullanıcı uygulamayı açar; giriş yapmamış olduğu için Keycloak'ın giriş sayfasına yönlendirilir.
 2. "Kayıt ol" bağlantısıyla kayıt formunu doldurur.
-3. Keycloak bir doğrulama e-postası gönderir; kullanıcı e-postadaki bağlantıya tıklar.
-4. Kullanıcı uygulamaya döner. İlk isteğinde kullanıcı kaydı "onay bekliyor" durumunda oluşturulur; hesap durumu ekranında "Hesabınız yönetici onayı bekliyor" mesajını görür.
-5. Yönetici, Kullanıcılar ekranında onay bekleyenleri filtreler ve kullanıcıyı onaylar.
-6. Kullanıcı hesap durumu ekranındaki "Yeniden kontrol et" butonuna bastığında veya sayfayı yenilediğinde arama ekranına geçer.
+3. Kullanıcı uygulamaya döner. İlk isteğinde kullanıcı kaydı "onay bekliyor" durumunda oluşturulur; hesap durumu ekranında "Hesabınız yönetici onayı bekliyor" mesajını görür.
+4. Yönetici, Kullanıcılar ekranında onay bekleyenleri filtreler ve kullanıcıyı onaylar.
+5. Kullanıcı hesap durumu ekranındaki "Yeniden kontrol et" butonuna bastığında veya sayfayı yenilediğinde arama ekranına geçer.
 
 ### 4.2 Arama ve haber kaydetme
 
@@ -124,7 +123,7 @@ Bu akışlar, uçtan uca testlerin senaryolarının temelidir.
 
 #### Giriş ve kayıt
 
-- Keycloak'ın kendi giriş, kayıt ve e-posta doğrulama sayfaları, varsayılan görünümleriyle ve Türkçe dil seçeneğiyle kullanılır. Keycloak'ın Türkçe dil desteği kurulum sırasında doğrulanacaktır.
+- Keycloak'ın kendi giriş ve kayıt sayfaları, varsayılan görünümleriyle ve Türkçe dil seçeneğiyle kullanılır. Keycloak'ın Türkçe dil desteği kurulum sırasında doğrulanacaktır.
 - Bu sayfaların uygulamanın görünümüne uyarlanması (Keycloak teması) kapsam dışıdır; gerekirse sonradan yapılabilir.
 
 #### Hesap durumu

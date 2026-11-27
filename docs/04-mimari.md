@@ -41,7 +41,7 @@ flowchart LR
     sistem -->|Token doğrulama anahtarları| keycloak
     sistem -->|Haber toplama| rss
     sistem -->|Haber toplama| nyt
-    keycloak -->|Doğrulama e-postası| smtp
+    keycloak -->|Şifre sıfırlama e-postası| smtp
 ```
 
 | Aktör / Sistem | Rolü |
@@ -51,7 +51,7 @@ flowchart LR
 | Keycloak | Kullanıcının kimliğini doğrular ve JWT üretir; uygulama rolü tutmaz. |
 | RSS / Atom kaynakları | Haberlerin beslemeler üzerinden toplandığı kaynaklar. |
 | NYT API | Haberlerin API üzerinden toplandığı kaynak. |
-| E-posta sunucusu | Keycloak'ın kayıt doğrulama e-postalarını gönderdiği sunucu. |
+| E-posta sunucusu | Keycloak'ın şifre sıfırlama e-postalarını gönderdiği sunucu. |
 
 ## 3. Bileşenler
 
@@ -210,7 +210,7 @@ sequenceDiagram
         A-->>B: 401
     else JWT geçerli
         A->>PG: Kullanıcıyı sub ile ara
-        alt Kayıt yok, ilk yönetici e-postası ve e-posta doğrulanmış
+        alt Kayıt yok ve ilk yönetici e-postası
             A->>PG: Aktif yönetici olarak kayıt oluştur
             A-->>B: Yanıt
         else Kayıt yok
