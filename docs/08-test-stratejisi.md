@@ -134,7 +134,7 @@ Her işlem arasında 3–5 saniyelik düşünme süresi bulunur. Görsel istekle
 | Yük | Beklenen kullanıcı sayısında sistem nasıl davranıyor? | 50 eş zamanlı kullanıcı, 15 dakika | Arama p95 ≤ 500 ms, p99 ≤ 1000 ms; hata oranı < %1 (FOG-01, FOG-02) |
 | Stres | Sistem nerede kırılıyor, kırılınca nasıl davranıyor? | 50 kullanıcıdan başlayıp her 2 dakikada 25 kullanıcı artırılır; hata oranı %5'i veya p95 2 saniyeyi aşınca durdurulur | Hedef değil, gözlem: kırılma noktası kaydedilir. Kırıldığında sistemin çökmemesi, anlamlı hata yanıtları vermesi ve yük düşünce kendiliğinden toparlanması beklenir |
 | Ani yük | Trafik birden artınca ne oluyor? | 50 kullanıcıdan 10 saniyede 200 kullanıcıya, 2 dakika sürer, sonra 50'ye döner | Ani yük sırasında hata oranı < %5; yük düştükten sonra 1 dakika içinde yük testi hedeflerine dönülür |
-| Uzun süre | Saatler süren yükte bellek veya bağlantı sızıntısı var mı? | 50 kullanıcı, 4 saat | Son saatte bellek kullanımı ve veritabanı bağlantı sayısı ilk saate göre %10'dan fazla artmaz; hata oranı < %1 |
+| Uzun süre | Saatler süren yükte bellek veya bağlantı sızıntısı var mı? | 50 kullanıcı, 4 saat (test 2 saat çalıştırıldı; gerekçesi performans raporunda) | Son saatte bellek kullanımı ve veritabanı bağlantı sayısı ilk saate göre %10'dan fazla artmaz; hata oranı < %1 |
 | Ölçeklenebilirlik | Kopya sayısı arttıkça kapasite artıyor mu? | Aynı senaryo, API'nin 1 ve 2 kopyasıyla; her durumda yük hedeflerini sağlayan en yüksek istek hızı bulunur | 2 kopyada kapasite, 1 kopyaya göre en az %70 fazla (FOG-06) |
 | Hacim | Büyük veri miktarında sorgular yeterince hızlı mı? | 1 milyon haber, yük testi senaryosu | Arama p95 ≤ 500 ms (FOG-07) |
 

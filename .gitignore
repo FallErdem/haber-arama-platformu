@@ -30,3 +30,5 @@ coverage/
 logs/
 
 deploy/k8s/overlays/dev/secrets/
+# Performans testlerinin ham sonuçları (özetleri raporda: docs/test-raporlari/)
+tests/performance/results/
