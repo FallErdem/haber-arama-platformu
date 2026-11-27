@@ -55,7 +55,7 @@ Farklı haber kaynaklarından haberleri toplayan, tek yerde birleştirerek arana
 ## Mimari
 
 ```
-Tarayıcı ──► Traefik (Gateway API) ──┬──► Frontend (React, nginx)        haber.localhost/
+Tarayıcı ──► Traefik (Gateway API) ──┬──► Frontend (React, nginx)         haber.localhost/
                                      ├──► API (Spring Boot)               haber.localhost/api/
                                      └──► Keycloak                        haber.localhost/auth/
 
