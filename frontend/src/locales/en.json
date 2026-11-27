@@ -55,6 +55,23 @@
       "list": "Stories in the carousel"
     }
   },
+  "market": {
+    "title": "Markets",
+    "names": {
+      "USD": "US dollar",
+      "EUR": "Euro",
+      "GRAM_GOLD": "Gold (gram)",
+      "GOLD_OUNCE": "Gold (ounce)",
+      "SILVER_OUNCE": "Silver (ounce)",
+      "BIST100": "BIST 100",
+      "BRENT": "Brent oil",
+      "BITCOIN": "Bitcoin"
+    },
+    "up": "up",
+    "down": "down",
+    "updatedAt": "Updated {{time}}",
+    "source": "Yahoo Finance"
+  },
   "admin": {
     "noPermission": "You do not have permission to view this page.",
     "retry": "Try again",

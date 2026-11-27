@@ -78,11 +78,12 @@ spec:
             requests:
               cpu: 50m
               memory: 96Mi
-            # 640Mi: NYT eklendikten sonra işçi 384Mi sınırında, NYT'nin 2048 piksellik görsellerini işlerken art arda
-            # öldürüldü (24 Kasım 2026, OOMKilled). 768Mi ile çalıştığı 35 saatte ortalama 400 MB, en çok 480 MB
-            # kullandı; 640Mi bu tepenin üstünde yaklaşık %33 pay bırakır.
+            # 1Gi: NYT eklendikten sonra işçi 384Mi sınırında, NYT'nin 2048 piksellik görsellerini işlerken art arda
+            # öldürüldü (24 Kasım 2026, OOMKilled). Sınır önce 640Mi yapıldı; işçi orada da en çok 638 MiB'a çıktı ve
+            # 27 Kasım'da 137 çıkış koduyla yeniden başladı. 768Mi ile çalışırken de 765 MiB görüldü: kullanım sınıra
+            # doğru büyüyor. 1Gi bu tepelerin üstünde pay bırakır.
             limits:
-              memory: 640Mi
+              memory: 1Gi
           startupProbe:
             httpGet:
               path: /healthz/live

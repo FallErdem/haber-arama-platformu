@@ -55,6 +55,23 @@
       "list": "Manşetteki haberler"
     }
   },
+  "market": {
+    "title": "Piyasalar",
+    "names": {
+      "USD": "Dolar",
+      "EUR": "Euro",
+      "GRAM_GOLD": "Gram altın",
+      "GOLD_OUNCE": "Ons altın",
+      "SILVER_OUNCE": "Ons gümüş",
+      "BIST100": "BIST 100",
+      "BRENT": "Brent petrol",
+      "BITCOIN": "Bitcoin"
+    },
+    "up": "yükseliş",
+    "down": "düşüş",
+    "updatedAt": "Son güncelleme {{time}}",
+    "source": "Yahoo Finance"
+  },
   "admin": {
     "noPermission": "Bu sayfayı görüntüleme yetkiniz yok.",
     "retry": "Yeniden dene",

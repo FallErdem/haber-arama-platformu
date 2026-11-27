@@ -56,6 +56,8 @@ function stubApi(
       const url = new URL(input, 'http://haber.localhost')
       if (url.pathname === '/api/v1/sources') return Promise.resolve(Response.json({ items: SOURCES }))
       if (url.pathname === '/api/v1/categories') return Promise.resolve(Response.json({ items: CATEGORIES }))
+      // Piyasa kutusu boş liste alır ve görünmez; isteği arama isteği sayılmaz.
+      if (url.pathname === '/api/v1/market-quotes') return Promise.resolve(Response.json({ items: [] }))
       if (url.pathname.startsWith('/api/v1/me/saved-articles/')) {
         savings.push({ method: init?.method, path: url.pathname })
         return Promise.resolve(saving())

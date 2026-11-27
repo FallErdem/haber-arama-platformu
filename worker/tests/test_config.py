@@ -37,6 +37,7 @@ def test_defaults_are_used_when_only_password_is_given() -> None:
     assert settings.outbox_retention_days == 7
     assert settings.ingestion_run_retention_days == 180
     assert settings.feed_test_retention_days == 1
+    assert settings.market_interval_seconds == 900.0
 
 
 def test_environment_variables_override_defaults() -> None:
@@ -62,6 +63,7 @@ def test_environment_variables_override_defaults() -> None:
             "OUTBOX_RETENTION_DAYS": "3",
             "INGESTION_RUN_RETENTION_DAYS": "90",
             "FEED_TEST_RETENTION_DAYS": "2",
+            "MARKET_INTERVAL_SECONDS": "120",
             "DB_HOST": "postgres-rw",
             "DB_PORT": "6432",
             "DB_NAME": "haberler",
@@ -97,6 +99,7 @@ def test_environment_variables_override_defaults() -> None:
     assert settings.outbox_retention_days == 3
     assert settings.ingestion_run_retention_days == 90
     assert settings.feed_test_retention_days == 2
+    assert settings.market_interval_seconds == 120.0
 
 
 @pytest.mark.parametrize(

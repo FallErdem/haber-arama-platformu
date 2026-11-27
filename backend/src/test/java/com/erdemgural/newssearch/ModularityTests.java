@@ -17,9 +17,10 @@ class ModularityTests {
     }
 
     @Test
-    @DisplayName("mimarideki altı iş modülü ve ortak web paketi tanınır")
+    @DisplayName("mimarideki yedi iş modülü ve ortak web paketi tanınır")
     void allModulesAreDetected() {
         assertThat(modules.stream().map(module -> module.getIdentifier().toString()))
-                .containsExactlyInAnyOrder("identity", "ingestion", "search", "library", "admin", "audit", "web");
+                .containsExactlyInAnyOrder(
+                        "identity", "ingestion", "search", "library", "admin", "audit", "market", "web");
     }
 }
