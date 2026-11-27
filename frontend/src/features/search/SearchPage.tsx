@@ -5,6 +5,7 @@ import { useLocation } from 'react-router'
 import { searchArticles } from '../../api/articles'
 import { useAccessToken } from '../../auth/accessToken'
 import { HomeView } from '../home/HomeView'
+import { MarketQuotes } from '../market/MarketQuotes'
 import { SearchBox } from './SearchBox'
 import { SearchFilters } from './SearchFilters'
 import { SearchResults } from './SearchResults'
@@ -48,14 +49,20 @@ export function SearchPage() {
     update({ sources: [], categories: [], language: undefined, from: undefined, to: undefined })
 
   return (
-    // Sonuçlar ve kategori bölümleri sağdaki Son Dakika sütununa kadar bütün genişliği kullanır; arama kutusu
-    // ve filtreler okunur genişlikte (max-w-4xl) kalır.
+    // Sonuçlar ve kategori bölümleri sağdaki okuma geçmişi sütununa kadar bütün genişliği kullanır.
     <div className="px-4 py-8 sm:px-6 sm:py-10">
-      <div className="max-w-4xl">
-        <h1 className="mb-5 text-3xl font-semibold tracking-tight">{t('search.title')}</h1>
-        {/* key: adresteki ifade değişince (geri düğmesi, temizleme) kutu yeniden kurulur ve onu gösterir. */}
-        <SearchBox key={state.q} query={state.q} onSearch={(q) => update({ q })} />
-        <SearchFilters state={state} onChange={update} />
+      {/* Manşetle aynı ızgara (Headline): arama kutusu manşet görselinin, piyasa kutusu manşet listesinin hizasında
+          durur. Piyasa kutusu yalnızca geniş ekranda görünür; dar ekranda o boşluk yoktur. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-8">
+        <div className="min-w-0">
+          <h1 className="mb-5 text-3xl font-semibold tracking-tight">{t('search.title')}</h1>
+          {/* key: adresteki ifade değişince (geri düğmesi, temizleme) kutu yeniden kurulur ve onu gösterir. */}
+          <SearchBox key={state.q} query={state.q} onSearch={(q) => update({ q })} />
+          <SearchFilters state={state} onChange={update} />
+        </div>
+        <div className="hidden lg:block">
+          <MarketQuotes />
+        </div>
       </div>
       {isHome ? (
         <HomeView />

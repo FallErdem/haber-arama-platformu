@@ -62,6 +62,7 @@ RESET_DATA_SQL = """
     DELETE FROM feed_tests;
     DELETE FROM users;
     DELETE FROM ingestion_runs;
+    DELETE FROM market_quotes;
     UPDATE sources SET enabled = true, purge_requested_at = NULL;
     UPDATE feeds
     SET enabled = true, disabled_reason = NULL, next_fetch_at = now(), etag = NULL, last_modified = NULL,

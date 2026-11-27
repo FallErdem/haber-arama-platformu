@@ -16,6 +16,8 @@ from news_worker.image_downloader import ImageDownloader
 from news_worker.ingestion_service import IngestionService
 from news_worker.logging_config import configure_logging
 from news_worker.maintenance import Maintenance, MaintenanceRepository, RetentionPeriods
+from news_worker.market_quote_updater import MarketQuoteUpdater
+from news_worker.market_quotes import MarketQuoteRepository
 from news_worker.media import MediaRepository
 from news_worker.media_downloader import MediaDownloader
 from news_worker.metrics import FeedFailureMetricsUpdater, WorkerMetrics
@@ -28,6 +30,7 @@ from news_worker.scheduler import Scheduler
 from news_worker.search_index import SearchIndex, create_search_client
 from news_worker.source_purge import SourcePurger, SourcePurgeRepository
 from news_worker.sources import SourceRepository
+from news_worker.yahoo_finance import YahooFinanceClient
 
 log = logging.getLogger(__name__)
 
@@ -58,9 +61,9 @@ async def report_missing_api_key(database: Database, reader_type: str, setting_n
 async def run(settings: Settings, stop: asyncio.Event) -> None:
     """Sağlık adresini açar, tabloları bekler ve durdurma istenene kadar işleri çalıştırır.
 
-    Altı iş yan yana çalışır: zamanlayıcı (haber toplama), outbox aktarımı (Elasticsearch), görsel
-    indirme (MinIO), kaynak içeriğinin silinmesi, bakım (yaşam döngüsü durumu, eski kayıtların temizliği)
-    ve besleme hata sayılarının ölçüme yazılması (Prometheus).
+    Yedi iş yan yana çalışır: zamanlayıcı (haber toplama), outbox aktarımı (Elasticsearch), görsel
+    indirme (MinIO), kaynak içeriğinin silinmesi, bakım (yaşam döngüsü durumu, eski kayıtların temizliği),
+    besleme hata sayılarının ölçüme yazılması (Prometheus) ve piyasa değerlerinin güncellenmesi (Yahoo Finance).
     """
     database = Database(settings)
     # Ölçümler tek yerde toplanır: toplama servisi sayaçları artırır, sağlık sunucusu /metrics'te yayımlar.
@@ -147,6 +150,9 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
         feed_failure_metrics = FeedFailureMetricsUpdater(
             database, FeedRepository(), metrics, settings.metrics_interval_seconds
         )
+        market_quote_updater = MarketQuoteUpdater(
+            database, YahooFinanceClient(http_client), MarketQuoteRepository(), settings.market_interval_seconds
+        )
         # Hazır olma yalnızca zamanlayıcıya bakar: Elasticsearch veya MinIO kapalıyken de haber toplama
         # sürer; notlar ve görseller PostgreSQL'de bekler (FOG-09). İşçi bu yüzden sağlıksız sayılmaz.
         health_server = HealthServer(settings.health_port, is_ready=scheduler.is_healthy, metrics=metrics)
@@ -169,6 +175,7 @@ async def run(settings: Settings, stop: asyncio.Event) -> None:
                     source_purger.run(stop),
                     maintenance.run(stop),
                     feed_failure_metrics.run(stop),
+                    market_quote_updater.run(stop),
                 )
         finally:
             await health_server.stop()
