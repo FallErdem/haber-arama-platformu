@@ -113,6 +113,7 @@ CPU'da yalnızca istek tanımlıdır: bileşenler boştaki işlemciyi kullanabil
 | `db/migrations/` | Veritabanı geçiş betikleri (Flyway, `V1` – `V23`) |
 | `deploy/` | k3d kümesi ve Kubernetes dosyaları (Kustomize, Helm ayarları) |
 | `scripts/dev/` | Derleme, dağıtım ve bakım betikleri |
+| `tests/performance/` | Performans testleri (k6 senaryosu, hazırlık ve özet betikleri) |
 | `docs/` | Gereksinimler, mimari, veri modeli, API sözleşmesi, ekran akışları, kararlar (ADR), test raporları |
 
 ## Testler
