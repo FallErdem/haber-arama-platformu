@@ -2,19 +2,55 @@
 
 Farklı haber kaynaklarından haberleri toplayan, tek yerde birleştirerek aranabilir hale getiren ve sonuçları görselleriyle birlikte, özgün habere bağlantı vererek gösteren bir web uygulaması.
 
-## Durum (19 Kasım 2026)
+![Ana sayfa: manşet, piyasa verileri ve okuma geçmişi](docs/images/home.png)
 
-Çalışan işlevler:
+| Arama sonuçları | Haber detayı | Yönetim paneli |
+|---|---|---|
+| ![Arama sonuçları](docs/images/search.png) | ![Haber detayı](docs/images/article.png) | ![Yönetim panosu](docs/images/admin.png) |
 
-- **Haber toplama:** TRT Haber, NTV, CNN Türk ve Global Voices'ın 42 RSS/Atom beslemesinden düzenli toplama; kategori eşlemesi, tekrar kontrolü, hata durumunda yeniden deneme ve beslemenin kendiliğinden devre dışı kalması; görsellerin indirilmesi.
-- **Arama:** Türkçe ve İngilizce tam metin arama (Türkçe karaktersiz yazımla da), kaynak, dil, kategori ve tarih filtreleri, Son Dakika, ilgililiğe veya tarihe göre sıralama, eşleşen kelimelerin vurgulanması, sayfalama.
-- **Haber detayı:** Temizlenmiş tam metin, görseller, kaynak ve atıf bilgisi, özgün habere bağlantı.
-- **Kaydedilen haberler:** Arama sonuçlarından ve detaydan yer imiyle kaydetme, Kaydedilenler sayfası.
-- **Kimlik ve yetki:** Keycloak ile kayıt ve giriş, yönetici onayı, kullanıcı durumları (onay bekliyor, aktif, pasif, reddedildi).
-- **Yönetim paneli:** Kullanıcıların listelenmesi, onaylanması, reddedilmesi, rol ve durum değişikliği, son aktif yönetici kuralı.
-- **Audit log:** Kullanıcı kaydı, yeni oturum, reddedilen istekler ve kullanıcı yönetimi işlemleri; kayıtlar değiştirilemez ve silinemez.
+## Özellikler
 
-Sıradaki işler: yönetim panelinde kaynaklar, toplama geçmişi, audit arama ve pano; NYT kaynağı; yaşam döngüsü işleri; üretim ayarları (HTTPS, gözlemlenebilirlik, yedekleme) ve uçtan uca testler. Plan: `docs/09-is-plani.md`.
+**Haber toplama**
+
+- 21 kaynaktan, 103 beslemeden düzenli toplama. Türkçe: TRT Haber, NTV, CNN Türk, Hürriyet, Milliyet, Sabah, Sözcü, Star, Yeni Şafak, Akşam, BirGün, Cumhuriyet, Karar, BBC Türkçe, DW Türkçe, Euronews Türkçe, Sputnik Türkiye, Bloomberg HT, Haberler.com. İngilizce: The New York Times (Top Stories API), Global Voices.
+- RSS ve Atom beslemeleri ile NYT Top Stories API'si. NYT için API anahtarı gerekir; anahtar verilmezse diğer kaynaklar etkilenmez.
+- Kaynak başına istek aralığı ve koşullu istek (`ETag`): kaynak sitelere gereksiz yük binmez.
+- Aynı haber ikinci kez kaydedilmez; başka bir beslemede gelirse yalnızca eksik kategorisi eklenir.
+- Okunamayan besleme 1, 5, 15 ve 15 dakika sonra yeniden denenir; 5. hatada kendiliğinden kapanır ve audit kaydına yazılır.
+- Görseller indirilir, WebP biçimine çevrilip küçültülür ve imzalı, süreli adreslerle sunulur.
+
+**Arama**
+
+- Türkçe ve İngilizce tam metin arama. Türkçe karaktersiz yazılan aramalar da eşleşir ("cumhurbaskani"); tırnak içindeki ifade birebir aranır.
+- Kaynak, kategori, dil ve tarih aralığı filtreleri; son 6 saatin haberleri için Son Dakika.
+- İlgililiğe veya tarihe göre sıralama, eşleşen kelimelerin vurgulanması, sayfalama.
+
+**Kullanıcı ekranları**
+
+- Ana sayfa: Son Dakika'nın görselli haberlerinden (yetmezse Gündem'den) kendiliğinden dönen manşet, kategorilere göre son haberler ve sayfayı yenilemeden güncelleyen "Yenile" düğmesi.
+- Piyasa verileri: dolar, euro, gram altın, ons altın, ons gümüş, BIST 100, Brent petrol ve Bitcoin; işçi 15 dakikada bir Yahoo Finance'ten günceller.
+- Haber detayı: temizlenmiş tam metin, görseller, okuma süresi, yazı boyutu ayarı, paylaşma, ilgili haberler, kaynağın atfı ve özgün habere bağlantı.
+- Kaydedilen haberler, okuma geçmişi (tarayıcıda saklanır), açık ve koyu tema.
+
+**Kimlik ve yetki**
+
+- Kayıt ve giriş Keycloak ile. Keycloak yalnızca kullanıcının kim olduğunu söyler; ne yapabileceğine API her istekte veritabanındaki `users` tablosuna bakarak karar verir.
+- Yeni kullanıcı yönetici onayını bekler. Durumlar: onay bekliyor, aktif, pasif, reddedildi. Pasif yapılan kullanıcının erişimi bir sonraki isteğinde kesilir.
+- Yapılandırmadaki e-posta adresiyle kaydolan ilk kullanıcı yönetici olur.
+
+**Yönetim paneli**
+
+- Pano: sistemin durumu (veritabanı, arama, görseller, arka plan işleri) ve temel istatistikler.
+- Kullanıcılar: onaylama, reddetme, rol ve durum değişikliği.
+- Kaynaklar ve beslemeler: ekleme, düzenleme, açma-kapama, elle toplama başlatma, kaynağın içeriğini silme.
+- Toplama geçmişi, gizlenen haberler, audit kayıtlarında arama ve CSV olarak indirme.
+
+**Veri ve işletim**
+
+- Audit log: kimin, ne zaman, neyi yaptığı. Kayıtlar veritabanı yetkileri ve tetikleyicilerle korunur; değiştirilemez ve silinemez.
+- Veri yaşam döngüsü: haberler yaşına göre işaretlenir: 30 günden yeniyse HOT, 1 yıla kadar WARM, daha eskiyse COLD. Arama indeksi aylara bölünür; eski aylar Elasticsearch'ün yaşam döngüsü politikasıyla kendiliğinden birleştirilir ve önceliği düşürülür. Haberler silinmez.
+- Ölçüm ve uyarı: Prometheus API'nin, işçinin ve Kubernetes'in ölçümlerini toplar; disk doluluğu, bozulan kaynak, yüksek hata oranı ve yetkisiz istek artışı için e-postayla uyarı gönderilir.
+- Yedekleme: PostgreSQL ve Elasticsearch her gece MinIO'ya yedeklenir, yedekler 7 gün saklanır.
 
 ## Mimari
 
@@ -24,14 +60,14 @@ Tarayıcı ──► Traefik (Gateway API) ──┬──► Frontend (React, n
                                      └──► Keycloak                        haber.localhost/auth/
 
 API ──► PostgreSQL (asıl kayıt) · Elasticsearch (arama, okuma) · MinIO (görseller, okuma)
-İşçi (Python) ──► haber kaynakları · PostgreSQL · Elasticsearch (yazma) · MinIO (yazma)
+İşçi (Python) ──► haber kaynakları, Yahoo Finance · PostgreSQL · Elasticsearch (yazma) · MinIO (yazma)
 ```
 
-- **API** (Java 25, Spring Boot 4.1): Kullanıcı ve yönetici isteklerini karşılar. Modüler monolit; modüller `identity`, `ingestion`, `search`, `library`, `admin`, `audit`, sınırları Spring Modulith ile denetlenir.
-- **İşçi** (Python 3.14, asyncio): Bütün arka plan işleri: haber toplama, görsel indirme, arama indeksine aktarım (outbox).
+- **API** (Java 25, Spring Boot 4.1): Kullanıcı ve yönetici isteklerini karşılar. Modüler monolit; modüller `identity`, `ingestion`, `search`, `library`, `admin`, `audit` ve `market`. Modül sınırları Spring Modulith ile denetlenir.
+- **İşçi** (Python 3.14, asyncio): Bütün arka plan işleri yan yana çalışır: haber toplama, arama indeksine aktarım (outbox), görsel indirme, kaynak içeriğinin silinmesi, bakım (yaşam döngüsü ve eski kayıtların temizliği), ölçümlerin güncellenmesi ve piyasa verileri.
 - **İki uygulama doğrudan konuşmaz**, yalnızca veri depoları üzerinden haberleşir.
-- **Frontend** (React, TypeScript, Vite, shadcn/ui, TanStack Query).
-- **Veri:** PostgreSQL meta veriyi ve kullanıcıları, Elasticsearch haber metinlerini ve arama indeksini, MinIO görselleri tutar.
+- **Frontend** (React, TypeScript, Vite, shadcn/ui, TanStack Query): Derlenmiş dosyalar nginx konteynerinden sunulur.
+- **Veri:** PostgreSQL meta veriyi ve kullanıcıları, Elasticsearch haber metinlerini ve arama indeksini, MinIO görselleri ve yedekleri tutar.
 - Hepsi yerel bir Kubernetes kümesinde (k3d) çalışır.
 
 Ayrıntılar: `docs/04-mimari.md` ve `docs/adr/`.
@@ -42,6 +78,31 @@ Boş bir Ubuntu bilgisayarda sıfırdan kurulum (araçların kurulumu dahil): **
 
 Kısaca: Docker, kubectl, Helm ve k3d kurulur; küme oluşturulur, altyapı bileşenleri kurulur, üç uygulama betiklerle derlenip dağıtılır ve uygulama `http://haber.localhost/` adresinden açılır. Bilgisayarda Java, Node.js veya Python gerekmez; imajlar Docker'ın içinde derlenir.
 
+### Önerilen donanım
+
+| | En az | Önerilen |
+|---|---|---|
+| İşlemci | 4 çekirdek | 8 çekirdek |
+| Bellek (RAM) | 8 GB | 16 GB |
+| Boş disk | 25 GB | 40 GB |
+
+Küme olağan çalışmada yaklaşık 4 GB bellek kullanır. İşlemciyi en çok arama kullanır: performans testinde 1 milyon haberle ve 50 eş zamanlı kullanıcıyla Elasticsearch ortalama 3,5, en çok 4,5 çekirdek kullandı.
+
+Bileşenlerin Kubernetes'teki kaynak tanımları:
+
+| Bileşen | Bellek isteği / sınırı | CPU isteği |
+|---|---|---|
+| Elasticsearch | 2 Gi / 2 Gi | 500m |
+| Keycloak | 768 Mi / 1 Gi | 250m |
+| PostgreSQL | 512 Mi / 1 Gi | 250m |
+| MinIO | 512 Mi / 1 Gi | 250m |
+| API | 512 Mi / 768 Mi | 250m |
+| İşçi | 96 Mi / 1 Gi | 50m |
+| Mailpit | 64 Mi / 128 Mi | 50m |
+| Frontend | 32 Mi / 64 Mi | 25m |
+
+CPU'da yalnızca istek tanımlıdır: bileşenler boştaki işlemciyi kullanabilir, Kubernetes istekleri pod'ları yerleştirirken hesaba katar.
+
 ## Depo düzeni
 
 | Klasör | İçerik |
@@ -49,10 +110,10 @@ Kısaca: Docker, kubectl, Helm ve k3d kurulur; küme oluşturulur, altyapı bile
 | `backend/` | Spring Boot API |
 | `worker/` | Python işçisi (`news_worker`) |
 | `frontend/` | React uygulaması |
-| `db/migrations/` | Veritabanı geçiş betikleri (Flyway, `V1` – `V15`) |
-| `deploy/` | k3d kümesi ve Kubernetes dosyaları (Kustomize) |
+| `db/migrations/` | Veritabanı geçiş betikleri (Flyway, `V1` – `V23`) |
+| `deploy/` | k3d kümesi ve Kubernetes dosyaları (Kustomize, Helm ayarları) |
 | `scripts/dev/` | Derleme, dağıtım ve bakım betikleri |
-| `docs/` | Gereksinimler, mimari, veri modeli, API sözleşmesi, ekran akışları, kararlar (ADR) |
+| `docs/` | Gereksinimler, mimari, veri modeli, API sözleşmesi, ekran akışları, kararlar (ADR), test raporları |
 
 ## Testler
 
@@ -66,11 +127,17 @@ Testleri bilgisayarda çalıştırmak için ilgili araçlar ve Docker gerekir (e
 
 Kod stili ve tür denetimleri: API'de `verify` içinde (Spotless); işçide `uv run ruff check .` ve `uv run mypy`; frontend'de `npm run lint` ve `npm run format:check`.
 
+CI ayrıca commit mesajlarını (Conventional Commits), gizli bilgi sızıntısını (gitleaks), bağımlılık ve imaj açıklarını (Trivy) ve uyarı kurallarını (promtool) denetler.
+
+Test raporları: `docs/test-raporlari/`.
+
 ## Dokümanlar
 
 | Dosya | İçerik |
 |---|---|
+| `docs/sartname.pdf` | Şartname |
 | `docs/01-kapsam.md` | Kimin için, hangi sorun, kapsam dışı |
+| `docs/arastirma/` | Haber kaynakları araştırması ve kullanım şartları |
 | `docs/02-gereksinimler.md` | Fonksiyonel ve fonksiyonel olmayan gereksinimler |
 | `docs/03-riskler.md` | Risk kaydı |
 | `docs/04-mimari.md` | Bileşenler, modüller, akışlar |
@@ -81,4 +148,5 @@ Kod stili ve tür denetimleri: API'de `verify` içinde (Spotless); işçide `uv 
 | `docs/09-is-plani.md` | İş kalemleri ve haftalara dağılım |
 | `docs/10-kodlama-standartlari.md` | Kodlama kuralları |
 | `docs/adr/` | Mimari kararlar ve gerekçeleri |
+| `docs/test-raporlari/` | Test raporları |
 | `docs/ilerleme/` | Haftalık ilerleme notları |

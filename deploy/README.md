@@ -8,11 +8,11 @@ Bilgisayarda Java, Node.js veya Python kurmak gerekmez: API, frontend ve işçi 
 
 | | En az | Önerilen | Not |
 |---|---|---|---|
-| Bellek (RAM) | 8 GB | 16 GB | Küme çalışırken yaklaşık 4,3 GB kullanır (Elasticsearch 1,75 GB, Keycloak 750 MB, API 200 MB); imaj derlemeleri sırasında ek bellek gerekir |
+| Bellek (RAM) | 8 GB | 16 GB | Küme çalışırken yaklaşık 4 GB kullanır (Elasticsearch 1,6 GB, Keycloak 650 MB, API 360 MB, işçi 330 MB); imaj derlemeleri sırasında ek bellek gerekir |
 | Boş disk | 25 GB | 40 GB | İmajlar, derleme önbelleği ve veriler yaklaşık 20 GB tutar |
-| İşlemci | 4 çekirdek | — | |
+| İşlemci | 4 çekirdek | 8 çekirdek | İşlemciyi en çok arama kullanır: performans testinde 50 eş zamanlı kullanıcıyla Elasticsearch ortalama 3,5 çekirdek kullandı |
 | İşletim sistemi | Ubuntu (64 bit, x86_64) | | Komutlar Ubuntu içindir |
-| İnternet | Gerekli | | İmajlar ve bağımlılıklar indirilir; işçi haberleri kaynak sitelerden toplar |
+| İnternet | Gerekli | | İmajlar ve bağımlılıklar indirilir; işçi haberleri kaynak sitelerden, piyasa verilerini Yahoo Finance'ten alır |
 
 İlk kurulumda imajların indirilmesi ve ilk derlemeler (Maven ve npm bağımlılıkları) internet hızına göre uzun sürebilir.
 
@@ -181,7 +181,7 @@ helm upgrade --install cnpg cnpg/cloudnative-pg --version 0.29.1 \
 
 Şifreler ve görsel adreslerini imzalayan anahtar (`api-media-signing.env`) `deploy/k8s/overlays/dev/secrets/` klasörüne yazılır. Bu klasör depoya girmez. Betik var olan dosyalara dokunmaz; daha önce kurulmuş bir ortamda yeni bir gizli bilgi eklendiğinde yeniden çalıştırılır ve yalnızca eksik olanları üretir.
 
-Aynı klasöre, ilk yöneticinin e-posta adresini içeren `api-settings.env` dosyası elle eklenir (ADR-0014). Bu adresle kaydolan ve e-postasını doğrulayan kullanıcı ilk girişinde yönetici olur. `YONETICI_EPOSTASI` yerine 10. adımda Keycloak'a kaydolurken kullanacağınız adresi yazın; e-postalar gerçekten gönderilmez, Mailpit'te görünür:
+Aynı klasöre, ilk yöneticinin e-posta adresini içeren `api-settings.env` dosyası elle eklenir (ADR-0014). Bu adresle kaydolan kullanıcı ilk girişinde yönetici olur. `YONETICI_EPOSTASI` yerine 10. adımda Keycloak'a kaydolurken kullanacağınız adresi yazın:
 
 ```bash
 printf 'initial-admin-email=%s\n' 'YONETICI_EPOSTASI' > deploy/k8s/overlays/dev/secrets/api-settings.env
@@ -194,7 +194,7 @@ New York Times haberleri için bir API anahtarı gerekir (isteğe bağlı). Beti
 
 Uygulamaya `http://haber.localhost` adresinden erişilir. `.localhost` ile biten adresler kendiliğinden bu bilgisayarı gösterir; `/etc/hosts` dosyasına kayıt eklemek gerekmez.
 
-Adresin `.localhost` ile bitmesi bilinçli bir seçimdir: Tarayıcılar, girişte kullanılan PKCE'nin gerektirdiği şifreleme işlevlerini yalnızca HTTPS adreslerinde ve `localhost` adreslerinde açar. HTTPS gelene kadar (İ-32) giriş bu sayede çalışır.
+Adresin `.localhost` ile bitmesi bilinçli bir seçimdir: Tarayıcılar, girişte kullanılan PKCE'nin gerektirdiği şifreleme işlevlerini yalnızca HTTPS adreslerinde ve `localhost` adreslerinde açar. Uygulama HTTP ile sunulduğu için giriş bu sayede çalışır.
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/
@@ -237,7 +237,7 @@ API betiğiyle aynı şekilde çalışır (`frontend/Dockerfile`). Yeni kurulan 
 
 Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, tabloları API kurduğu için API'den sonra dağıtılır; önce dağıtılırsa çökmez, tablolar hazır olana kadar bekler.
 
-İşçi başladığında okuma zamanı gelmiş beslemeleri kaynak sitelerden toplamaya başlar; bunun için pod'un internete çıkabilmesi gerekir. Yeni bir veritabanında 42 beslemenin hepsinin zamanı gelmiş olduğundan ilk tur, kaynak başına istek aralıkları nedeniyle birkaç dakika sürer.
+İşçi başladığında okuma zamanı gelmiş beslemeleri kaynak sitelerden toplamaya başlar; bunun için pod'un internete çıkabilmesi gerekir. Yeni bir veritabanında bütün beslemelerin zamanı gelmiş olduğundan ilk tur, kaynak başına istek aralıkları nedeniyle birkaç dakika sürer. Piyasa verilerini de açılışta ve sonra 15 dakikada bir Yahoo Finance'ten alır.
 
 İsteğe bağlı ayarlar (ortam değişkenleri; verilmezse varsayılan kullanılır):
 
@@ -252,20 +252,19 @@ Diğer iki betikle aynı şekilde çalışır (`worker/Dockerfile`). İşçi, ta
 | `ES_TIMEOUT_SECONDS` | `30` | Elasticsearch'e giden bir isteğin süre sınırı |
 | `MEDIA_INTERVAL_SECONDS` | `10` | Görsel indirme döngüsünün iki turu arasındaki süre |
 | `MEDIA_BATCH_SIZE` | `100` | Bir turda alınan en fazla görsel |
+| `PURGE_INTERVAL_SECONDS` | `60` | Kaynak içeriği silme isteklerine bakma aralığı |
+| `PURGE_BATCH_SIZE` | `500` | Bir seferde silinen en fazla haber |
+| `MAINTENANCE_INTERVAL_SECONDS` | `43200` | Bakım işinin (yaşam döngüsü, eski kayıtların temizliği) aralığı (12 saat) |
+| `OUTBOX_RETENTION_DAYS` | `7` | İşlenmiş outbox notlarının saklama süresi (gün) |
+| `INGESTION_RUN_RETENTION_DAYS` | `180` | Toplama kayıtlarının saklama süresi (gün) |
+| `FEED_TEST_RETENTION_DAYS` | `1` | Besleme testi kayıtlarının saklama süresi (gün) |
+| `METRICS_INTERVAL_SECONDS` | `30` | Besleme hata sayılarının ölçümlere yazılma aralığı |
+| `MARKET_INTERVAL_SECONDS` | `900` | Piyasa verilerinin Yahoo Finance'ten alınma aralığı (15 dakika) |
 
 ### 10. İlk yöneticiyi oluştur ve uygulamayı aç
 
-1. Mailpit'in arayüzünü açın (komut çalıştığı sürece açık kalır; ayrı bir terminalde bırakın):
-
-   ```bash
-   kubectl port-forward -n haber svc/mailpit 8025:8025
-   ```
-
-   Tarayıcıda `http://localhost:8025`.
-
-2. Tarayıcıda `http://haber.localhost/` adresini açın ve "Giriş yap"a basın. Keycloak'ın giriş sayfasındaki kayıt bağlantısıyla, 4. adımda `api-settings.env` dosyasına yazdığınız e-posta adresiyle kaydolun (kullanıcı adı, ad, soyad ve e-posta).
-3. Keycloak e-postanın doğrulanmasını ister. Mailpit'te gelen e-postadaki bağlantıya tıklayın; ardından şifrenizi belirleyin (en az 12 karakter, kullanıcı adı veya e-posta olamaz).
-4. Uygulamaya dönülür. Bu e-postayla gelen ilk kullanıcı aktif yönetici olarak kaydedilir: üst menüde Arama, Kaydedilenler ve Yönetim görünür.
+1. Tarayıcıda `http://haber.localhost/` adresini açın ve "Giriş yap"a basın. Keycloak'ın giriş sayfasındaki kayıt bağlantısıyla, 4. adımda `api-settings.env` dosyasına yazdığınız e-posta adresiyle kaydolun (kullanıcı adı, ad, soyad, e-posta ve şifre). Şifre en az 12 karakter olmalı; kullanıcı adı veya e-posta olamaz.
+2. Uygulamaya dönülür. Bu e-postayla gelen ilk kullanıcı aktif yönetici olarak kaydedilir: üst menüde Arama, Kaydedilenler ve Yönetim görünür.
 
 Başka bir adresle kaydolan kullanıcı "onay bekliyor" durumunda kalır; yönetici onu Yönetim → Kullanıcılar ekranından onaylar. Haberler, işçinin ilk turu bittikçe aramada görünmeye başlar (birkaç dakika).
 
@@ -360,10 +359,17 @@ Hacim testi (FOG-07) için 1 milyon haber ve 10 milyon audit kaydı üretilir (`
 | API | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/api/v1/me` | `401` (token olmadan) |
 | Frontend | `curl -s -o /dev/null -w "%{http_code}\n" http://haber.localhost/` | `200` |
 | İşçi | `kubectl logs -n haber deploy/worker --tail=5` | "Okuma zamanı gelmiş besleme sayısı: ..." ve "Besleme toplandı: ... (yeni: ..., tekrar: ..., atlanan: ...)" satırları |
-| Outbox aktarımı | `kubectl logs -n haber deploy/worker --tail=200 \| grep Outbox` | "Outbox aktarıldı (not: ..., yazılan haber: ..., metniyle yazılan: ..., silinen haber: ..., hata: 0)" satırları; Elasticsearch kapalıyken "Elasticsearch'e ulaşılamadı; outbox notları bekliyor" |
-| Görsel indirme | `kubectl logs -n haber deploy/worker --tail=200 \| grep Görseller` | "Görseller işlendi (indirilen: ..., yeniden denenecek: ..., başarısız: ...)" satırları; MinIO kapalıyken "Nesne depolamaya ulaşılamadı; görseller bekliyor" |
-| Prometheus'un okuduğu yerler | `kubectl get --raw '/api/v1/namespaces/monitoring/services/prometheus-server:80/proxy/api/v1/targets' \| grep -o '"health":"[a-z]*"' \| sort \| uniq -c` | Hepsi `"health":"up"` (API, işçi, Traefik, Kubernetes ve Prometheus'un kendisi) |
+| Outbox aktarımı | `kubectl logs -n haber deploy/worker --tail=200` | Çıktıda "Outbox aktarıldı (not: ..., yazılan haber: ..., metniyle yazılan: ..., silinen haber: ..., hata: 0)" satırları; Elasticsearch kapalıyken "Elasticsearch'e ulaşılamadı; outbox notları bekliyor" |
+| Piyasa verileri | `kubectl logs -n haber deploy/worker --since=20m` | Çıktıda "Piyasa değerleri güncellendi: 8 / 8" satırı (15 dakikada bir yazılır) |
+| Görsel indirme | `kubectl logs -n haber deploy/worker --tail=200` | Çıktıda "Görseller işlendi (indirilen: ..., yeniden denenecek: ..., başarısız: ...)" satırları; MinIO kapalıyken "Nesne depolamaya ulaşılamadı; görseller bekliyor" |
+| Prometheus'un okuduğu yerler | Tablonun altındaki komut | Hepsi `"health":"up"` (API, işçi, Traefik, Kubernetes ve Prometheus'un kendisi) |
 | API sağlık adresi dışarıya kapalı | `curl -s -o /dev/null -w "%{content_type}\n" http://haber.localhost/actuator/health` | `text/html` (yanıtı API değil frontend verir; API'nin yanıtı `application/...json` olurdu) |
+
+Prometheus'un okuduğu yerlerin durumu:
+
+```bash
+kubectl get --raw '/api/v1/namespaces/monitoring/services/prometheus-server:80/proxy/api/v1/targets' | grep -o '"health":"[a-z]*"' | sort | uniq -c
+```
 
 Keycloak'ın yönetim paneli: `http://haber.localhost/auth/admin/`. Kullanıcı adı ve şifre `deploy/k8s/overlays/dev/secrets/keycloak-admin.env` dosyasındadır.
 
@@ -380,12 +386,11 @@ Ardından `http://localhost:8025`.
 | Belirti | Neden ve çözüm |
 |---|---|
 | `permission denied while trying to connect to the Docker daemon socket` | Kullanıcı `docker` grubuna eklendikten sonra oturum yeniden açılmamıştır. Oturumu kapatıp açın. |
-| `k3d cluster create` port hatası veriyor (`address already in use`) | 80, 443 veya 5000 numaralı port başka bir program tarafından kullanılıyor. `ss -ltnp \| grep -E ':(80\|443\|5000)\b'` ile bulun ve durdurun. |
+| `k3d cluster create` port hatası veriyor (`address already in use`) | 80, 443 veya 5000 numaralı port başka bir program tarafından kullanılıyor. "Bilgisayarın ayarları" bölümündeki `ss` komutuyla bulun ve durdurun. |
 | `elasticsearch-0` pod'u sürekli yeniden başlıyor | `vm.max_map_count` değeri düşüktür (bkz. "Bilgisayarın ayarları"). |
 | `api`, `frontend` veya `worker` pod'u `ImagePullBackOff` durumunda | O bileşenin imajı henüz derlenmemiştir. 7, 8 ve 9. adımlardaki betikler çalıştırılınca düzelir. |
 | Pod'lar uzun süre `Pending` veya `ContainerCreating` durumunda | İlk kurulumda imajlar indiriliyordur; `kubectl describe pod -n haber <pod adı>` en alttaki olaylarda nedeni gösterir. Bellek yetersizse pod'lar `Pending` kalır. |
 | `http://haber.localhost/` açılmıyor | `kubectl get pods -n haber` ile bütün pod'ların `Running` olduğunu, `kubectl get gateway -n traefik` ile ağ geçidinin `PROGRAMMED` olduğunu kontrol edin. |
-| Giriş sayfasında e-posta doğrulaması bekleniyor ama e-posta yok | E-postalar gerçekten gönderilmez, Mailpit'e düşer; 10. adımdaki port yönlendirmesinin açık olduğunu kontrol edin. |
 | İlk kullanıcı yönetici olmadı, "onay bekliyor" ekranı görünüyor | Kaydolunan adres `api-settings.env` dosyasındakiyle aynı değildir ya da dosya API dağıtıldıktan sonra eklenmiştir. Dosyayı düzeltip `kubectl apply -k deploy/k8s/overlays/dev` ve `kubectl rollout restart -n haber deployment/api` çalıştırın; kayıtlı kullanıcının rolü değişmez, yeni bir hesapla kaydolun. |
 | Aramada hiç haber yok | İşçinin ilk turu sürüyordur veya pod internete çıkamıyordur: `kubectl logs -n haber deploy/worker --tail=20`. |
 | `kubectl port-forward` bağlantısı kopuyor | Komut yeniden çalıştırılır; kopma kümeyi etkilemez. |
